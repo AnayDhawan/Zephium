@@ -5,13 +5,20 @@ import type { PageRequestView } from "$shared/ipc/bindings";
 import PageRequestCard from "../components/PageRequestCard.svelte";
 
 const answers = vi.hoisted(() => vi.fn(async () => ({ outcome: "accepted" })));
+const pageAnswers = vi.hoisted(() => vi.fn(async () => ({ accepted: true, operation_id: null })));
 
 vi.mock("$shared/ipc/bindings", async () => {
   const { mockBindings } = await import("$shared/testing/bindings");
-  return mockBindings({ tabsAnswerSignIn: answers as never });
+  return mockBindings({
+    tabsAnswerSignIn: answers as never,
+    tabsAnswerPageRequest: pageAnswers as never,
+  });
 });
 
-afterEach(() => answers.mockClear());
+afterEach(() => {
+  answers.mockClear();
+  pageAnswers.mockClear();
+});
 
 function signIn(overrides: Partial<Extract<PageRequestView, { kind: "http_auth" }>> = {}) {
   const request: PageRequestView = {
@@ -93,4 +100,34 @@ test("Escape and Cancel cancel without credentials", async () => {
   await page.getByRole("button", { name: "Cancel" }).click();
   expect(answers).toHaveBeenCalledTimes(2);
   expect(answers).toHaveBeenLastCalledWith("tab-1", 7, null);
+});
+
+test("a blocked pop-up can be opened and its site always allowed", async () => {
+  render(PageRequestCard, {
+    tab: "tab-1",
+    request: { kind: "popup", host: "accounts.example", site: "mail.example" },
+  });
+  await page.getByRole("checkbox", { name: "Always allow pop-ups from mail.example" }).click();
+  await page.getByRole("button", { name: "Open" }).click();
+  expect(pageAnswers).toHaveBeenLastCalledWith("tab-1", "always_allow");
+});
+
+test("a pop-up without an address can still allow its site", async () => {
+  render(PageRequestCard, {
+    tab: "tab-1",
+    request: { kind: "popup", host: null, site: "mail.example" },
+  });
+  await page.getByRole("checkbox", { name: "Always allow pop-ups from mail.example" }).click();
+  await page.getByRole("button", { name: "OK" }).click();
+  expect(pageAnswers).toHaveBeenLastCalledWith("tab-1", "always_allow");
+});
+
+test("a private tab's blocked pop-up offers no lasting choice", async () => {
+  render(PageRequestCard, {
+    tab: "tab-1",
+    request: { kind: "popup", host: "accounts.example", site: null },
+  });
+  await expect.element(page.getByRole("checkbox")).not.toBeInTheDocument();
+  await page.getByRole("button", { name: "Open" }).click();
+  expect(pageAnswers).toHaveBeenLastCalledWith("tab-1", "allow");
 });

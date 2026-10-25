@@ -658,6 +658,10 @@ impl EngineHost {
             .or_default()
             .clone();
         let site_scope = super::content_styles::ViewSiteScope::new(site_preferences, url);
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        let popup_policy = Rc::new(super::popup_sites::ViewPopupPolicy::new(
+            self.popup_sites_for(partition.profile()),
+        ));
         let replay_safety = Rc::new(super::discard::ReplaySafety::new(
             !report_failure && !native_popup,
             !native_popup,
@@ -1264,7 +1268,15 @@ impl EngineHost {
             let last_blocked = Cell::new(None::<std::time::Instant>);
             let popup_sink = self.sink.clone();
             let popup_app_link = app_link.clone();
-            builder = builder.with_new_window_req_handler(move |url, features| {
+            let popup_policy = popup_policy.clone();
+            builder = builder.with_new_window_req_handler(move |url, mut features| {
+                features.user_initiated = popup_policy.admits(
+                    features.user_initiated,
+                    tracker
+                        .committed_snapshot()
+                        .as_ref()
+                        .map(|(_, committed)| committed.as_str()),
+                );
                 if features.user_initiated && popup_app_link(&url, true) {
                     return wry::NewWindowResponse::Deny;
                 }
@@ -1854,6 +1866,8 @@ impl EngineHost {
                 return None;
             }
         };
+        #[cfg(target_os = "macos")]
+        popup_policy.bind(&view);
         // Lets Safari's Web Inspector reach tab pages and the content scripts
         // running in them while diagnosing extensions.
         #[cfg(target_os = "macos")]
@@ -2470,6 +2484,8 @@ impl EngineHost {
             #[cfg(target_os = "windows")]
             suspend_attempt: None,
             site_scope,
+            #[cfg(target_os = "macos")]
+            popup_policy,
             content_styles: Arc::new(super::content_styles::DocumentStyleState::default()),
             #[cfg(target_os = "macos")]
             file_uploads,

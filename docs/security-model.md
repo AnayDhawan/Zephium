@@ -304,7 +304,16 @@ Page-initiated top-level navigation uses the same allowlist. On Windows, raw sub
 navigation also uses that allowlist, privileged subframes remain on the app origin, and
 WebView2's external-URI event is cancelled for every view. No blocked scheme is
 automatically opened through the OS shell. Human macOS/Windows new windows require
-native user-activation admission and become host-owned tabs as described below.
+native user-activation admission and become host-owned tabs as described below. The
+one exception is a site the person allowed to open pop-ups, from the blocked-pop-up
+card or Site settings: its canonical origin is kept in the profile database
+(`popup_sites`, at most 512) and never for a private profile. On Windows a request
+from a document committed at that origin is admitted without a click. On macOS WebKit
+blocks script windows itself, so the host opens WebKit's
+`javaScriptCanOpenWindowsAutomatically` gate on a view only while its committed
+document is an allowed origin, and while the gate is open it believes a request only
+when that is still true, reading the gate from WebKit because a native popup shares
+its opener's preferences. The per-second burst limit still applies.
 Back, forward, and stop use native WebView operations instead of page-overridable
 JavaScript history/window calls. Native URL/history observers are mandatory on all three
 platforms. They deduplicate bounded state and close the view if an engine source escapes
@@ -1772,6 +1781,17 @@ Interrupted prepublication stages are removed only within a known bounded
 namespace. Published output survives reopening but must pass full verification.
 Mutations are single-flight and invalidate prior receipts before they begin;
 unknown settlement keeps the owner poisoned until recovery.
+
+**Site settings.** Settings ▸ Privacy ▸ Site settings lists the focused profile's
+saved decisions per kind and changes or removes them. On macOS they come from the
+page-permission catalog through the same revision-checked patch path as the prompt;
+on Windows from the human WebView2 profile (`GetNonDefaultPermissionSettings`,
+`SetPermissionState`), reached through a live human view of that profile, so the list
+reports itself incomplete when none is open. Pop-ups come from `popup_sites` on both.
+The actor chooses the profile; chrome supplies only a canonical origin, a closed kind
+and a decision. A private profile lists nothing and every change to it is refused. The
+same two commands (`site_permissions`, optionally for one origin, and
+`site_permission_set`) are the API a site-information popover uses.
 
 The following are roadmap items or disabled backends, not current security guarantees:
 

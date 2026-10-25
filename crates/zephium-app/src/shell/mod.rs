@@ -31,6 +31,7 @@ mod profile_roster;
 mod projections;
 mod scope;
 mod search;
+mod site_permissions;
 mod tabs;
 mod time;
 mod user_content_status;
@@ -242,6 +243,12 @@ pub struct Shell {
     /// Sites allowed to open a kind of application link without asking,
     /// for this run only.
     external_apps_allowed: std::collections::HashSet<(ProfileId, String, String)>,
+    /// Sites each saved profile lets open new tabs without a click, as read
+    /// from the store; a profile is absent until its list has been read.
+    popup_sites: std::collections::HashMap<
+        ProfileId,
+        std::collections::BTreeSet<zephium_core::permissions::PageOrigin>,
+    >,
     /// Local https origins whose refused certificate the person continued
     /// past, for this run only; their pages never look secure.
     continued_certificates:
@@ -484,6 +491,7 @@ impl Shell {
             roster: profile_roster::RosterState::default(),
             space_memory: spaces::SpaceMemory::default(),
             external_apps_allowed: std::collections::HashSet::new(),
+            popup_sites: std::collections::HashMap::new(),
             continued_certificates: std::collections::HashSet::new(),
             residency: ResidencyState::load(&*store),
             last_visits: std::collections::HashMap::new(),
@@ -705,6 +713,23 @@ impl Shell {
                     if let Some(mut completion) =
                         self.begin_focused_blocker_mutation(operation_id.clone(), *enabled)
                     {
+                        completion.operation_id = operation_id;
+                        (self.emit)(Projection::OperationProcessed(completion));
+                    }
+                    return;
+                }
+                if let Command::SetSitePermission {
+                    origin,
+                    kind,
+                    decision,
+                } = &command
+                {
+                    if let Some(mut completion) = self.begin_site_permission_change(
+                        operation_id.clone(),
+                        origin.clone(),
+                        *kind,
+                        *decision,
+                    ) {
                         completion.operation_id = operation_id;
                         (self.emit)(Projection::OperationProcessed(completion));
                     }
@@ -1131,6 +1156,29 @@ impl Shell {
             // This privileged mutation must carry a desktop operation id.
             Command::InvokeExtensionAction { .. } => {}
             Command::RespondToPagePermissionPrompt { .. } => {}
+            Command::SetSitePermission { .. } => {}
+            Command::SitePermissions { origin, reply } => {
+                self.query_site_permissions(origin, reply)
+            }
+            Command::SitePermissionCatalogLoaded {
+                operation_id,
+                profile,
+                origin,
+                kind,
+                decision,
+                outcome,
+            } => self.site_permission_catalog_loaded(
+                operation_id,
+                profile,
+                origin,
+                kind,
+                decision,
+                *outcome,
+            ),
+            Command::SitePermissionSettled {
+                operation_id,
+                applied,
+            } => self.site_permission_settled(operation_id, applied),
             Command::PagePermissionCatalogLoaded {
                 profile,
                 item,

@@ -18,6 +18,7 @@ mod filesystem;
 mod history;
 pub mod media;
 mod page_permissions;
+mod popup_sites;
 pub mod profile_avatars;
 mod resources;
 mod session;

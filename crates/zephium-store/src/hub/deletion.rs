@@ -544,6 +544,7 @@ fn scrub_profile_database(path: &Path) -> rusqlite::Result<()> {
          DELETE FROM work_payload_usage;
          DELETE FROM page_permission_grants;
          DELETE FROM page_permission_catalog;
+         DELETE FROM popup_sites;
          DELETE FROM task_list_receipts;
          DELETE FROM task_lists;
          DELETE FROM user_resource_receipts;
@@ -666,6 +667,11 @@ mod tests {
             ["00000000000000000000000002"],
         )
         .unwrap();
+        conn.execute(
+            "INSERT INTO popup_sites(origin) VALUES ('https://private.example')",
+            [],
+        )
+        .unwrap();
         conn.execute("INSERT INTO works(id, schema_version, revision, status, objective, created_unix_ms, updated_unix_ms, lifecycle, objective_revision, context_revision, objective_author) VALUES ('00000000000000000000000001', 2, 1, 'draft', ?1, 1, 1, 'active', 1, 1, 'user')", [PROFILE_SCRUB_MARKER]).unwrap();
         conn.execute("INSERT INTO work_plans(work_id, revision, plan_id, author, basis_revision) VALUES ('00000000000000000000000001', 2, '00000000000000000000000002', 'user', 1)", []).unwrap();
         conn.execute("INSERT INTO work_executions(work_id, execution_id, plan_revision, owner_session, approved_unix_ms, expires_unix_ms, body) VALUES ('00000000000000000000000001', '00000000000000000000000003', 2, '00000000000000000000000004', 1, 2, ?1)", [PROFILE_SCRUB_MARKER]).unwrap();
@@ -764,6 +770,7 @@ mod tests {
             "page_favicons",
             "page_permission_catalog",
             "page_permission_grants",
+            "popup_sites",
             "resource_titles_fts",
             "resource_titles_fts_config",
             "resource_titles_fts_data",
@@ -838,6 +845,7 @@ mod tests {
             "userscripts",
             "page_permission_catalog",
             "page_permission_grants",
+            "popup_sites",
             "works",
             "work_payload_usage",
             "work_plans",

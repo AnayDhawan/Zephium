@@ -76,6 +76,8 @@
   let openable = $derived(
     app ? app.app !== null : request.kind === "popup" && request.host !== null,
   );
+  // The site asking, when its profile can keep allowing its pop-ups.
+  let popupSite = $derived(request.kind === "popup" ? request.site : null);
 
   function answer(value: PageRequestAnswer) {
     void commands.tabsAnswerPageRequest(tab, value).catch(() => {});
@@ -128,16 +130,25 @@
         <input type="checkbox" bind:checked={always} />
         {m.page_request_app_always({ site: app.site })}
       </label>
+    {:else if popupSite}
+      <label class="always">
+        <input type="checkbox" bind:checked={always} />
+        {m.page_request_popup_always({ site: popupSite })}
+      </label>
     {/if}
     <div class="actions">
-      <Button size="compact" variant="ghost" onclick={() => answer("dismiss")}>
+      <Button
+        size="compact"
+        variant="ghost"
+        onclick={() => answer(popupSite && always && !openable ? "always_allow" : "dismiss")}
+      >
         {openable ? m.page_request_cancel() : m.page_request_dismiss()}
       </Button>
       {#if openable}
         <Button
           size="compact"
           variant="primary"
-          onclick={() => answer(app && always ? "always_allow" : "allow")}
+          onclick={() => answer((app || popupSite) && always ? "always_allow" : "allow")}
         >
           {m.page_request_open()}
         </Button>

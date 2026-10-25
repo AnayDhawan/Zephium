@@ -48,9 +48,11 @@ mod page_permissions;
 ))]
 pub(crate) mod page_reader;
 mod permits;
+mod popup_sites;
 mod profiles;
 mod resources;
 mod scripts;
+mod site_permissions;
 mod stages;
 mod style_worker;
 #[cfg(target_os = "macos")]
@@ -201,6 +203,8 @@ struct ObservedView {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     paint_cover: Option<crate::platform::imp::PaintCover>,
     site_scope: Rc<content_styles::ViewSiteScope>,
+    #[cfg(target_os = "macos")]
+    popup_policy: Rc<popup_sites::ViewPopupPolicy>,
     content_styles: Arc<content_styles::DocumentStyleState>,
     #[cfg(target_os = "macos")]
     file_uploads: Rc<file_uploads::FileUploadBroker>,
@@ -563,6 +567,7 @@ pub(crate) struct EngineHost {
     /// views already open without touching them.
     focus_gate: focus::SharedFocusGate,
     blocker_sites: HashMap<ProfileId, content_styles::SitePreferencesSlot>,
+    popup_sites: HashMap<ProfileId, Rc<popup_sites::PopupSites>>,
     /// Certificates people chose to continue past, per profile, until quit.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     certificate_exceptions: HashMap<ProfileId, certificates::SharedExceptions>,

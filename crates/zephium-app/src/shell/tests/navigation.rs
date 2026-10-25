@@ -332,7 +332,8 @@ fn a_blocked_new_tab_can_be_opened_from_its_notice() {
     assert_eq!(
         shown,
         Some(PageRequestView::Popup {
-            host: Some("accounts.example.com".into())
+            host: Some("accounts.example.com".into()),
+            site: Some("example.com".into()),
         })
     );
 

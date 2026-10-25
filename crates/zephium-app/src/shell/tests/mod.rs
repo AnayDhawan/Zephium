@@ -321,6 +321,7 @@ pub(crate) struct FakeEngine {
             zephium_core::permissions::PagePermissionRequestSettlement,
         )>,
     >,
+    pub(crate) popup_sites: Mutex<Vec<(ProfileId, Vec<String>)>>,
     warm_spare_calls: std::sync::atomic::AtomicUsize,
     media_capture_stops: Mutex<Vec<(ItemId, NavigationPresentationId)>>,
     navigation_requests: Mutex<Vec<NavigationRequestId>>,
@@ -495,6 +496,16 @@ impl Engine for FakeEngine {
         self.download_calls.lock().unwrap().push((partition, call));
         done.finish(zephium_core::downloads::DownloadResponse::Applied);
         true
+    }
+    fn set_popup_sites(
+        &self,
+        profile: ProfileId,
+        origins: Vec<zephium_core::permissions::PageOrigin>,
+    ) {
+        self.popup_sites
+            .lock()
+            .unwrap()
+            .push((profile, origins.iter().map(ToString::to_string).collect()));
     }
     fn automatic_pip(&self, id: ItemId, background: bool) -> NativeDispatch {
         self.automatic_pip
@@ -1012,6 +1023,8 @@ pub(crate) struct FakeStore {
     authorized_sessions: Mutex<Vec<(ProfileId, SessionState)>>,
     finalize_outcomes: Mutex<VecDeque<ProfileDeletionFinalizeOutcome>>,
     finalize_unknown_completes: std::sync::atomic::AtomicBool,
+    pub(crate) popup_sites:
+        Mutex<std::collections::HashMap<ProfileId, Vec<zephium_core::permissions::PageOrigin>>>,
     page_permission_load_outcomes: Mutex<VecDeque<PagePermissionCatalogLoadOutcome>>,
     page_permission_mutation_outcomes: Mutex<VecDeque<PagePermissionCatalogMutationOutcome>>,
     page_permission_load_calls: Mutex<Vec<ProfileId>>,
@@ -1066,6 +1079,33 @@ impl FakeStore {
 }
 
 impl Store for FakeStore {
+    fn popup_sites(
+        &self,
+        profile: ProfileId,
+    ) -> Option<Vec<zephium_core::permissions::PageOrigin>> {
+        Some(
+            self.popup_sites
+                .lock()
+                .unwrap()
+                .get(&profile)
+                .cloned()
+                .unwrap_or_default(),
+        )
+    }
+    fn set_popup_site(
+        &self,
+        profile: ProfileId,
+        origin: zephium_core::permissions::PageOrigin,
+        allowed: bool,
+    ) -> bool {
+        let mut sites = self.popup_sites.lock().unwrap();
+        let list = sites.entry(profile).or_default();
+        list.retain(|site| *site != origin);
+        if allowed {
+            list.push(origin);
+        }
+        true
+    }
     fn resource_call(
         &self,
         _profile: ProfileId,
@@ -2172,6 +2212,7 @@ mod profiles;
 mod projections;
 mod search;
 mod shutdown;
+mod site_permissions;
 mod spaces;
 mod tabs;
 mod time;

@@ -375,6 +375,16 @@ export const commands = {
 	 */
 	pagePermissionRespond: (profileId: string, itemId: string, requestId: string, decision: PagePermissionPromptDecisionInput) => __TAURI_INVOKE<OperationAdmission>("page_permission_respond", { profileId, itemId, requestId, decision }),
 	tabSetMuted: (id: string, muted: boolean) => __TAURI_INVOKE<OperationAdmission>("tab_set_muted", { id, muted }),
+	/**
+	 *  The focused profile's saved site decisions, of `origin` only when given.
+	 *  The actor picks the profile; chrome cannot name one.
+	 */
+	sitePermissions: (origin: string | null) => typedError<SitePermissionsView, null>(__TAURI_INVOKE("site_permissions", { origin })),
+	/**
+	 *  Changes one saved decision of the focused profile; no decision forgets it,
+	 *  so the site is asked again.
+	 */
+	sitePermissionSet: (origin: string, kind: SitePermissionKindView, decision: "allow" | "block" | null) => __TAURI_INVOKE<OperationAdmission>("site_permission_set", { origin, kind, decision }),
 	blockerStatus: () => typedError<BlockerStatusView, null>(__TAURI_INVOKE("blocker_status")),
 	blockerStats: (profile: string) => typedError<BlockerStatsView, null>(__TAURI_INVOKE("blocker_stats", { profile })),
 	blockerSetEnabled: (enabled: boolean) => __TAURI_INVOKE<OperationAdmission>("blocker_set_enabled", { enabled }),
@@ -2360,8 +2370,12 @@ export type PageRequestView =
  *  knows one; `scheme` names the kind of link otherwise.
  */
 { kind: "external_app"; site: string | null; scheme: string; app: string | null } |
-/**  A new tab the page tried to open; `host` is set when it can be opened. */
-{ kind: "popup"; host: string | null } |
+/**
+ *  A new tab the page tried to open; `host` is set when it can be opened.
+ *  `site` is the host of the page asking, when its profile can always
+ *  allow that site's pop-ups.
+ */
+{ kind: "popup"; host: string | null; site: string | null } |
 /**
  *  The site, or its proxy, asks to sign in. Never carries the server's
  *  own text.
@@ -2930,6 +2944,32 @@ export type SiteDataView = {
 	site: string,
 	cookies: boolean,
 	storage: boolean,
+};
+
+export type SitePermissionDecisionView = "allow" | "block";
+
+/**
+ *  A kind of decision Site settings lists. Which kinds a platform keeps is
+ *  in `SitePermissionsView::kinds`.
+ */
+export type SitePermissionKindView = "camera" | "microphone" | "geolocation" | "notifications" | "clipboard_read" | "midi" | "sensors" | "local_fonts" | "automatic_downloads" | "popups";
+
+export type SitePermissionView = {
+	/**  Canonical origin, such as `https://meet.example`. */
+	origin: string,
+	kind: SitePermissionKindView,
+	decision: SitePermissionDecisionView,
+};
+
+/**  The focused profile's saved site decisions. */
+export type SitePermissionsView = {
+	/**  A private profile saves nothing; its list is always empty. */
+	private: boolean,
+	/**  False when some decisions could not be read right now. */
+	complete: boolean,
+	/**  The kinds this platform keeps, in display order. */
+	kinds: SitePermissionKindView[],
+	entries: SitePermissionView[],
 };
 
 export type SiteTimeView = {

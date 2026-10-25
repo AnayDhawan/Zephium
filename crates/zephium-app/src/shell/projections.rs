@@ -495,6 +495,16 @@ impl Shell {
             });
         }
         view.certificate_exception = self.under_certificate_exception(id, tab);
+        if let Some(zephium_ipc::PageRequestView::Popup { site, .. }) = view.page_request.as_mut() {
+            *site = self.popup_site(id).and_then(|(_, origin)| {
+                Some(
+                    url::Url::parse(origin.as_str())
+                        .ok()?
+                        .host_str()?
+                        .to_owned(),
+                )
+            });
+        }
         view.availability = self.capacity_presentation(id).or_else(|| {
             (!tab.has_view()
                 && tab.url.is_some()
@@ -680,6 +690,7 @@ fn tab_view(
                     .as_ref()
                     .and_then(|url| url.host_str())
                     .map(str::to_owned),
+                site: None,
             },
             zephium_core::item::PageRequest::HttpAuth(prompt) => {
                 zephium_ipc::PageRequestView::HttpAuth {

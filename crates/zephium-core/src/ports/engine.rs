@@ -696,6 +696,26 @@ pub trait Engine {
     ) {
         completion.finish(false);
     }
+    /// Replaces the sites in `profile` whose pages may open a new tab
+    /// without a click.
+    fn set_popup_sites(&self, _profile: ProfileId, _origins: Vec<crate::permissions::PageOrigin>) {}
+    /// The decisions the engine itself saved in `profile`. None when it keeps
+    /// none of its own, as on macOS, or cannot read them now.
+    fn site_permissions(&self, _profile: ProfileId, done: crate::permissions::SitePermissionsDone) {
+        done(None);
+    }
+    /// Saves one decision in the engine's own store for `profile`; None
+    /// forgets it so the site is asked again.
+    fn set_site_permission(
+        &self,
+        _profile: ProfileId,
+        _origin: crate::permissions::PageOrigin,
+        _kind: crate::permissions::SitePermissionKind,
+        _decision: Option<crate::permissions::RememberedPagePermission>,
+        done: crate::permissions::SitePermissionSetDone,
+    ) {
+        done(false);
+    }
     /// Replaces the Ask panel page style of one registrable site in
     /// `profile`; an empty sheet removes it. The CSS must come from the
     /// page-assist validator, never from a page or a model directly.

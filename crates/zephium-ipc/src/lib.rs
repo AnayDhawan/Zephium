@@ -80,7 +80,12 @@ pub enum PageRequestView {
         app: Option<String>,
     },
     /// A new tab the page tried to open; `host` is set when it can be opened.
-    Popup { host: Option<String> },
+    /// `site` is the host of the page asking, when its profile can always
+    /// allow that site's pop-ups.
+    Popup {
+        host: Option<String>,
+        site: Option<String>,
+    },
     /// The site, or its proxy, asks to sign in. Never carries the server's
     /// own text.
     HttpAuth {
@@ -339,6 +344,50 @@ pub struct PagePermissionPromptEntryView {
 pub struct PagePermissionPromptView {
     pub projection_revision: String,
     pub prompt: Option<PagePermissionPromptEntryView>,
+}
+
+/// A kind of decision Site settings lists. Which kinds a platform keeps is
+/// in `SitePermissionsView::kinds`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum SitePermissionKindView {
+    Camera,
+    Microphone,
+    Geolocation,
+    Notifications,
+    ClipboardRead,
+    Midi,
+    Sensors,
+    LocalFonts,
+    AutomaticDownloads,
+    Popups,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum SitePermissionDecisionView {
+    Allow,
+    Block,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct SitePermissionView {
+    /// Canonical origin, such as `https://meet.example`.
+    pub origin: String,
+    pub kind: SitePermissionKindView,
+    pub decision: SitePermissionDecisionView,
+}
+
+/// The focused profile's saved site decisions.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct SitePermissionsView {
+    /// A private profile saves nothing; its list is always empty.
+    pub private: bool,
+    /// False when some decisions could not be read right now.
+    pub complete: bool,
+    /// The kinds this platform keeps, in display order.
+    pub kinds: Vec<SitePermissionKindView>,
+    pub entries: Vec<SitePermissionView>,
 }
 
 /// An extension's run-time request for access, awaiting the user's answer.

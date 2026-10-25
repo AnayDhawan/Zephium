@@ -12,6 +12,9 @@ vi.mock("../lib/settings-model", async (original) => ({
   showPreviews: false,
 }));
 vi.mock("$domain/tabs", () => ({ tabs: { profile: () => ({ id: "profile" }) } }));
+vi.mock("$domain/permissions", () => ({
+  sitePermissions: { list: async () => null, set: vi.fn() },
+}));
 vi.mock("$domain/blocker", () => ({
   blocker: {
     status: () => ({

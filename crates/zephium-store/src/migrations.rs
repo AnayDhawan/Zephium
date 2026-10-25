@@ -2722,6 +2722,21 @@ pub static PROFILE: &[Migration] = &[
             )
         },
     },
+    Migration {
+        version: 39,
+        up: |tx| {
+            // Sites that may open new tabs without a click. The origin bound
+            // mirrors zephium_core::permissions::MAX_PAGE_ORIGIN_BYTES; the
+            // row cap is held by the write.
+            tx.execute_batch(
+                "CREATE TABLE popup_sites (
+                     origin TEXT PRIMARY KEY NOT NULL
+                         CHECK (length(CAST(origin AS BLOB)) BETWEEN 1 AND 512
+                                AND instr(CAST(origin AS BLOB), X'00') = 0)
+                 ) STRICT, WITHOUT ROWID;",
+            )
+        },
+    },
 ];
 
 #[cfg(test)]
@@ -2817,6 +2832,7 @@ mod tests {
         (36, 0xa35d00504cb31a89),
         (37, 0xf0c5b1fc2e38c27c),
         (38, 0xdd557da59b6d8285),
+        (39, 0xd1ea23938fb85e46),
     ];
 
     #[test]
@@ -3037,7 +3053,7 @@ mod tests {
             assert_eq!(validate_current(&conn, PROFILE).unwrap(), version as i64);
             apply(&mut conn, PROFILE).unwrap();
             apply(&mut conn, PROFILE).unwrap();
-            assert_eq!(validate_current(&conn, PROFILE).unwrap(), 38);
+            assert_eq!(validate_current(&conn, PROFILE).unwrap(), 39);
             assert_eq!(
                 conn.query_row("SELECT title FROM history", [], |r| r.get::<_, String>(0))
                     .unwrap(),
@@ -3176,7 +3192,7 @@ mod tests {
         .unwrap();
         apply(&mut conn, PROFILE).unwrap();
         apply(&mut conn, PROFILE).unwrap();
-        assert_eq!(validate_current(&conn, PROFILE).unwrap(), 38);
+        assert_eq!(validate_current(&conn, PROFILE).unwrap(), 39);
         let count = |table: &str| -> i64 {
             conn.query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
                 row.get(0)
@@ -3219,7 +3235,7 @@ mod tests {
         .unwrap();
         apply(&mut conn, PROFILE).unwrap();
         apply(&mut conn, PROFILE).unwrap();
-        assert_eq!(validate_current(&conn, PROFILE).unwrap(), 38);
+        assert_eq!(validate_current(&conn, PROFILE).unwrap(), 39);
         assert_eq!(
             conn.query_row("SELECT title FROM history", [], |row| row
                 .get::<_, String>(0))
@@ -4543,7 +4559,7 @@ mod tests {
                 .unwrap(),
             14
         );
-        assert_eq!(PROFILE.last().map(|migration| migration.version), Some(38));
+        assert_eq!(PROFILE.last().map(|migration| migration.version), Some(39));
     }
 
     #[test]

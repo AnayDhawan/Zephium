@@ -1215,6 +1215,8 @@ fn command_is_critical(command: &Command) -> bool {
             | Command::PagePermissionCatalogLoaded { .. }
             | Command::PagePermissionCatalogMutated { .. }
             | Command::PagePermissionTimeout { .. }
+            | Command::SitePermissionCatalogLoaded { .. }
+            | Command::SitePermissionSettled { .. }
             | Command::BrowserChromeRestored { .. }
             | Command::ChromePresentationApplied { .. }
             | Command::Engine(
@@ -1261,6 +1263,7 @@ fn command_is_observational_query(command: &Command) -> bool {
         Command::ContentPolicyStatus { .. }
             | Command::FocusedContentPolicyStatus { .. }
             | Command::BlockerStatistics { .. }
+            | Command::SitePermissions { .. }
     )
 }
 

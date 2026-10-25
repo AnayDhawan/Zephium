@@ -117,6 +117,21 @@ impl Shell {
                 let _ = self.engine.answer_http_auth(id, prompt.request, None);
                 operation_result(OperationOutcome::Applied, OperationReason::MutationApplied)
             }
+            (PageRequest::Popup { url }, PageRequestDecision::AlwaysAllow) => {
+                if !self.allow_popups_for_tab(id) {
+                    return operation_result(
+                        OperationOutcome::Rejected,
+                        OperationReason::StoreAdmissionRejected,
+                    );
+                }
+                match url {
+                    Some(url) => self.operation_open_url(url.to_string(), true),
+                    None => operation_result(
+                        OperationOutcome::Applied,
+                        OperationReason::MutationApplied,
+                    ),
+                }
+            }
             (_, PageRequestDecision::Dismiss) | (PageRequest::Popup { url: None }, _) => {
                 operation_result(OperationOutcome::Applied, OperationReason::MutationApplied)
             }

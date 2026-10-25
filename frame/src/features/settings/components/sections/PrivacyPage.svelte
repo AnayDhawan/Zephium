@@ -10,10 +10,14 @@
   import SiteData from "../SiteData.svelte";
   import SiteExceptions from "../SiteExceptions.svelte";
   import PasskeysGroup from "../PasskeysGroup.svelte";
+  import SiteSettings from "../SiteSettings.svelte";
 </script>
 
 <ProtectionControls />
 <PasskeysGroup />
+<SettingsGroup title={m.site_settings_title()} description={m.site_settings_help()}>
+  <SiteSettings />
+</SettingsGroup>
 {#if showPreviews}
   <PreviewNotice />
   <SettingsGroup title={m.settings_site_permissions()}

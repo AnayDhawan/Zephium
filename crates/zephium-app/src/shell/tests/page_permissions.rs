@@ -246,7 +246,7 @@ fn visible_unfocused_window_denies_requests_until_os_focus_returns() {
     assert!(shell.page_permissions.is_visible());
 }
 
-fn applied_mutation_outcome() -> PagePermissionCatalogMutationOutcome {
+pub(super) fn applied_mutation_outcome() -> PagePermissionCatalogMutationOutcome {
     let application = empty_catalog()
         .apply_patch(
             &zephium_core::permissions::PagePermissionPatch::new(vec![

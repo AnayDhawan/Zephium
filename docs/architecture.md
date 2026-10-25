@@ -520,12 +520,13 @@ deny. One-time choices never write policy. A remembered denial dominates an
 atomic camera-and-microphone request; a remembered Allow reaches WebKit only
 after an atomic CAS mutation and a second exact catalog read observe every
 requested capability as allowed. Conflict and outcome-unknown results are
-reconciled but never blindly retried. These remembered-choice paths exist but
-are unreachable in shipped builds: `PagePermissionPromptState::remember_enabled`
-is false, so every macOS decision is one-time until the browser can list and
-revoke grants. The frame receives opaque echo identities,
-a canonical origin, and a closed camera/microphone vocabulary; it cannot supply
-an origin or permission name. Incognito profiles bypass Store entirely, expose
+reconciled but never blindly retried. The prompt offers Allow while visiting
+the site, Allow this time and Never allow; only the first and last are written.
+Geolocation uses the same coordinator and catalog. Settings ▸ Privacy ▸ Site
+settings lists and changes the catalog's rows through the same CAS path. The
+frame receives opaque echo identities, a canonical origin, and a closed
+camera/microphone/location vocabulary; it cannot supply an origin or permission
+name. Incognito profiles bypass Store entirely, expose
 only one-time choices, and cannot be coerced into durable policy through IPC.
 Pre-bootstrap and quarantined-profile events still
 deny every request. Unit, actor, IPC-binding, and frontend projection tests
@@ -552,8 +553,8 @@ The macOS bundle carries human-readable `NSCameraUsageDescription` and
 signed packaged build must still be checked for camera, microphone, and atomic
 combined Allow/Deny, OS consent ordering, navigation and tab-close
 invalidation, and device-track cleanup (`desktop/Entitlements.plist` grants the
-two device entitlements). Remembered-policy reload and incognito
-non-persistence must be proved before `remember_enabled` is switched on.
+two device entitlements and location). Remembered-policy reload and incognito
+non-persistence are covered by Shell tests and still need a packaged check.
 
 Session restore state (§7) rides on lifecycle (`opts` carries restore state).
 

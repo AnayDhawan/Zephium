@@ -2094,6 +2094,37 @@ impl WebviewEngine {
         (self.dispatch)(Box::new(f))
     }
 
+    /// Runs `f` on the host with `done`, or answers with `refused` when the
+    /// host cannot take it, so a caller is never left waiting.
+    fn answer_on_host<D: Send + 'static>(
+        &self,
+        done: D,
+        refused: fn(D),
+        f: impl FnOnce(&mut host::EngineHost, D) + Send + 'static,
+    ) {
+        let slot = Arc::new(Mutex::new(Some(done)));
+        let take = |slot: &Arc<Mutex<Option<D>>>| slot.lock().ok().and_then(|mut done| done.take());
+        let queued_slot = slot.clone();
+        let queued = self.run(move || {
+            let inner = queued_slot.clone();
+            let admitted = host::try_with(move |host| {
+                if let Some(done) = take(&inner) {
+                    f(host, done);
+                }
+            });
+            if !admitted {
+                if let Some(done) = take(&queued_slot) {
+                    refused(done);
+                }
+            }
+        });
+        if !queued {
+            if let Some(done) = take(&slot) {
+                refused(done);
+            }
+        }
+    }
+
     fn run_for_active_item(
         &self,
         id: ItemId,
@@ -2215,6 +2246,40 @@ impl Engine for WebviewEngine {
                 completion.finish(host.set_blocker_site_preferences(profile, preferences))
             });
         });
+    }
+    fn set_popup_sites(
+        &self,
+        profile: ProfileId,
+        origins: Vec<zephium_core::permissions::PageOrigin>,
+    ) {
+        let _ = self.run(move || {
+            let _ = host::try_with(move |host| host.set_popup_sites(profile, origins));
+        });
+    }
+    fn site_permissions(
+        &self,
+        profile: ProfileId,
+        done: zephium_core::permissions::SitePermissionsDone,
+    ) {
+        self.answer_on_host(
+            done,
+            |done| done(None),
+            move |host, done| host.site_permissions(profile, done),
+        );
+    }
+    fn set_site_permission(
+        &self,
+        profile: ProfileId,
+        origin: zephium_core::permissions::PageOrigin,
+        kind: zephium_core::permissions::SitePermissionKind,
+        decision: Option<zephium_core::permissions::RememberedPagePermission>,
+        done: zephium_core::permissions::SitePermissionSetDone,
+    ) {
+        self.answer_on_host(
+            done,
+            |done| done(false),
+            move |host, done| host.set_site_permission(profile, origin, kind, decision, done),
+        );
     }
     fn set_page_style(&self, profile: ProfileId, site: String, css: Arc<str>) {
         let _ = self.run(move || {

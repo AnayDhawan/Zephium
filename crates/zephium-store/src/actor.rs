@@ -417,6 +417,16 @@ enum Cmd {
     ClearChats(ProfileId, Option<i64>, Sender<u32>),
     ZoomLevels(ProfileId, Sender<Vec<zephium_core::zoom::SavedLevel>>),
     SaveZoomLevel(ProfileId, String, Option<u16>, i64),
+    PopupSites(
+        ProfileId,
+        Sender<Option<Vec<zephium_core::permissions::PageOrigin>>>,
+    ),
+    SetPopupSite(
+        ProfileId,
+        zephium_core::permissions::PageOrigin,
+        bool,
+        Sender<bool>,
+    ),
     AmendVisitTitle(ProfileId, String, String),
     FaviconAge(ProfileId, String, Sender<Option<i64>>),
     FaviconRasterWithAge(ProfileId, String, Sender<Option<(Vec<u8>, i64)>>),
@@ -1525,6 +1535,23 @@ impl Store for SqliteStore {
                 .is_ok()
     }
 
+    fn popup_sites(
+        &self,
+        profile: ProfileId,
+    ) -> Option<Vec<zephium_core::permissions::PageOrigin>> {
+        self.ask(|reply| Cmd::PopupSites(profile, reply)).flatten()
+    }
+
+    fn set_popup_site(
+        &self,
+        profile: ProfileId,
+        origin: zephium_core::permissions::PageOrigin,
+        allowed: bool,
+    ) -> bool {
+        self.ask(|reply| Cmd::SetPopupSite(profile, origin, allowed, reply))
+            .unwrap_or(false)
+    }
+
     fn amend_visit_title(&self, profile: ProfileId, url: String, title: String) -> bool {
         if !zephium_core::navigation::is_allowed_str(&url) || title.len() > hub::MAX_TITLE_BYTES {
             return false;
@@ -2040,6 +2067,14 @@ fn actor(
                 if hub.knows(profile) || flush(&mut hub, &mut pending) {
                     hub.save_zoom_level(profile, &site, percent, set_at);
                 }
+            }
+            Some(Cmd::PopupSites(profile, reply)) => {
+                let _ = reply.send(hub.popup_sites(profile));
+            }
+            Some(Cmd::SetPopupSite(profile, origin, allowed, reply)) => {
+                let stored = (hub.knows(profile) || flush(&mut hub, &mut pending))
+                    && hub.set_popup_site(profile, &origin, allowed);
+                let _ = reply.send(stored);
             }
             Some(Cmd::AmendVisitTitle(profile, url, title)) => {
                 hub.amend_visit_title(profile, &url, &title);

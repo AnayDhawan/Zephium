@@ -77,7 +77,7 @@ test("a native blocked-popup projection is visible without changing the address"
   emitNativeEvent("tabChanged", {
     ...tab,
     projection_revision: revision(Date.now() + 1),
-    page_request: { kind: "popup", host: "example.com" },
+    page_request: { kind: "popup", host: "example.com", site: null },
   });
   const card = screen.getByRole("alertdialog");
   await expect.element(card).toHaveTextContent("Pop-up blocked");

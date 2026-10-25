@@ -1752,6 +1752,8 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             browser_credentials::browser_passkey_authorization_request,
             page_permission_respond,
             tab_set_muted,
+            site_permissions,
+            site_permission_set,
             blocker_status,
             blocker_stats,
             blocker_set_enabled,
@@ -3314,6 +3316,94 @@ fn page_permission_respond(
             profile,
             item,
             request,
+            decision,
+        },
+    )
+}
+
+static SITE_PERMISSIONS_QUERY_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+
+/// The focused profile's saved site decisions, of `origin` only when given.
+/// The actor picks the profile; chrome cannot name one.
+#[tauri::command]
+#[specta::specta]
+async fn site_permissions(
+    caller: WebviewWindow,
+    shell: State<'_, Handle>,
+    origin: Option<String>,
+) -> Result<zephium_ipc::SitePermissionsView, ()> {
+    if !authorize(&caller, CallerPolicy::Main, "site_permissions") {
+        return Err(());
+    }
+    let origin = match origin {
+        Some(origin) => {
+            Some(zephium_core::permissions::PageOrigin::parse_exact(&origin).map_err(|_| ())?)
+        }
+        None => None,
+    };
+    if SITE_PERMISSIONS_QUERY_IN_FLIGHT
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return Err(());
+    }
+    let _guard = AtomicFlagReset(&SITE_PERMISSIONS_QUERY_IN_FLIGHT);
+    let request = shell.site_permissions(origin);
+    tauri::async_runtime::spawn_blocking(move || {
+        request
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .ok()
+            .flatten()
+    })
+    .await
+    .ok()
+    .flatten()
+    .ok_or(())
+}
+
+/// Changes one saved decision of the focused profile; no decision forgets it,
+/// so the site is asked again.
+#[tauri::command]
+#[specta::specta]
+fn site_permission_set(
+    caller: WebviewWindow,
+    shell: State<'_, Handle>,
+    origin: String,
+    kind: zephium_ipc::SitePermissionKindView,
+    decision: Option<zephium_ipc::SitePermissionDecisionView>,
+) -> zephium_ipc::OperationAdmission {
+    use zephium_core::permissions::{RememberedPagePermission, SitePermissionKind as Kind};
+    use zephium_ipc::SitePermissionKindView as View;
+    if !authorize(&caller, CallerPolicy::Main, "site_permission_set")
+        || shutdown_started(caller.app_handle())
+    {
+        return rejected_operation();
+    }
+    let Ok(origin) = zephium_core::permissions::PageOrigin::parse_exact(&origin) else {
+        return rejected_operation();
+    };
+    let kind = match kind {
+        View::Camera => Kind::Camera,
+        View::Microphone => Kind::Microphone,
+        View::Geolocation => Kind::Geolocation,
+        View::Notifications => Kind::Notifications,
+        View::ClipboardRead => Kind::ClipboardRead,
+        View::Midi => Kind::Midi,
+        View::Sensors => Kind::Sensors,
+        View::LocalFonts => Kind::LocalFonts,
+        View::AutomaticDownloads => Kind::AutomaticDownloads,
+        View::Popups => Kind::Popups,
+    };
+    let decision = decision.map(|decision| match decision {
+        zephium_ipc::SitePermissionDecisionView::Allow => RememberedPagePermission::Allow,
+        zephium_ipc::SitePermissionDecisionView::Block => RememberedPagePermission::Deny,
+    });
+    dispatch_operation(
+        caller.app_handle(),
+        &shell,
+        Command::SetSitePermission {
+            origin,
+            kind,
             decision,
         },
     )

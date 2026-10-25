@@ -640,6 +640,30 @@ pub enum Command {
     /// Requests one authenticated source-package refresh. This is a global
     /// browser maintenance operation, not a profile or page capability.
     RefreshContentBlockerSources,
+    /// The focused profile's saved site decisions, of one origin when given.
+    SitePermissions {
+        origin: Option<zephium_core::permissions::PageOrigin>,
+        reply: SyncSender<Option<zephium_ipc::SitePermissionsView>>,
+    },
+    /// Changes or, with None, forgets one decision of the focused profile.
+    /// Accepted only as an operation.
+    SetSitePermission {
+        origin: zephium_core::permissions::PageOrigin,
+        kind: zephium_core::permissions::SitePermissionKind,
+        decision: Option<zephium_core::permissions::RememberedPagePermission>,
+    },
+    SitePermissionCatalogLoaded {
+        operation_id: String,
+        profile: ProfileId,
+        origin: zephium_core::permissions::PageOrigin,
+        kind: zephium_core::permissions::PagePermissionKind,
+        decision: Option<zephium_core::permissions::RememberedPagePermission>,
+        outcome: Box<zephium_core::ports::store::PagePermissionCatalogLoadOutcome>,
+    },
+    SitePermissionSettled {
+        operation_id: String,
+        applied: bool,
+    },
     /// Trusted, bounded actor query. Raw page content has no command bridge
     /// and the desktop layer does not expose this variant over IPC.
     ContentPolicyStatus {
