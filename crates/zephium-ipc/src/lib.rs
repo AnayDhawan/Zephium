@@ -8,8 +8,10 @@ use specta::Type;
 pub mod page_assist;
 mod time;
 pub mod work;
+mod zoom;
 
 pub use time::*;
+pub use zoom::*;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type)]
 pub struct TabView {

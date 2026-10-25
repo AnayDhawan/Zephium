@@ -55,6 +55,7 @@ pub const KEYS: &[&str] = &[
     "tasks.enabled",
     "time.enabled",
     "work.favourite-models",
+    "zoom.default",
 ];
 
 /// Interface languages a person may choose, by BCP 47 tag. One without a
@@ -214,6 +215,10 @@ pub fn value_allowed(key: &str, value: &str) -> bool {
                         && !ids[..index].contains(id)
                 })
         }
+        // The page zoom a site shows at until it has a level of its own.
+        "zoom.default" => value.parse::<u16>().is_ok_and(|percent| {
+            value == percent.to_string() && crate::zoom::DEFAULTS.contains(&percent)
+        }),
         // The Zephium version a notice was last acknowledged at.
         "notice.seen-version" | "notice.security-dismissed" => {
             !value.is_empty()
@@ -305,6 +310,19 @@ mod tests {
         assert!(value_allowed("time.retention", "365"));
         assert!(!value_allowed("time.retention", "7"));
         assert!(value_allowed("time.track", "false"));
+    }
+
+    #[test]
+    fn the_default_zoom_is_one_of_the_offered_levels() {
+        assert!(KEYS.contains(&"zoom.default"));
+        for percent in crate::zoom::DEFAULTS {
+            assert!(value_allowed("zoom.default", &percent.to_string()));
+        }
+        for value in [
+            "", "0", "30", "100%", "1.25", "0100", "125 ", "250", "300", "49",
+        ] {
+            assert!(!value_allowed("zoom.default", value), "{value:?}");
+        }
     }
 
     #[test]

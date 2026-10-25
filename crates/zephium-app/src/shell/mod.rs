@@ -468,7 +468,7 @@ impl Shell {
             },
             tab_preferences: tabs::TabPreferences::load(&*store),
             presentation: PresentationState::default(),
-            zoom: ZoomState::default(),
+            zoom: ZoomState::load(&*store),
             divider: None,
             private: None,
             private_projected: (false, None),
@@ -1304,6 +1304,11 @@ impl Shell {
                 call,
                 done,
             } => self.time_call(expected_profile, *call, done),
+            Command::ZoomCall {
+                expected_profile,
+                call,
+                done,
+            } => self.zoom_call(expected_profile, *call, done),
             Command::TimeReportRead {
                 profile,
                 report,

@@ -598,6 +598,7 @@ export const commands = {
 	/**  The Bookmarks panel's reads and writes, scoped to the focused profile. */
 	bookmarkCall: (expectedProfile: string, call: BookmarkCall) => __TAURI_INVOKE<BookmarkResponse>("bookmark_call", { expectedProfile, call }),
 	timeCall: (expectedProfile: string, call: TimeCall) => __TAURI_INVOKE<TimeResponse>("time_call", { expectedProfile, call }),
+	zoomCall: (expectedProfile: string, call: ZoomCall) => __TAURI_INVOKE<ZoomResponse>("zoom_call", { expectedProfile, call }),
 	focusControl: (control: FocusControl) => __TAURI_INVOKE<OperationAdmission>("focus_control", { control }),
 	/**
 	 *  Finds `query` in the page in front, stepping forward or back when it
@@ -7360,6 +7361,23 @@ export type WorkUsage = {
 export type WorkUsageAccounting = "exact" | "conservative_reservation";
 
 export type WorkUserEdit = { kind: "set_objective"; objective: string } | { kind: "open_question"; prompt: string; options: string[] } | { kind: "answer_question"; id: WorkQuestionId; answer: string } | { kind: "dismiss_question"; id: WorkQuestionId } | { kind: "replace_draft"; proposal: WorkPlanProposal } | { kind: "archive" } | { kind: "restore" } | { kind: "compact_history" };
+
+export type ZoomCall =
+/**  The sites the profile zoomed, by name. */
+{ kind: "levels" } |
+/**  Shows one site at the default zoom again. */
+{ kind: "forget"; site: string } | { kind: "forget_all" };
+
+export type ZoomError = "invalid" | "unavailable" | "capacity";
+
+export type ZoomLevelView = {
+	site: string,
+	percent: number,
+};
+
+export type ZoomResponse =
+/**  The profile's levels after the call, by site. */
+{ kind: "levels"; levels: ZoomLevelView[] } | { kind: "error"; error: ZoomError };
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

@@ -1,7 +1,7 @@
 use super::*;
 
 use zephium_core::zoom::SavedLevel;
-use zephium_ipc::{HistoryCall, HistoryRange};
+use zephium_ipc::{HistoryCall, HistoryRange, ZoomCall, ZoomError, ZoomLevelView, ZoomResponse};
 
 fn requests_for(engine: &FakeEngine, id: ItemId) -> Vec<f64> {
     engine
@@ -457,4 +457,140 @@ fn forgetting_a_level_returns_its_tabs_to_the_default() {
     assert!(saved(&store, profile).is_empty());
     let (_, requested, _) = engine.last_zoom_request();
     assert_eq!(requested, 1.0);
+}
+
+fn zoom_call(shell: &mut Shell, profile: ProfileId, call: ZoomCall) -> ZoomResponse {
+    let slot = Arc::new(Mutex::new(None));
+    let sink = slot.clone();
+    shell.handle(Command::ZoomCall {
+        expected_profile: profile,
+        call: Box::new(call),
+        done: crate::api::ZoomCompletion::new(move |response| {
+            *sink.lock().unwrap() = Some(response);
+        }),
+    });
+    let answered = slot.lock().unwrap().take();
+    answered.expect("every zoom call is answered")
+}
+
+fn listed(response: ZoomResponse) -> Vec<(String, u16)> {
+    let ZoomResponse::Levels { levels } = response else {
+        panic!("the call lists the levels after it")
+    };
+    levels
+        .into_iter()
+        .map(|ZoomLevelView { site, percent }| (site, percent))
+        .collect()
+}
+
+#[test]
+fn the_default_zoom_is_read_at_startup_and_changed_by_the_setting() {
+    let store = Arc::new(FakeStore::default());
+    store
+        .settings
+        .lock()
+        .unwrap()
+        .insert("zoom.default".into(), "90".into());
+    let (mut shell, engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    assert_eq!(shell.zoom.default_percent, 90);
+    let id = active_id(&screen);
+    navigate_and_commit(&mut shell, id, "github.com");
+    assert_eq!(requests_for(&engine, id), [0.9]);
+    settle_last(&mut shell, &engine, id);
+
+    shell.operation_set_app_setting("zoom.default".into(), "150".into());
+    assert_eq!(shell.zoom.default_percent, 150);
+    assert_eq!(requests_for(&engine, id), [0.9, 1.5]);
+
+    // A value the setting does not allow changes nothing.
+    let rejected = shell.operation_set_app_setting("zoom.default".into(), "133".into());
+    assert_eq!(rejected.outcome, OperationOutcome::Rejected);
+    assert_eq!(shell.zoom.default_percent, 150);
+}
+
+#[test]
+fn a_stored_default_that_is_not_offered_is_ignored() {
+    let store = Arc::new(FakeStore::default());
+    store
+        .settings
+        .lock()
+        .unwrap()
+        .insert("zoom.default".into(), "250".into());
+    let (shell, _engine, _screen) = setup_with(store);
+    assert_eq!(shell.zoom.default_percent, 100);
+}
+
+#[test]
+fn settings_list_forget_and_reset_the_focused_profiles_levels() {
+    let store = Arc::new(FakeStore::default());
+    let (mut shell, engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let first = active_id(&screen);
+    let profile = shell.profile_of_item(first).unwrap();
+    navigate_and_commit(&mut shell, first, "nytimes.com");
+    zoom_in_and_settle(&mut shell, &engine, first);
+    let second = open_and_browse(&mut shell, &screen, "github.com");
+    zoom_in_and_settle(&mut shell, &engine, second);
+    zoom_in_and_settle(&mut shell, &engine, second);
+
+    // By site name, whatever the order they were set in.
+    assert_eq!(
+        listed(zoom_call(&mut shell, profile, ZoomCall::Levels)),
+        [
+            ("github.com".to_owned(), 125),
+            ("nytimes.com".to_owned(), 110)
+        ]
+    );
+
+    let after = zoom_call(
+        &mut shell,
+        profile,
+        ZoomCall::Forget {
+            site: "github.com".into(),
+        },
+    );
+    assert_eq!(listed(after), [("nytimes.com".to_owned(), 110)]);
+    assert_eq!(saved(&store, profile), [("nytimes.com".to_owned(), 110)]);
+    // Its open tab shows the default again.
+    let (item, requested, _) = engine.last_zoom_request();
+    assert_eq!((item, requested), (second, 1.0));
+
+    assert!(listed(zoom_call(&mut shell, profile, ZoomCall::ForgetAll)).is_empty());
+    assert!(saved(&store, profile).is_empty());
+    let (item, requested, _) = engine.last_zoom_request();
+    assert_eq!((item, requested), (first, 1.0));
+}
+
+#[test]
+fn a_zoom_call_for_another_profile_or_an_unusable_site_is_refused() {
+    let store = Arc::new(FakeStore::default());
+    let (mut shell, engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    let profile = shell.profile_of_item(id).unwrap();
+    navigate_and_commit(&mut shell, id, "github.com");
+    zoom_in_and_settle(&mut shell, &engine, id);
+
+    for call in [
+        ZoomCall::Levels,
+        ZoomCall::ForgetAll,
+        ZoomCall::Forget {
+            site: "github.com".into(),
+        },
+    ] {
+        assert_eq!(
+            zoom_call(&mut shell, ProfileId::from(9_001), call),
+            ZoomResponse::Error {
+                error: ZoomError::Invalid
+            }
+        );
+    }
+    assert_eq!(
+        zoom_call(&mut shell, profile, ZoomCall::Forget { site: "".into() }),
+        ZoomResponse::Error {
+            error: ZoomError::Invalid
+        }
+    );
+    assert_eq!(saved(&store, profile), [("github.com".to_owned(), 110)]);
 }

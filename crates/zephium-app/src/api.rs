@@ -295,6 +295,11 @@ pub enum Command {
         call: Box<zephium_ipc::TimeCall>,
         done: TimeCompletion,
     },
+    ZoomCall {
+        expected_profile: ProfileId,
+        call: Box<zephium_ipc::ZoomCall>,
+        done: ZoomCompletion,
+    },
     /// A time report the store read, coming back for icons.
     TimeReportRead {
         profile: ProfileId,
@@ -929,6 +934,28 @@ impl TimeCompletion {
 impl fmt::Debug for TimeCompletion {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("TimeCompletion")
+    }
+}
+#[derive(Clone)]
+pub struct ZoomCompletion(Completion<zephium_ipc::ZoomResponse>);
+impl ZoomCompletion {
+    pub fn new(done: impl FnOnce(zephium_ipc::ZoomResponse) + Send + 'static) -> Self {
+        Self(Arc::new(Mutex::new(Some(Box::new(done)))))
+    }
+    pub fn finish(self, response: zephium_ipc::ZoomResponse) {
+        let done = self
+            .0
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take();
+        if let Some(done) = done {
+            done(response);
+        }
+    }
+}
+impl fmt::Debug for ZoomCompletion {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("ZoomCompletion")
     }
 }
 #[derive(Clone)]

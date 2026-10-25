@@ -3,6 +3,7 @@
 
 use super::*;
 use zephium_core::zoom::{self, DEFAULT_PERCENT, MAX_SITE_LEVELS};
+use zephium_ipc::{ZoomCall, ZoomError, ZoomLevelView, ZoomResponse};
 
 /// Whose wish a native request carries out.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -51,6 +52,17 @@ impl Default for ZoomState {
 }
 
 impl ZoomState {
+    pub(super) fn load(store: &dyn zephium_core::ports::store::Store) -> Self {
+        let mut state = Self::default();
+        if let Some(percent) = store
+            .app_setting("zoom.default")
+            .and_then(|value| default_percent(&value))
+        {
+            state.default_percent = percent;
+        }
+        state
+    }
+
     /// Drops a profile's levels with the profile, as a private session's go
     /// when it ends.
     pub(super) fn forget_profile(&mut self, profile: ProfileId) {
@@ -63,6 +75,12 @@ pub(super) enum ZoomStep {
     In,
     Out,
     Reset,
+}
+
+fn default_percent(value: &str) -> Option<u16> {
+    zephium_core::preferences::value_allowed("zoom.default", value)
+        .then(|| value.parse().ok())
+        .flatten()
 }
 
 /// Native scales agree to within what rounding to a whole percent loses.
@@ -327,6 +345,59 @@ impl Shell {
         let mut native = NativeWork::default();
         native.record(admission);
         mutation_result(native)
+    }
+
+    pub(super) fn apply_zoom_setting(&mut self, key: &str, value: &str) {
+        if key != "zoom.default" {
+            return;
+        }
+        let Some(percent) = default_percent(value) else {
+            return;
+        };
+        self.zoom.default_percent = percent;
+        self.reconcile_all_zoom();
+    }
+
+    /// Settings' view of the focused profile's levels, by site.
+    pub(super) fn zoom_call(
+        &mut self,
+        expected_profile: ProfileId,
+        call: ZoomCall,
+        done: crate::api::ZoomCompletion,
+    ) {
+        let authorized = self
+            .windows
+            .focused()
+            .is_some_and(|window| window.profile == expected_profile);
+        if !authorized || !call.validate() {
+            done.finish(ZoomResponse::Error {
+                error: ZoomError::Invalid,
+            });
+            return;
+        }
+        match call {
+            ZoomCall::Levels => {}
+            ZoomCall::Forget { site } => {
+                self.forget_zoom_level(expected_profile, &site);
+            }
+            ZoomCall::ForgetAll => {
+                let sites: Vec<String> =
+                    self.site_levels(expected_profile).keys().cloned().collect();
+                for site in sites {
+                    self.forget_zoom_level(expected_profile, &site);
+                }
+            }
+        }
+        let mut levels: Vec<ZoomLevelView> = self
+            .site_levels(expected_profile)
+            .iter()
+            .map(|(site, level)| ZoomLevelView {
+                site: site.clone(),
+                percent: level.percent,
+            })
+            .collect();
+        levels.sort_by(|a, b| a.site.cmp(&b.site));
+        done.finish(ZoomResponse::Levels { levels });
     }
 
     /// Forgets a site's saved level, so its tabs show the default.

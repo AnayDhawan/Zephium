@@ -1837,6 +1837,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             haptics::haptic,
             bookmark_call,
             time_call,
+            zoom_call,
             focus_control,
             page_find,
             browser_import::import_sources,
@@ -4463,6 +4464,49 @@ async fn time_call(
     match tokio::time::timeout(std::time::Duration::from_secs(8), receive).await {
         Ok(Ok(response)) => response,
         _ => failed(TimeError::Unavailable),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn zoom_call(
+    caller: WebviewWindow,
+    app: tauri::AppHandle,
+    expected_profile: String,
+    call: zephium_ipc::ZoomCall,
+) -> zephium_ipc::ZoomResponse {
+    use zephium_ipc::{ZoomError, ZoomResponse};
+    let failed = |error| ZoomResponse::Error { error };
+    if !authorize(&caller, CallerPolicy::Main, "zoom_call") || shutdown_started(&app) {
+        return failed(ZoomError::Unavailable);
+    }
+    if !call.validate() {
+        return failed(ZoomError::Invalid);
+    }
+    let Some(expected_profile) =
+        ProfileId::parse(&expected_profile).filter(|id| id.to_string() == expected_profile)
+    else {
+        return failed(ZoomError::Invalid);
+    };
+    let shell = app.state::<Handle>().inner().clone();
+    static ADMISSION: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(2);
+    let Ok(permit) = ADMISSION.try_acquire() else {
+        return failed(ZoomError::Capacity);
+    };
+    let (send, receive) = tokio::sync::oneshot::channel();
+    if !shell.dispatch(Command::ZoomCall {
+        expected_profile,
+        call: Box::new(call),
+        done: zephium_app::ZoomCompletion::new(move |response| {
+            let _permit = permit;
+            let _ = send.send(response);
+        }),
+    }) {
+        return failed(ZoomError::Unavailable);
+    }
+    match tokio::time::timeout(std::time::Duration::from_secs(8), receive).await {
+        Ok(Ok(response)) => response,
+        _ => failed(ZoomError::Unavailable),
     }
 }
 

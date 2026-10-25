@@ -855,6 +855,7 @@ impl Shell {
         }
         self.apply_time_setting(&key, &value);
         self.apply_performance_setting(&key, &value);
+        self.apply_zoom_setting(&key, &value);
         // This projection is downstream of truthful store-queue admission.
         // The desktop composition root applies native theme state from this
         // signal, never optimistically from the IPC request itself.

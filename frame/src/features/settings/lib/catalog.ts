@@ -157,6 +157,22 @@ export const fields = {
     description: m.pref_general_export_help,
     initial: "",
   },
+  "appearance.zoom": {
+    section: "appearance",
+    label: m.pref_zoom_default,
+    description: m.pref_zoom_default_help,
+    initial: "100",
+    options: [50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200].map((percent) => ({
+      value: String(percent),
+      label: () => m.zoom_percent({ percent }),
+    })),
+  },
+  "appearance.zoom-levels": {
+    section: "appearance",
+    label: m.zoom_levels_title,
+    description: m.zoom_levels_help,
+    initial: "",
+  },
   "appearance.density": {
     section: "appearance",
     label: m.pref_appearance_density,
