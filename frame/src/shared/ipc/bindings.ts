@@ -273,6 +273,14 @@ export const commands = {
 	tabsNavigate: (id: string, input: string) => __TAURI_INVOKE<OperationAdmission>("tabs_navigate", { id, input }),
 	tabsReload: (id: string) => __TAURI_INVOKE<OperationAdmission>("tabs_reload", { id }),
 	tabsAnswerPageRequest: (id: string, answer: PageRequestAnswer) => __TAURI_INVOKE<OperationAdmission>("tabs_answer_page_request", { id, answer }),
+	/**
+	 *  Answers the tab's sign-in prompt; no credentials cancels it. The typed
+	 *  values move into storage wiped on drop and are never logged.
+	 */
+	tabsAnswerSignIn: (id: string, request: number, credentials: {
+	username: string,
+	password: string,
+} | null) => __TAURI_INVOKE<OperationAdmission>("tabs_answer_sign_in", { id, request, credentials }),
 	/**  Shows the folder with Zephium's local log and crash report. */
 	diagnosticsShowLogs: () => __TAURI_INVOKE<boolean>("diagnostics_show_logs"),
 	/**  The text for a bug report: version, system and the redacted recent log. */
@@ -2300,7 +2308,18 @@ export type PageRequestView =
  */
 { kind: "external_app"; site: string | null; scheme: string; app: string | null } |
 /**  A new tab the page tried to open; `host` is set when it can be opened. */
-{ kind: "popup"; host: string | null };
+{ kind: "popup"; host: string | null } |
+/**
+ *  The site, or its proxy, asks to sign in. Never carries the server's
+ *  own text.
+ */
+{ kind: "http_auth"; request: number;
+/**  Host, with its port when not the scheme's default. */
+host: string;
+/**  Plain http: the password would cross the network readable. */
+insecure: boolean; proxy: boolean;
+/**  The last username or password was wrong. */
+retry: boolean };
 
 /**  One site's styles, for the Settings manager. */
 export type PageSiteStylesV1 = {
@@ -2843,6 +2862,15 @@ export type SidebarNodeView = {
  *  authoritative placement from the native item aggregate.
  */
 export type SidebarSectionView = "favorites" | "pinned" | "today";
+
+/**
+ *  What the person typed into a sign-in prompt. Deliberately not Debug or
+ *  Clone: it moves straight into wiped storage.
+ */
+export type SignInCredentials = {
+	username: string,
+	password: string,
+};
 
 export type SiteTimeView = {
 	site: string,

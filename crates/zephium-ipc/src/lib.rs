@@ -59,6 +59,26 @@ pub enum PageRequestView {
     },
     /// A new tab the page tried to open; `host` is set when it can be opened.
     Popup { host: Option<String> },
+    /// The site, or its proxy, asks to sign in. Never carries the server's
+    /// own text.
+    HttpAuth {
+        request: u32,
+        /// Host, with its port when not the scheme's default.
+        host: String,
+        /// Plain http: the password would cross the network readable.
+        insecure: bool,
+        proxy: bool,
+        /// The last username or password was wrong.
+        retry: bool,
+    },
+}
+
+/// What the person typed into a sign-in prompt. Deliberately not Debug or
+/// Clone: it moves straight into wiped storage.
+#[derive(Deserialize, Type)]
+pub struct SignInCredentials {
+    pub username: String,
+    pub password: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]

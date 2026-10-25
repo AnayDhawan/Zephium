@@ -144,6 +144,8 @@ pub enum PageRequest {
     /// A new tab the page tried to open that was not let through, with its
     /// address when it was an ordinary web page.
     Popup { url: Option<Url> },
+    /// The site or its proxy asks to sign in; the engine holds the request.
+    HttpAuth(crate::http_auth::HttpAuthPrompt),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

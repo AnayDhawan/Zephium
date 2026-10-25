@@ -2485,9 +2485,10 @@ is claimed.
 
 HTTP request authentication is resolved as an explicit degradation rather
 than an open workaround target. Public WebKit cannot enforce the blocking
-`onAuthRequired` response used by password managers, and the raw WKWebView
-delegate cancels every non-server-trust authentication challenge before native
-credential UI can bypass browser policy. The browser therefore discloses HTTP
+`onAuthRequired` response used by password managers. The raw WKWebView
+delegate hands a person's tab its main-frame HTTP sign-in challenges for
+Zephium's own prompt and cancels every other non-server-trust challenge before
+native credential UI can bypass browser policy. The browser therefore discloses HTTP
 Basic-auth autofill as unavailable; it does not add a generic credential
 bridge, expose a native dialog, or retain credentials outside the publisher.
 

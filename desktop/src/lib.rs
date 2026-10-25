@@ -1723,6 +1723,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             tabs_navigate,
             tabs_reload,
             tabs_answer_page_request,
+            tabs_answer_sign_in,
             diagnostics_show_logs,
             diagnostic_report::diagnostics_report,
             tabs_back,
@@ -2913,6 +2914,33 @@ fn tabs_answer_page_request(
     };
     dispatch_with_id(caller.app_handle(), &shell, &id, |id| {
         Command::AnswerPageRequest { id, decision }
+    })
+}
+
+/// Answers the tab's sign-in prompt; no credentials cancels it. The typed
+/// values move into storage wiped on drop and are never logged.
+#[tauri::command]
+#[specta::specta]
+fn tabs_answer_sign_in(
+    caller: WebviewWindow,
+    shell: State<'_, Handle>,
+    id: String,
+    request: u32,
+    credentials: Option<zephium_ipc::SignInCredentials>,
+) -> zephium_ipc::OperationAdmission {
+    let credentials = credentials
+        .map(|typed| zephium_core::http_auth::HttpCredentials::new(typed.username, typed.password));
+    if !authorize(&caller, CallerPolicy::Main, "tabs_answer_sign_in") {
+        return rejected_operation();
+    }
+    // Malformed credentials cancel rather than leave the page waiting.
+    let credentials = credentials.flatten();
+    dispatch_with_id(caller.app_handle(), &shell, &id, |id| {
+        Command::AnswerHttpAuth {
+            id,
+            request,
+            credentials,
+        }
     })
 }
 

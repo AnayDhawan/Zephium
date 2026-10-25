@@ -42,6 +42,11 @@ impl Shell {
             Command::AnswerPageRequest { id, decision } => {
                 self.operation_answer_page_request(id, decision)
             }
+            Command::AnswerHttpAuth {
+                id,
+                request,
+                credentials,
+            } => self.operation_answer_http_auth(id, request, credentials),
             Command::GoBack(id) => self.operation_history(id, false),
             Command::GoForward(id) => self.operation_history(id, true),
             Command::SplitWith { other, axis } => self.operation_split(other, axis),

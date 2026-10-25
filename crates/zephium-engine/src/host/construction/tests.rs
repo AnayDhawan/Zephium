@@ -156,3 +156,61 @@ fn explicit_content_policy_brackets_every_first_native_navigation() {
         "native policy must install after hardening and before first navigation"
     );
 }
+
+#[test]
+fn only_tabs_a_person_reads_ask_to_sign_in() {
+    let file = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/src/host/construction.rs"
+    ));
+    let (tabs, rest) = file
+        .split_once("fn build_view_inner(")
+        .expect("construction lost build_view_inner")
+        .1
+        .split_once("/// Why a profile's WebView2 environment could not be established.")
+        .expect("construction lost build_view_inner's end");
+    assert!(tabs.contains(".with_http_auth_handler("));
+    assert!(tabs.contains(".route_basic_authentication("));
+    // Agent, extension and bootstrap views keep cancelling every challenge.
+    for (name, source) in [
+        ("profile bootstrap", rest),
+        (
+            "macOS agent",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/platform/macos/agent_context.rs"
+            )),
+        ),
+        (
+            "Windows agent",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/platform/windows/agent_context.rs"
+            )),
+        ),
+        (
+            "macOS extension",
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/host/webext.rs")),
+        ),
+        (
+            "Windows extension",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/host/webext_windows.rs"
+            )),
+        ),
+        (
+            "Windows extension popup",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/host/webext_windows_popup.rs"
+            )),
+        ),
+    ] {
+        assert!(
+            !source.contains("with_http_auth_handler")
+                && !source.contains("route_basic_authentication"),
+            "{name} views must never route a sign-in challenge"
+        );
+    }
+}

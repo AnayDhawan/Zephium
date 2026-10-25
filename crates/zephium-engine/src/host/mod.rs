@@ -30,6 +30,8 @@ mod focus;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod fullscreen;
 mod generic_styles;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+mod http_auth;
 mod lifecycle;
 mod navigation;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -195,6 +197,8 @@ struct ObservedView {
     content_styles: Arc<content_styles::DocumentStyleState>,
     #[cfg(target_os = "macos")]
     file_uploads: Rc<file_uploads::FileUploadBroker>,
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    http_auth: Rc<http_auth::HttpAuthBroker>,
     // A current layout may request a view before its first document commits
     // (for example a download URL entered in a new tab). This permits only a
     // native download decision, never document presentation or file access.
@@ -336,6 +340,8 @@ impl Drop for ObservedView {
         self.navigation.revoke();
         #[cfg(target_os = "macos")]
         self.file_uploads.cancel();
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        self.http_auth.cancel();
         let policy_cleanup_failed = self
             .content_policy_registration
             .take()

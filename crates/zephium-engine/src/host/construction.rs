@@ -704,6 +704,14 @@ impl EngineHost {
         #[cfg(target_os = "macos")]
         let load_file_uploads = Rc::downgrade(&file_uploads);
         #[cfg(any(target_os = "macos", target_os = "windows"))]
+        let http_auth = super::http_auth::HttpAuthBroker::new(
+            id.clone(),
+            event_permit.clone(),
+            self.sink.clone(),
+        );
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        let load_http_auth = Rc::downgrade(&http_auth);
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         let download_surface_intent = Arc::new(AtomicBool::new(false));
         let guard_presentation_permit = presentation_permit.clone();
         let load_presentation_permit = presentation_permit.clone();
@@ -1409,6 +1417,7 @@ impl EngineHost {
             use wry::{WebViewBuilderExtDarwin, WebViewBuilderExtMacos};
             let permit = crash_permit.clone();
             let upload_broker = Rc::downgrade(&file_uploads);
+            let auth_broker = Rc::downgrade(&http_auth);
             let crash_upload_broker = Rc::downgrade(&file_uploads);
             let drop_permit = event_permit.clone();
             let drop_navigation = navigation.clone();
@@ -1451,6 +1460,14 @@ impl EngineHost {
                 .with_file_upload_handler(move |view, request, responder| {
                     if let Some(broker) = upload_broker.upgrade() {
                         broker.present(view, request, responder);
+                    }
+                })
+                .with_http_auth_handler(move |request, responder| {
+                    if let (Some(broker), Some(challenge)) = (
+                        auth_broker.upgrade(),
+                        super::http_auth::native_challenge(&request),
+                    ) {
+                        broker.challenge(challenge, request.main_frame_url.as_deref(), responder);
                     }
                 })
                 .with_permission_request_handler(move |request| {
@@ -1577,6 +1594,10 @@ impl EngineHost {
                     if let Some(broker) = load_file_uploads.upgrade() {
                         broker.cancel();
                     }
+                    #[cfg(any(target_os = "macos", target_os = "windows"))]
+                    if let Some(broker) = load_http_auth.upgrade() {
+                        broker.navigation_started(&event.url);
+                    }
                     #[cfg(all(feature = "agentic-browser", target_os = "windows"))]
                     super::page_reader::begin_load(&load_reader);
                     #[cfg(target_os = "macos")]
@@ -1593,10 +1614,18 @@ impl EngineHost {
                 }
                 NavigationTransition::Redirected(_) => {
                     load_site_scope.navigating(&event.url);
+                    #[cfg(any(target_os = "macos", target_os = "windows"))]
+                    if let Some(broker) = load_http_auth.upgrade() {
+                        broker.navigation_redirected(&event.url);
+                    }
                 }
                 NavigationTransition::Committed(epoch) => {
                     #[cfg(target_os = "macos")]
                     load_replay.commit();
+                    #[cfg(any(target_os = "macos", target_os = "windows"))]
+                    if let Some(broker) = load_http_auth.upgrade() {
+                        broker.navigation_committed(&event.url);
+                    }
                     load_site_scope.navigating(&event.url);
                     // This identity-bearing native commit, not URL equality or
                     // SourceChanged ordering, authorizes rendered-content
@@ -1631,6 +1660,10 @@ impl EngineHost {
                 } => {
                     #[cfg(target_os = "macos")]
                     load_replay.abandon();
+                    #[cfg(any(target_os = "macos", target_os = "windows"))]
+                    if let Some(broker) = load_http_auth.upgrade() {
+                        broker.navigation_failed();
+                    }
                     if let Some((_, url)) = load_navigation.committed_snapshot() {
                         load_site_scope.navigating(&url);
                     }
@@ -1881,6 +1914,21 @@ impl EngineHost {
                 link(uri, user_gesture);
             }) {
                 eprintln!("security: content WebView2 app-link routing failed: {error}");
+                if report_failure {
+                    event_permit.emit(&self.sink, EngineEvent::ViewCreationFailed { id: id.get() });
+                }
+                return None;
+            }
+            let auth_broker = Rc::downgrade(&http_auth);
+            if let Err(error) = security_policy.route_basic_authentication(move |uri, responder| {
+                if let (Some(broker), Some(challenge)) = (
+                    auth_broker.upgrade(),
+                    super::http_auth::native_challenge(uri),
+                ) {
+                    broker.challenge(challenge, None, responder);
+                }
+            }) {
+                eprintln!("security: content WebView2 sign-in routing failed: {error}");
                 if report_failure {
                     event_permit.emit(&self.sink, EngineEvent::ViewCreationFailed { id: id.get() });
                 }
@@ -2280,6 +2328,8 @@ impl EngineHost {
             content_styles: Arc::new(super::content_styles::DocumentStyleState::default()),
             #[cfg(target_os = "macos")]
             file_uploads,
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
+            http_auth,
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             download_surface_intent,
             event_permit,

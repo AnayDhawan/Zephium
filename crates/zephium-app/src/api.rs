@@ -389,6 +389,13 @@ pub enum Command {
         id: ItemId,
         decision: PageRequestDecision,
     },
+    /// The person's answer to the tab's sign-in prompt: credentials, or
+    /// None to cancel. Credentials are wiped when the command drops.
+    AnswerHttpAuth {
+        id: ItemId,
+        request: u32,
+        credentials: Option<zephium_core::http_auth::HttpCredentials>,
+    },
     GoBack(ItemId),
     GoForward(ItemId),
     SplitWith {

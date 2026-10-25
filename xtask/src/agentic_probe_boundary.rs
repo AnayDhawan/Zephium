@@ -768,7 +768,6 @@ fn validate_engine_manifest(source: &str) -> Result<(), String> {
     if production_feature.as_slice()
         != [
             toml::Value::String("dep:zephium-agentic".to_owned()),
-            toml::Value::String("dep:zeroize".to_owned()),
             toml::Value::String("dep:image".to_owned()),
         ]
     {
@@ -834,22 +833,16 @@ fn validate_engine_manifest(source: &str) -> Result<(), String> {
     {
         return Err("engine zephium-agentic dependency must remain optional".to_owned());
     }
-    let zeroize_dependency = manifest
+    // Ordinary pages wipe HTTP sign-in secrets too, so the wiping crate is
+    // always compiled; it stays exactly pinned.
+    if manifest
         .get("dependencies")
         .and_then(|dependencies| dependencies.get("zeroize"))
-        .and_then(toml::Value::as_table)
-        .ok_or_else(|| "engine zeroize dependency is missing".to_owned())?;
-    if zeroize_dependency
-        .get("version")
         .and_then(toml::Value::as_str)
         != Some("=1.9.0")
-        || zeroize_dependency
-            .get("optional")
-            .and_then(toml::Value::as_bool)
-            != Some(true)
     {
         return Err(
-            "engine cookie-memory zeroize dependency must remain pinned and optional".to_owned(),
+            "engine secret-wiping zeroize dependency must remain exactly pinned".to_owned(),
         );
     }
     let binaries = manifest
@@ -13697,7 +13690,7 @@ mod tests {
               "dep:zephium-agentic",
               "zephium-agentic/probe-harness",
             ]
-            agentic-browser = ["dep:zephium-agentic", "dep:zeroize", "dep:image"]
+            agentic-browser = ["dep:zephium-agentic", "dep:image"]
             native-agentic-semantic-probe = [
               "agentic-browser",
               "dep:tempfile",
@@ -13726,7 +13719,7 @@ mod tests {
             required-features = ["native-agentic-semantic-probe"]
             [dependencies]
             zephium-agentic = { optional = true }
-            zeroize = { version = "=1.9.0", optional = true }
+            zeroize = "=1.9.0"
             image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif"], optional = true }
             [target.'cfg(target_os = "windows")'.dependencies]
             windows = { version = "0.61", features = ["Win32_System_Threading"] }
@@ -13746,11 +13739,16 @@ mod tests {
         )
         .is_err());
         assert!(validate_engine_manifest(&valid.replace(
-            "agentic-browser = [\"dep:zephium-agentic\", \"dep:zeroize\", \"dep:image\"]",
+            "agentic-browser = [\"dep:zephium-agentic\", \"dep:image\"]",
             "agentic-browser = [\"zephium-agentic/probe-harness\"]",
         ))
         .is_err());
         assert!(validate_engine_manifest(&valid.replace("=1.9.0", "=1.9.1")).is_err());
+        assert!(validate_engine_manifest(&valid.replace(
+            "zeroize = \"=1.9.0\"",
+            "zeroize = { version = \"=1.9.0\", optional = true }",
+        ))
+        .is_err());
         assert!(validate_engine_manifest(&valid.replace("=0.25.10", "=0.25.11")).is_err());
         assert!(validate_engine_manifest(
             &valid.replace("default-features = false", "default-features = true")

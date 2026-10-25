@@ -375,3 +375,116 @@ fn an_unchanged_tab_keeps_its_revision_across_snapshots() {
         "a changed tab gets a newer revision"
     );
 }
+
+#[test]
+fn a_sign_in_prompt_waits_on_its_tab_and_answers_once() {
+    use zephium_core::http_auth::{HttpAuthPrompt, HttpCredentials};
+    use zephium_ipc::PageRequestView;
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    let shown = |screen: &Screen| {
+        last(screen)
+            .tabs
+            .into_iter()
+            .find(|tab| tab.id == id.to_string())
+            .and_then(|tab| tab.page_request)
+    };
+    let answers = |engine: &FakeEngine| {
+        engine
+            .calls()
+            .into_iter()
+            .filter(|call| call.starts_with("http-auth "))
+            .collect::<Vec<_>>()
+    };
+    let ask = |shell: &mut Shell, request: u32| {
+        shell.handle(Command::Engine(EngineEvent::HttpAuthRequested {
+            id,
+            prompt: HttpAuthPrompt {
+                request,
+                host: "router.lan".into(),
+                insecure: true,
+                proxy: false,
+                retry: false,
+            },
+        }));
+    };
+    let credentials = || HttpCredentials::new("admin".into(), "hunter2".into());
+
+    ask(&mut shell, 4);
+    assert_eq!(
+        shown(&screen),
+        Some(PageRequestView::HttpAuth {
+            request: 4,
+            host: "router.lan".into(),
+            insecure: true,
+            proxy: false,
+            retry: false,
+        })
+    );
+    shell.handle(Command::Engine(EngineEvent::PageOpenBlocked {
+        id,
+        url: None,
+    }));
+    assert!(
+        matches!(shown(&screen), Some(PageRequestView::HttpAuth { .. })),
+        "a refused pop-up never hides a waiting sign-in"
+    );
+
+    shell.handle(Command::AnswerHttpAuth {
+        id,
+        request: 3,
+        credentials: credentials(),
+    });
+    assert!(answers(&engine).is_empty(), "a stale answer goes nowhere");
+    shell.handle(Command::AnswerHttpAuth {
+        id,
+        request: 4,
+        credentials: credentials(),
+    });
+    assert_eq!(shown(&screen), None);
+    assert_eq!(
+        answers(&engine),
+        [format!("http-auth {id} 4 sign-in as admin")]
+    );
+    shell.handle(Command::AnswerHttpAuth {
+        id,
+        request: 4,
+        credentials: credentials(),
+    });
+    assert_eq!(answers(&engine).len(), 1, "a prompt is answered once");
+
+    ask(&mut shell, 5);
+    shell.handle(Command::Engine(EngineEvent::HttpAuthEnded {
+        id,
+        request: 4,
+    }));
+    assert!(
+        shown(&screen).is_some(),
+        "only the ended prompt is taken down"
+    );
+    shell.handle(Command::Engine(EngineEvent::HttpAuthEnded {
+        id,
+        request: 5,
+    }));
+    assert_eq!(shown(&screen), None);
+
+    ask(&mut shell, 6);
+    shell.handle(Command::AnswerPageRequest {
+        id,
+        decision: crate::PageRequestDecision::Allow,
+    });
+    assert_eq!(shown(&screen), None);
+    assert_eq!(
+        answers(&engine).last().map(String::as_str),
+        Some(format!("http-auth {id} 6 cancel").as_str()),
+        "the generic answer can only cancel a sign-in"
+    );
+
+    ask(&mut shell, 7);
+    shell.handle(Command::Engine(EngineEvent::Crashed { id }));
+    assert!(!matches!(
+        shown(&screen),
+        Some(PageRequestView::HttpAuth { .. })
+    ));
+}

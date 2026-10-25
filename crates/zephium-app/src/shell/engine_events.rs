@@ -98,13 +98,18 @@ impl Shell {
                         | EngineEvent::ViewDiscarded { .. }
                 );
                 if capture_invalidated {
+                    // Its native sign-in request went with the view.
+                    self.end_http_auth_prompt(*id, None);
                     self.items.set_media_capture(*id, None);
                     // A replacement view starts out of fullscreen.
                     self.forget_content_fullscreen(*id);
                 }
             }
-            EngineEvent::ProfileProcessExited { profile, .. } => {
+            EngineEvent::ProfileProcessExited { profile, ids } => {
                 self.cancel_page_permission_for_profile(*profile);
+                for id in ids {
+                    self.end_http_auth_prompt(*id, None);
+                }
             }
             _ => {}
         }
@@ -383,6 +388,10 @@ impl Shell {
                 app,
                 user_gesture,
             } => self.on_external_app_requested(id, url, app, user_gesture),
+            EngineEvent::HttpAuthRequested { id, prompt } => {
+                self.on_http_auth_requested(id, prompt)
+            }
+            EngineEvent::HttpAuthEnded { id, request } => self.on_http_auth_ended(id, request),
             EngineEvent::FocusBlocked { id, url } => self.on_focus_blocked(id, url),
             EngineEvent::LinkedDownloadStarted { id } => {
                 if self.items.tab(id).is_some_and(|tab| {
@@ -688,6 +697,8 @@ impl Shell {
             | EngineEvent::NativeTabCloseRequested { id }
             | EngineEvent::PageOpenBlocked { id, .. }
             | EngineEvent::ExternalAppRequested { id, .. }
+            | EngineEvent::HttpAuthRequested { id, .. }
+            | EngineEvent::HttpAuthEnded { id, .. }
             | EngineEvent::FocusBlocked { id, .. }
             | EngineEvent::NativeTabOpened { id, .. }
             | EngineEvent::LinkedDownloadStarted { id }

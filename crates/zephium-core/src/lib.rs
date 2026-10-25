@@ -7,6 +7,7 @@ pub mod commands;
 pub mod downloads;
 pub mod extensions;
 pub mod geometry;
+pub mod http_auth;
 pub mod icon;
 pub mod ids;
 pub mod injection;

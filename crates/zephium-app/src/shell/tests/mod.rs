@@ -813,6 +813,18 @@ impl Engine for FakeEngine {
         self.log(format!("open-app {url}"));
         self.native_admission()
     }
+    fn answer_http_auth(
+        &self,
+        item: ItemId,
+        request: u32,
+        credentials: Option<zephium_core::http_auth::HttpCredentials>,
+    ) -> NativeDispatch {
+        let answer = credentials.map_or("cancel".to_owned(), |credentials| {
+            format!("sign-in as {}", credentials.username())
+        });
+        self.log(format!("http-auth {item} {request} {answer}"));
+        self.native_admission()
+    }
     fn set_user_content(
         &self,
         _scope: ContentScope,

@@ -670,6 +670,15 @@ fn tab_view(
                     .and_then(|url| url.host_str())
                     .map(str::to_owned),
             },
+            zephium_core::item::PageRequest::HttpAuth(prompt) => {
+                zephium_ipc::PageRequestView::HttpAuth {
+                    request: prompt.request,
+                    host: prompt.host.clone(),
+                    insecure: prompt.insecure,
+                    proxy: prompt.proxy,
+                    retry: prompt.retry,
+                }
+            }
         }),
         availability: None,
         failure: tab.failure.as_ref().map(|failure| {

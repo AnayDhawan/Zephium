@@ -82,6 +82,8 @@ pub struct WryNavigationDelegateIvars {
   pub main_frame_navigation_attempt_handler: Option<Box<dyn Fn(String)>>,
   #[cfg(target_os = "macos")]
   pub credential_challenge_denied_handler: Option<std::rc::Rc<dyn Fn()>>,
+  #[cfg(target_os = "macos")]
+  pub http_auth_handler: Option<Box<crate::http_auth::HttpAuthHandler>>,
   pub download_delegate: Option<Retained<WryDownloadDelegate>>,
   pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent)>>,
   pub navigation_event_handler: Option<Box<dyn Fn(NavigationEvent)>>,
@@ -272,7 +274,7 @@ define_class!(
     #[unsafe(method(webView:didReceiveAuthenticationChallenge:completionHandler:))]
     unsafe fn deny_authentication_challenge(
       &self,
-      _webview: &WKWebView,
+      webview: &WKWebView,
       challenge: &NSURLAuthenticationChallenge,
       completion_handler: &block2::DynBlock<
         dyn Fn(NSURLSessionAuthChallengeDisposition, *mut NSURLCredential),
@@ -280,10 +282,22 @@ define_class!(
     ) {
       // HTTP authentication, client certificates, and server-trust decisions
       // have different safe defaults. Preserve WebKit/Foundation's ordinary
-      // system trust evaluation for TLS certificates; cancel every challenge
-      // that could otherwise select credentials or expose native auth UI.
+      // system trust evaluation for TLS certificates; an opted-in embedder
+      // answers HTTP sign-in challenges; cancel every other challenge that
+      // could select credentials or expose native auth UI.
       let protection_space = challenge.protectionSpace();
       let method = protection_space.authenticationMethod();
+      if let Some(handler) = &self.ivars().http_auth_handler {
+        if let Some(request) = crate::wkwebview::http_auth::challenge(webview, challenge, &method) {
+          let responder = crate::wkwebview::http_auth::responder(completion_handler);
+          // A panicking embedder drops the responder while unwinding, which
+          // cancels the native request.
+          let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            handler(request, responder)
+          }));
+          return;
+        }
+      }
       let disposition = if method.isEqualToString(NSURLAuthenticationMethodServerTrust) {
         NSURLSessionAuthChallengeDisposition::PerformDefaultHandling
       } else {
@@ -328,6 +342,7 @@ impl WryNavigationDelegate {
     apple_navigation_action_handler: Option<Box<dyn Fn(String, AppleNavigationAction) -> bool>>,
     #[cfg(target_os = "macos")] main_frame_navigation_attempt_handler: Option<Box<dyn Fn(String)>>,
     #[cfg(target_os = "macos")] credential_challenge_denied_handler: Option<std::rc::Rc<dyn Fn()>>,
+    #[cfg(target_os = "macos")] http_auth_handler: Option<Box<crate::http_auth::HttpAuthHandler>>,
     download_delegate: Option<Retained<WryDownloadDelegate>>,
     on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
     navigation_event_handler: Option<Box<dyn Fn(NavigationEvent)>>,
@@ -376,6 +391,8 @@ impl WryNavigationDelegate {
         main_frame_navigation_attempt_handler,
         #[cfg(target_os = "macos")]
         credential_challenge_denied_handler,
+        #[cfg(target_os = "macos")]
+        http_auth_handler,
         has_download_handler,
         #[cfg(target_os = "macos")]
         new_window_req_handler,

@@ -939,6 +939,17 @@ pub trait Engine {
     ) -> NativeDispatch {
         NativeDispatch::Unsupported
     }
+    /// Answers the tab's sign-in prompt with credentials, or cancels it with
+    /// None. A stale or unknown request is ignored and its credentials are
+    /// dropped.
+    fn answer_http_auth(
+        &self,
+        _item: ItemId,
+        _request: u32,
+        _credentials: Option<crate::http_auth::HttpCredentials>,
+    ) -> NativeDispatch {
+        NativeDispatch::Unsupported
+    }
     /// How a page's element fullscreen is presented on this engine.
     fn fullscreen_presentation(&self) -> FullscreenPresentation {
         FullscreenPresentation::OwnWindow
@@ -1424,6 +1435,19 @@ pub enum EngineEvent {
         id: ItemId,
         profile: ProfileId,
         request: PagePermissionRequest,
+    },
+    /// The tab's site, or its proxy, asks the person to sign in. The native
+    /// request waits until [`Engine::answer_http_auth`] or until the
+    /// engine cancels it, which [`EngineEvent::HttpAuthEnded`] reports.
+    HttpAuthRequested {
+        id: ItemId,
+        prompt: crate::http_auth::HttpAuthPrompt,
+    },
+    /// The engine cancelled this prompt itself: the tab navigated, a newer
+    /// challenge replaced it, or it waited too long.
+    HttpAuthEnded {
+        id: ItemId,
+        request: u32,
     },
     DownloadRequested {
         id: ItemId,

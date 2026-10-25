@@ -5,6 +5,8 @@
 mod download;
 #[cfg(target_os = "macos")]
 mod drag_drop;
+#[cfg(target_os = "macos")]
+pub(crate) mod http_auth;
 mod navigation;
 #[cfg(target_os = "macos")]
 mod script_dialog;
@@ -881,6 +883,8 @@ impl InnerWebView {
         attributes.main_frame_navigation_attempt_handler,
         #[cfg(target_os = "macos")]
         attributes.credential_challenge_denied_handler,
+        #[cfg(target_os = "macos")]
+        pl_attrs.http_auth_handler,
         download_delegate.clone(),
         attributes.on_page_load_handler,
         attributes.navigation_event_handler,

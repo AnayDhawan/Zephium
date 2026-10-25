@@ -1135,6 +1135,8 @@ impl RetirementGate {
             | event @ EngineEvent::NativeTabCloseRequested { id }
             | event @ EngineEvent::PageOpenBlocked { id, .. }
             | event @ EngineEvent::ExternalAppRequested { id, .. }
+            | event @ EngineEvent::HttpAuthRequested { id, .. }
+            | event @ EngineEvent::HttpAuthEnded { id, .. }
             | event @ EngineEvent::FocusBlocked { id, .. }
             | event @ EngineEvent::NativeTabOpened { id, .. }
             | event @ EngineEvent::LinkedDownloadStarted { id }
@@ -2649,6 +2651,26 @@ impl Engine for WebviewEngine {
         #[cfg(not(target_os = "macos"))]
         {
             let _ = (profile, item, request, settlement);
+            NativeDispatch::Unsupported
+        }
+    }
+
+    fn answer_http_auth(
+        &self,
+        item: ItemId,
+        request: u32,
+        credentials: Option<zephium_core::http_auth::HttpCredentials>,
+    ) -> NativeDispatch {
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        {
+            // A retiring view cancels its own native request as it drops.
+            self.run_for_active_item(item, move |host| {
+                host.answer_http_auth(item, request, credentials)
+            })
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        {
+            let _ = (item, request, credentials);
             NativeDispatch::Unsupported
         }
     }

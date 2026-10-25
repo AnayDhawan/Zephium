@@ -350,6 +350,8 @@ mod custom_protocol_workaround;
 mod error;
 #[cfg(target_os = "macos")]
 mod file_upload;
+#[cfg(target_os = "macos")]
+mod http_auth;
 #[cfg(any(target_os = "android", test))]
 mod inject_initialization_scripts;
 mod native_admission;
@@ -359,6 +361,8 @@ mod native_cleanup;
 mod permissions;
 #[cfg(target_os = "macos")]
 pub use file_upload::{FileUploadRequest, FileUploadResponder};
+#[cfg(target_os = "macos")]
+pub use http_auth::{HttpAuthChallenge, HttpAuthResponder};
 mod proxy;
 #[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
 mod util;
@@ -1928,6 +1932,8 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   #[cfg(target_os = "macos")]
   file_upload_handler: Option<Box<file_upload::FileUploadHandler>>,
   #[cfg(target_os = "macos")]
+  http_auth_handler: Option<Box<http_auth::HttpAuthHandler>>,
+  #[cfg(target_os = "macos")]
   native_download_handler: Option<Box<dyn Fn(&objc2_web_kit::WKDownload)>>,
   #[cfg(target_os = "macos")]
   context_menu_handler: Option<
@@ -1959,6 +1965,8 @@ impl Default for PlatformSpecificWebViewAttributes {
       permission_request_handler: None,
       #[cfg(target_os = "macos")]
       file_upload_handler: None,
+      #[cfg(target_os = "macos")]
+      http_auth_handler: None,
       #[cfg(target_os = "macos")]
       native_download_handler: None,
       #[cfg(target_os = "macos")]
@@ -2051,6 +2059,15 @@ pub trait WebViewBuilderExtMacos {
     self,
     handler: impl Fn(&objc2_web_kit::WKWebView, FileUploadRequest, FileUploadResponder) + 'static,
   ) -> Self;
+  /// Hands HTTP Basic, Digest, NTLM and Negotiate challenges to the embedder
+  /// instead of cancelling them. The responder cancels on drop; the embedder
+  /// must cancel retained responders on navigation and teardown. Without it
+  /// every such challenge is cancelled. Client certificates are always
+  /// cancelled and server trust is unaffected.
+  fn with_http_auth_handler(
+    self,
+    handler: impl Fn(HttpAuthChallenge, HttpAuthResponder) + 'static,
+  ) -> Self;
   /// Merges browser-owned items into the native page context menu without
   /// serializing page metadata through Rust. The callback receives WebKit's
   /// already-created default menu and may replace or suppress it.
@@ -2099,6 +2116,14 @@ impl WebViewBuilderExtMacos for WebViewBuilder<'_> {
     handler: impl Fn(&objc2_web_kit::WKWebView, FileUploadRequest, FileUploadResponder) + 'static,
   ) -> Self {
     self.platform_specific.file_upload_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_http_auth_handler(
+    mut self,
+    handler: impl Fn(HttpAuthChallenge, HttpAuthResponder) + 'static,
+  ) -> Self {
+    self.platform_specific.http_auth_handler = Some(Box::new(handler));
     self
   }
 

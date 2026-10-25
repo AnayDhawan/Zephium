@@ -1260,6 +1260,7 @@ fn tracked_operation_command(command: &Command) -> bool {
             | Command::Navigate { .. }
             | Command::Reload(_)
             | Command::AnswerPageRequest { .. }
+            | Command::AnswerHttpAuth { .. }
             | Command::GoBack(_)
             | Command::GoForward(_)
             | Command::SplitWith { .. }

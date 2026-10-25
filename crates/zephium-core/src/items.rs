@@ -611,9 +611,19 @@ impl Items {
         }
     }
 
+    /// A sign-in prompt holds the page's load, so nothing else replaces it
+    /// while it waits; a newer sign-in prompt does.
     pub fn set_page_request(&mut self, id: ItemId, request: crate::item::PageRequest) -> bool {
+        use crate::item::PageRequest;
         match self.tab_mut(id) {
-            Some(tab) if tab.content == TabContent::Web => {
+            Some(tab)
+                if tab.content == TabContent::Web
+                    && (matches!(request, PageRequest::HttpAuth(_))
+                        || !matches!(
+                            tab.page_request.as_deref(),
+                            Some(PageRequest::HttpAuth(_))
+                        )) =>
+            {
                 tab.page_request = Some(Box::new(request));
                 true
             }

@@ -1196,6 +1196,8 @@ fn command_is_critical(command: &Command) -> bool {
                     | EngineEvent::ExtensionPageClosed { .. }
                     | EngineEvent::ExtensionPageChanged { .. }
                     | EngineEvent::PermissionRequested { .. }
+                    | EngineEvent::HttpAuthRequested { .. }
+                    | EngineEvent::HttpAuthEnded { .. }
                     | EngineEvent::MediaCaptureChanged { .. }
                     | EngineEvent::FullscreenChanged { .. }
                     | EngineEvent::ExtensionActionsInvalidated { .. }

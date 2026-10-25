@@ -432,6 +432,26 @@ behavior described above. macOS human views opt into native WebKit file drops wi
 a 128-item bound, URL bounds, and document/presentation checks at entry and drop.
 Privileged and agent views retain default denial.
 
+**Website sign-in (HTTP authentication).** Tabs a person reads answer HTTP
+Basic, Digest, NTLM and Negotiate challenges through a card under the address
+field; agent, extension, bootstrap and privileged views keep cancelling every
+challenge, and client-certificate selection stays cancelled everywhere. Only a
+challenge whose protection-space scheme, host and port match the tab's in-flight
+or committed main-frame address asks; subresource and cross-origin challenges are
+cancelled. A proxy challenge asks and is labelled as the proxy (macOS only;
+WebView2 does not distinguish one). The prompt carries a per-view request id,
+the host, whether the connection is plain http and whether an earlier attempt
+failed; the server's realm text is never read. The native completion (WebKit's
+completion block, WebView2's deferral with Cancel set first) stays with the
+exact view; at most one waits per tab, a newer challenge cancels it, and
+navigation start, commit or failure, view close, discard, renderer exit and a
+five-minute deadline cancel it. After three wrong passwords the next challenge
+is cancelled without asking. Credentials travel once from the card to the
+engine in memory wiped on drop, are never logged, persisted or projected, and
+reach WebKit as a session-only `NSURLCredential` or WebView2's response user
+name and password; an empty username cancels so WebView2 cannot fall back to its
+own dialog.
+
 **Human downloads on macOS.** Raw human views explicitly opt into a WKDownload
 broker; the native network request retains its WebKit profile, cookies, POST body,
 and blob ownership. No URL is replayed through a separate HTTP client. At most
@@ -1250,8 +1270,9 @@ These inherited properties must not be overstated:
   so Zephium does not deliberately disable SmartScreen.
 - Every view also requires CoreWebView2_18. Raw and privileged subframe navigations are
   checked by native handlers, and OS-registered external URI schemes are always
-  cancelled. HTTP Basic Authentication and client-certificate selection are also
-  cancelled before WebView2 can fall back to native credential/certificate dialogs. A
+  cancelled. Client-certificate selection is also cancelled before WebView2 can fall
+  back to its native certificate dialog, and HTTP authentication is cancelled
+  except on tabs a person reads, which defer it to the sign-in card described above. A
   missing interface or failed registration rejects the raw view or aborts
   privileged startup before the window is shown. Raw process-failure event registration
   is also mandatory rather than a best-effort observability hook.

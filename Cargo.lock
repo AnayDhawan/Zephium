@@ -7473,6 +7473,7 @@ dependencies = [
  "ulid",
  "url",
  "winreg",
+ "zeroize",
 ]
 
 [[package]]
