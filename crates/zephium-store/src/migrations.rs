@@ -2706,6 +2706,22 @@ pub static PROFILE: &[Migration] = &[
             )
         },
     },
+    Migration {
+        version: 38,
+        up: |tx| {
+            // The page zoom a person chose for a site, by registrable domain.
+            // The row cap is held by the write; the bounds mirror
+            // zephium_core::zoom.
+            tx.execute_batch(
+                "CREATE TABLE site_zoom (
+                     site TEXT PRIMARY KEY NOT NULL
+                         CHECK (length(CAST(site AS BLOB)) BETWEEN 1 AND 253),
+                     percent INTEGER NOT NULL CHECK (percent BETWEEN 30 AND 300),
+                     set_at INTEGER NOT NULL
+                 ) STRICT;",
+            )
+        },
+    },
 ];
 
 #[cfg(test)]
@@ -2800,6 +2816,7 @@ mod tests {
         (35, 0x3c4c67becd54e02a),
         (36, 0xa35d00504cb31a89),
         (37, 0xf0c5b1fc2e38c27c),
+        (38, 0xdd557da59b6d8285),
     ];
 
     #[test]
@@ -3020,7 +3037,7 @@ mod tests {
             assert_eq!(validate_current(&conn, PROFILE).unwrap(), version as i64);
             apply(&mut conn, PROFILE).unwrap();
             apply(&mut conn, PROFILE).unwrap();
-            assert_eq!(validate_current(&conn, PROFILE).unwrap(), 37);
+            assert_eq!(validate_current(&conn, PROFILE).unwrap(), 38);
             assert_eq!(
                 conn.query_row("SELECT title FROM history", [], |r| r.get::<_, String>(0))
                     .unwrap(),
@@ -3098,9 +3115,9 @@ mod tests {
             [],
         )
         .unwrap();
-        apply(&mut conn, PROFILE).unwrap();
-        apply(&mut conn, PROFILE).unwrap();
-        assert_eq!(validate_current(&conn, PROFILE).unwrap(), 37);
+        apply(&mut conn, &PROFILE[..37]).unwrap();
+        apply(&mut conn, &PROFILE[..37]).unwrap();
+        assert_eq!(validate_current(&conn, &PROFILE[..37]).unwrap(), 37);
         let origins = |conn: &Connection| -> (i64, i64) {
             conn.query_row(
                 "SELECT count(*), min(fetched_at) FROM favicons",
@@ -3149,6 +3166,46 @@ mod tests {
     }
 
     #[test]
+    fn profile_v38_adds_bounded_site_zoom_and_keeps_existing_data() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        apply(&mut conn, &PROFILE[..37]).unwrap();
+        conn.execute(
+            "INSERT INTO history(url, title, visited_at) VALUES ('https://example.com/', 'Kept', 1)",
+            [],
+        )
+        .unwrap();
+        apply(&mut conn, PROFILE).unwrap();
+        apply(&mut conn, PROFILE).unwrap();
+        assert_eq!(validate_current(&conn, PROFILE).unwrap(), 38);
+        let count = |table: &str| -> i64 {
+            conn.query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap()
+        };
+        assert_eq!((count("history"), count("site_zoom")), (1, 0));
+
+        let insert = |site: &str, percent: i64| {
+            conn.execute(
+                "INSERT INTO site_zoom(site, percent, set_at) VALUES (?1, ?2, 1)",
+                rusqlite::params![site, percent],
+            )
+        };
+        insert("github.com", 30).unwrap();
+        insert("example.org", 300).unwrap();
+        insert(&"a".repeat(253), 100).unwrap();
+        for refused in [
+            insert("github.com", 100),
+            insert("", 100),
+            insert(&"a".repeat(254), 100),
+            insert("low.example", 29),
+            insert("high.example", 301),
+        ] {
+            assert!(refused.is_err());
+        }
+    }
+
+    #[test]
     fn profile_v36_adds_empty_bounded_chats_and_keeps_existing_data() {
         use zephium_core::ports::store::{
             MAX_CHAT_BODY_BYTES, MAX_CHAT_ID_BYTES, MAX_CHAT_SPACE_BYTES, MAX_CHAT_TITLE_BYTES,
@@ -3162,7 +3219,7 @@ mod tests {
         .unwrap();
         apply(&mut conn, PROFILE).unwrap();
         apply(&mut conn, PROFILE).unwrap();
-        assert_eq!(validate_current(&conn, PROFILE).unwrap(), 37);
+        assert_eq!(validate_current(&conn, PROFILE).unwrap(), 38);
         assert_eq!(
             conn.query_row("SELECT title FROM history", [], |row| row
                 .get::<_, String>(0))
@@ -4486,7 +4543,7 @@ mod tests {
                 .unwrap(),
             14
         );
-        assert_eq!(PROFILE.last().map(|migration| migration.version), Some(37));
+        assert_eq!(PROFILE.last().map(|migration| migration.version), Some(38));
     }
 
     #[test]

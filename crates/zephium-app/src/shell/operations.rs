@@ -1009,9 +1009,9 @@ impl Shell {
                     mutation_result(native)
                 },
             ),
-            "zoom.in" => self.operation_adjust_zoom(Some(0.1)),
-            "zoom.out" => self.operation_adjust_zoom(Some(-0.1)),
-            "zoom.reset" => self.operation_adjust_zoom(None),
+            "zoom.in" => self.operation_adjust_zoom(ZoomStep::In),
+            "zoom.out" => self.operation_adjust_zoom(ZoomStep::Out),
+            "zoom.reset" => self.operation_adjust_zoom(ZoomStep::Reset),
             "url.focus" => {
                 (self.emit)(Projection::UiCommand("url.focus".into()));
                 operation_result(OperationOutcome::Applied, OperationReason::MutationApplied)
@@ -1078,34 +1078,5 @@ impl Shell {
             Some(id) if win.active != Some(*id) => self.operation_activate(*id),
             _ => operation_result(OperationOutcome::NoOp, OperationReason::StateUnchanged),
         }
-    }
-
-    fn operation_adjust_zoom(&mut self, delta: Option<f64>) -> OperationDisposition {
-        let Some(active) = self.windows.focused().and_then(|window| window.active) else {
-            return operation_result(OperationOutcome::NoOp, OperationReason::NoFocusedWindow);
-        };
-        let Some(settled) = self.items.tab(active).map(|tab| tab.zoom) else {
-            return operation_result(OperationOutcome::Rejected, OperationReason::InvalidScope);
-        };
-        let current = self
-            .zoom
-            .pending
-            .get(&active)
-            .map_or(settled, |pending| pending.desired_scale);
-        let zoom = match delta {
-            Some(delta) => (current + delta).clamp(0.3, 3.0),
-            None => 1.0,
-        };
-        if (zoom - current).abs() < f64::EPSILON {
-            return operation_result(OperationOutcome::NoOp, OperationReason::StateUnchanged);
-        }
-        // `Items.zoom` is durable authoritative state. Keep the responsive
-        // desired value in a separate bounded map until the exact native view
-        // generation reports what it actually applied; otherwise any
-        // unrelated session save could persist an optimistic lie.
-        let admission = self.request_zoom(active, zoom);
-        let mut native = NativeWork::default();
-        native.record(admission);
-        mutation_result(native)
     }
 }

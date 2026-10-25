@@ -230,6 +230,7 @@ impl Shell {
             .retain(|(owner, _)| *owner != profile);
         self.recently_closed
             .retain(|entry| entry.profile != profile);
+        self.zoom.forget_profile(profile);
         self.extension_browser_surfaces.retire_profile(profile);
         self.extension_actions.retire_profile(profile);
         // Retire compiler admission and erase any callback result before the

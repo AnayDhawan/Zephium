@@ -415,6 +415,8 @@ enum Cmd {
     },
     DeleteChat(ProfileId, String, Sender<bool>),
     ClearChats(ProfileId, Option<i64>, Sender<u32>),
+    ZoomLevels(ProfileId, Sender<Vec<zephium_core::zoom::SavedLevel>>),
+    SaveZoomLevel(ProfileId, String, Option<u16>, i64),
     AmendVisitTitle(ProfileId, String, String),
     FaviconAge(ProfileId, String, Sender<Option<i64>>),
     FaviconRasterWithAge(ProfileId, String, Sender<Option<(Vec<u8>, i64)>>),
@@ -1503,6 +1505,26 @@ impl Store for SqliteStore {
             .unwrap_or_default()
     }
 
+    fn zoom_levels(&self, profile: ProfileId) -> Vec<zephium_core::zoom::SavedLevel> {
+        self.ask(|reply| Cmd::ZoomLevels(profile, reply))
+            .unwrap_or_default()
+    }
+
+    fn save_zoom_level(
+        &self,
+        profile: ProfileId,
+        site: String,
+        percent: Option<u16>,
+        set_at: i64,
+    ) -> bool {
+        hub::valid_zoom_site(&site)
+            && percent.is_none_or(zephium_core::zoom::valid_percent)
+            && self
+                .tx
+                .try_send(Cmd::SaveZoomLevel(profile, site, percent, set_at))
+                .is_ok()
+    }
+
     fn amend_visit_title(&self, profile: ProfileId, url: String, title: String) -> bool {
         if !zephium_core::navigation::is_allowed_str(&url) || title.len() > hub::MAX_TITLE_BYTES {
             return false;
@@ -2010,6 +2032,14 @@ fn actor(
             }
             Some(Cmd::ClearChats(profile, since, reply)) => {
                 let _ = reply.send(hub.clear_chats(profile, since));
+            }
+            Some(Cmd::ZoomLevels(profile, reply)) => {
+                let _ = reply.send(hub.zoom_levels(profile));
+            }
+            Some(Cmd::SaveZoomLevel(profile, site, percent, set_at)) => {
+                if hub.knows(profile) || flush(&mut hub, &mut pending) {
+                    hub.save_zoom_level(profile, &site, percent, set_at);
+                }
             }
             Some(Cmd::AmendVisitTitle(profile, url, title)) => {
                 hub.amend_visit_title(profile, &url, &title);

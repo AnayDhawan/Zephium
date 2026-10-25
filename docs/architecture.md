@@ -442,7 +442,7 @@ New(empty) -navigate-> Active <-> Inactive -idle-> Hibernated -> Closed(restorab
   unsafe page is never force-discarded. A successful discard drops the view
   but keeps the item; activation recreates it, restores native back/forward
   state where it was safely captured (showing the tab's last frame until the
-  restored document paints), and reapplies zoom.
+  restored document paints), and brings the view to its site's page zoom.
 - The application admits at most 64 live views, a backstop for kept-awake and
   protected pages rather than a memory budget; a foreground create waits
   briefly for a verified close at that ceiling.

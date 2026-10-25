@@ -613,6 +613,7 @@ impl Shell {
                     self.items
                         .set_title(id, neutral_title_for_url(&committed_url));
                 }
+                self.reconcile_zoom(id);
                 self.maybe_discover_favicon(id);
                 // History is attributed to the profile that owns the item,
                 // not the focused window; incognito profiles never record.

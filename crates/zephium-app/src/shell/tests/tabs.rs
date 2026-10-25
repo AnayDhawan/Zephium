@@ -66,10 +66,17 @@ fn recently_closed_tab_restores_with_a_fresh_identity_and_durable_metadata() {
     let (mut shell, engine, screen) = setup_with(store.clone());
     shell.handle(Command::Bootstrap);
     let closed = active_id(&screen);
+    let closed_profile = shell.profile_of_item(closed).unwrap();
+    store.zoom_saved.lock().unwrap().insert(
+        closed_profile,
+        vec![zephium_core::zoom::SavedLevel {
+            site: "restore.example".into(),
+            percent: 125,
+            set_at: 1,
+        }],
+    );
     navigate_and_commit(&mut shell, closed, "restore.example/path");
     shell.items.set_title(closed, "Restorable title".into());
-    shell.items.set_zoom(closed, 1.25);
-
     shell.handle(Command::Close(closed));
     assert_eq!(shell.recently_closed.len(), 1);
     let profile = shell.windows.focused().unwrap().profile;
@@ -85,7 +92,9 @@ fn recently_closed_tab_restores_with_a_fresh_identity_and_durable_metadata() {
         Some("https://restore.example/path")
     );
     assert_eq!(tab.title, "Restorable title");
-    assert_eq!(tab.zoom, 1.25);
+    // The page comes back at what its site shows, not what the tab held.
+    assert_eq!(engine.last_zoom_request().0, restored);
+    assert_eq!(engine.last_zoom_request().1, 1.25);
     assert!(engine.calls().iter().any(|call| {
         call == &format!("create {restored} https://restore.example/path [default]")
     }));

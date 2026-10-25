@@ -32,6 +32,8 @@ mod work_document;
 mod work_record_media;
 #[cfg(all(windows, feature = "work-execution"))]
 pub use windows_work_storage::WindowsWorkStorage;
+mod zoom;
+pub(crate) use zoom::valid_zoom_site;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;

@@ -34,6 +34,8 @@ pub mod webkitgtk;
 pub mod webview2;
 pub mod windows;
 pub mod work;
+/// Page zoom levels and their bounds.
+pub mod zoom;
 
 /// Allowlisted application appearance preferences.
 pub mod preferences;

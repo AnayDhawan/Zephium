@@ -185,19 +185,20 @@ impl Shell {
                     self.record_view_creation(id);
                     logical_residents += 1;
                     native.scheduled = true;
-                    // restored or revived views keep their zoom
-                    let zoom = self.items.tab(id).map(|t| t.zoom).unwrap_or(1.0);
+                    // A newly constructed view starts at 1.0. Do not keep or
+                    // later persist the scale its tab last had, and bring the
+                    // view to what its site shows.
+                    let stale = self.items.tab(id).is_some_and(|tab| tab.zoom != 1.0);
+                    if stale {
+                        self.items.set_zoom(id, 1.0);
+                        self.schedule_persist();
+                    }
+                    let zoom = self.new_view_zoom(id, &url);
                     if zoom != 1.0 {
-                        let admission = self.request_zoom(id, zoom);
-                        native.record(admission);
-                        if admission != NativeDispatch::Scheduled {
-                            // A newly constructed view starts at 1.0. If its
-                            // restore request never reached the native queue,
-                            // do not retain or later persist the stale scale.
-                            self.items.set_zoom(id, 1.0);
-                            self.schedule_persist();
-                            self.project_tab(id);
-                        }
+                        native.record(self.request_zoom(id, zoom, ZoomOrigin::Site));
+                    }
+                    if stale {
+                        self.project_tab(id);
                     }
                 }
                 Effect::Navigate { id, url, request } => {

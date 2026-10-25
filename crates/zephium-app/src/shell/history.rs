@@ -86,6 +86,7 @@ impl Shell {
                 return;
             }
             self.reset_blocker_statistics(expected_profile);
+            self.clear_zoom_levels(expected_profile, since);
         }
         let Some(reads) = &self.store_reads else {
             done.finish(HistoryResponse::Error {

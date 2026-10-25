@@ -577,7 +577,6 @@ impl Shell {
             return None;
         }
         self.items.set_title(id, entry.title.clone());
-        self.items.set_zoom(id, entry.zoom);
         self.recently_closed.remove(position);
         if let Some(before) = entry
             .position

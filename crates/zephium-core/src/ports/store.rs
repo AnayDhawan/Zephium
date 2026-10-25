@@ -668,6 +668,23 @@ pub trait Store {
             .collect()
     }
 
+    /// The page zoom a profile saved per site, newest first.
+    fn zoom_levels(&self, _profile: ProfileId) -> Vec<crate::zoom::SavedLevel> {
+        Vec::new()
+    }
+    /// Saves a site's page zoom, or forgets it when `percent` is none. The
+    /// oldest sites beyond `zoom::MAX_SITE_LEVELS` are dropped. False when
+    /// not admitted. Clearing history clears the levels it covers.
+    fn save_zoom_level(
+        &self,
+        _profile: ProfileId,
+        _site: String,
+        _percent: Option<u16>,
+        _set_at: i64,
+    ) -> bool {
+        false
+    }
+
     /// Assistant conversations, newest first, at most `limit` (never more than
     /// `MAX_CHATS`).
     fn chats(&self, _profile: ProfileId, _limit: u32) -> Vec<ChatSummary> {

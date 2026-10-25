@@ -23,6 +23,7 @@ use zephium_core::ports::store::{
 use zephium_core::session::{
     PersistedItem, PersistedKind, PersistedProfile, PersistedSpace, SessionState,
 };
+use zephium_core::zoom::SavedLevel;
 
 type HeldErasure = (ProfileId, Box<dyn FnOnce(ProfileDataErasureOutcome) + Send>);
 type HeldBlockerUpdate = (
@@ -973,6 +974,9 @@ pub(crate) struct FakeStore {
     >,
     pub(super) avatars: Mutex<Vec<AvatarWrite>>,
     pub(crate) chat_clears: Mutex<Vec<(ProfileId, Option<i64>)>>,
+    /// Saved page zoom per profile, and how many times each profile was loaded.
+    pub(crate) zoom_saved: Mutex<std::collections::HashMap<ProfileId, Vec<SavedLevel>>>,
+    pub(crate) zoom_loads: std::sync::atomic::AtomicUsize,
     /// Tasks `resource_call` lists, and the searches it was asked for.
     pub(super) task_rows: Mutex<
         Vec<(
@@ -1487,6 +1491,37 @@ impl Store for FakeStore {
     fn clear_chats(&self, profile: ProfileId, since: Option<i64>) -> u32 {
         self.chat_clears.lock().unwrap().push((profile, since));
         0
+    }
+
+    fn zoom_levels(&self, profile: ProfileId) -> Vec<SavedLevel> {
+        self.zoom_loads
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.zoom_saved
+            .lock()
+            .unwrap()
+            .get(&profile)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    fn save_zoom_level(
+        &self,
+        profile: ProfileId,
+        site: String,
+        percent: Option<u16>,
+        set_at: i64,
+    ) -> bool {
+        let mut saved = self.zoom_saved.lock().unwrap();
+        let levels = saved.entry(profile).or_default();
+        levels.retain(|level| level.site != site);
+        if let Some(percent) = percent {
+            levels.push(SavedLevel {
+                site,
+                percent,
+                set_at,
+            });
+        }
+        true
     }
 
     fn amend_visit_title(&self, _profile: ProfileId, url: String, title: String) -> bool {

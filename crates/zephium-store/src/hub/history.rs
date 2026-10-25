@@ -413,6 +413,11 @@ impl Hub {
                 }
                 None => tx.execute("DELETE FROM page_favicons", [])?,
             };
+            // A saved zoom level is a record of the sites visited.
+            match since {
+                Some(since) => tx.execute("DELETE FROM site_zoom WHERE set_at >= ?1", [since])?,
+                None => tx.execute("DELETE FROM site_zoom", [])?,
+            };
             tx.execute("DELETE FROM blocker_statistics", [])?;
             tx.commit()?;
             Ok(removed)

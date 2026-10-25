@@ -59,7 +59,7 @@ use view_lifecycle::{CrashState, PendingDiscardProbe, ResidencyState, LIVE_VIEW_
 #[cfg(test)]
 use view_lifecycle::{LIVE_VIEW_PRESSURE_LIMIT, MAX_CONCURRENT_DISCARD_PROBES};
 use window_layout::GrabbedDivider;
-use zoom::ZoomState;
+use zoom::{ZoomOrigin, ZoomState, ZoomStep};
 
 use persistence::PersistenceState;
 #[cfg(test)]
