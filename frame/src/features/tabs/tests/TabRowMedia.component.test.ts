@@ -3,10 +3,10 @@ import { render } from "vitest-browser-svelte";
 import { tabFixture } from "$shared/testing/fixtures";
 import TabRow from "../components/TabRow.svelte";
 
-const native = vi.hoisted(() => ({ mute: vi.fn(), settle: vi.fn() }));
+const native = vi.hoisted(() => ({ mute: vi.fn(), menu: vi.fn(), settle: vi.fn() }));
 vi.mock("$shared/ipc/bindings", async () => {
   const { mockBindings } = await import("$shared/testing/bindings");
-  return mockBindings({ tabSetMuted: native.mute });
+  return mockBindings({ tabSetMuted: native.mute, tabMenuPopup: native.menu });
 });
 vi.mock("$domain/operations", async (original) => ({
   ...(await original<typeof import("$domain/operations")>()),
@@ -16,6 +16,7 @@ vi.mock("$domain/operations", async (original) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   native.mute.mockResolvedValue({ accepted: true, operation_id: "mute" });
+  native.menu.mockResolvedValue(true);
   native.settle.mockResolvedValue({ outcome: "applied", disposition: null });
 });
 
@@ -53,4 +54,21 @@ test("a muted tab keeps its speaker and unmutes", async () => {
   const screen = await row(tab);
   await screen.getByRole("button", { name: "Unmute tab" }).click();
   await expect.poll(() => native.mute.mock.calls).toEqual([[tab.id, false]]);
+});
+
+test("the camera indicator offers its own tab's media menu without selecting it", async () => {
+  const tab = tabFixture({
+    capture: { navigation_id: "000000000000002a", camera: "active", microphone: "none" },
+  });
+  const onSelect = vi.fn();
+  const screen = await row(tab, onSelect);
+  await screen.getByRole("button", { name: `Camera and microphone for ${tab.url}` }).click();
+  await expect.poll(() => native.menu.mock.calls.length).toBe(1);
+  const [id, x, y, context] = native.menu.mock.calls[0]!;
+  expect(id).toBe(tab.id);
+  expect(typeof x).toBe("number");
+  expect(typeof y).toBe("number");
+  expect(context).toMatchObject({ media_only: true });
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(native.mute).not.toHaveBeenCalled();
 });

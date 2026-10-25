@@ -159,7 +159,7 @@ export const canSplitActive = () => state.tabs.length > 1 && (activeTab()?.url ?
 let menuTarget: string | null = null;
 
 /** What the tab menu can offer for one tab; native checks each action again. */
-function tabMenuContext(id: string): TabMenuContext {
+function tabMenuContext(id: string, mediaOnly = false): TabMenuContext {
   const tab = state.tabs.find((candidate) => candidate.id === id);
   const tabOf = (node: ItemsState["nodes"][number]) =>
     node.kind.type === "tab" ? node.kind.tab_id : null;
@@ -175,12 +175,21 @@ function tabMenuContext(id: string): TabMenuContext {
     others: open.some((candidate) => candidate !== id),
     below: at >= 0 && at < open.length - 1,
     muted: tab?.audio?.muted ?? false,
+    capture: tab?.capture?.navigation_id ?? null,
+    media_only: mediaOnly,
   };
 }
 
 export function openTabMenu(id: string, x: number, y: number) {
   menuTarget = id;
   void commands.tabMenuPopup(id, x, y, tabMenuContext(id));
+}
+
+/** What can be done about a tab's camera, microphone and sound, opened from
+ *  its in-use indicator. */
+export function openMediaMenu(id: string, x: number, y: number) {
+  menuTarget = id;
+  void commands.tabMenuPopup(id, x, y, tabMenuContext(id, true));
 }
 
 /** The browser interface's own menu; `page` says a web page is in front. */

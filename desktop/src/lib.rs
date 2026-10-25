@@ -1751,7 +1751,6 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             browser_credentials::browser_credential_capability,
             browser_credentials::browser_passkey_authorization_request,
             page_permission_respond,
-            capture_stop,
             tab_set_muted,
             blocker_status,
             blocker_stats,
@@ -2313,26 +2312,37 @@ const MAX_PROFILE_NAME_BYTES: usize = 256;
 const MAX_WINDOW_COORDINATE: f64 = 1_000_000.0;
 use zephium_core::layout::{MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH};
 
-/// The tab a native context menu was opened for.
+/// The tab a native context menu was opened for, and the document whose
+/// camera or microphone it showed in use, if any.
 ///
 /// Popup menus are modal on every platform, so exactly one target can be
 /// pending at a time. The id is parsed and bounded at the IPC boundary and is
-/// revalidated by the shell actor, which ignores unknown items.
+/// revalidated by the shell actor, which ignores unknown items. Stopping
+/// capture names the document the menu was opened for, never a later one.
 #[derive(Default)]
-struct TabMenuTarget(std::sync::Mutex<Option<ItemId>>);
+struct TabMenuTarget(std::sync::Mutex<Option<TabMenuArmed>>);
+
+type TabMenuArmed = (
+    ItemId,
+    Option<zephium_core::ports::engine::NavigationPresentationId>,
+);
 
 impl TabMenuTarget {
-    fn arm(&self, id: ItemId) -> bool {
+    fn arm(
+        &self,
+        id: ItemId,
+        capture: Option<zephium_core::ports::engine::NavigationPresentationId>,
+    ) -> bool {
         match self.0.lock() {
             Ok(mut slot) => {
-                *slot = Some(id);
+                *slot = Some((id, capture));
                 true
             }
             Err(_) => false,
         }
     }
 
-    fn take(&self) -> Option<ItemId> {
+    fn take(&self) -> Option<TabMenuArmed> {
         self.0.lock().ok().and_then(|mut slot| slot.take())
     }
 }
@@ -3310,35 +3320,6 @@ fn page_permission_respond(
 
 #[tauri::command]
 #[specta::specta]
-fn capture_stop(
-    caller: WebviewWindow,
-    shell: State<'_, Handle>,
-    item_id: String,
-    navigation_id: String,
-) -> zephium_ipc::OperationAdmission {
-    if !authorize(&caller, CallerPolicy::Main, "capture_stop")
-        || shutdown_started(caller.app_handle())
-        || !bounded(&item_id, MAX_ITEM_ID_BYTES)
-    {
-        return rejected_operation();
-    }
-    let Some(item) = ItemId::parse(&item_id).filter(|item| item.to_string() == item_id) else {
-        return rejected_operation();
-    };
-    let Some(navigation) = fixed_nonzero_hex(&navigation_id)
-        .map(zephium_core::ports::engine::NavigationPresentationId::from_raw)
-    else {
-        return rejected_operation();
-    };
-    dispatch_operation(
-        caller.app_handle(),
-        &shell,
-        Command::StopMediaCapture { item, navigation },
-    )
-}
-
-#[tauri::command]
-#[specta::specta]
 fn profiles_delete(
     caller: WebviewWindow,
     shell: State<'_, Handle>,
@@ -3732,7 +3713,7 @@ fn execute_tab_menu_action(
     let Some(target) = app.try_state::<TabMenuTarget>() else {
         return rejected_operation();
     };
-    let Some(id) = target.take() else {
+    let Some((id, capture)) = target.take() else {
         return rejected_operation();
     };
     if action == "copyLink" {
@@ -3761,6 +3742,17 @@ fn execute_tab_menu_action(
         "closeOthers" => dispatch_operation(app, &shell, tab_action(TabAction::CloseOthers)),
         "closeBelow" => dispatch_operation(app, &shell, tab_action(TabAction::CloseBelow)),
         "keep" => dispatch_operation(app, &shell, keep(true)),
+        "stopCapture" => match capture {
+            Some(navigation) => dispatch_operation(
+                app,
+                &shell,
+                Command::StopMediaCapture {
+                    item: id,
+                    navigation,
+                },
+            ),
+            None => rejected_operation(),
+        },
         "mute" | "unmute" => dispatch_operation(
             app,
             &shell,
@@ -4660,10 +4652,19 @@ fn tab_menu_popup(
     ) else {
         return false;
     };
+    let capture = match context.capture.as_deref() {
+        Some(navigation) => match fixed_nonzero_hex(navigation)
+            .map(zephium_core::ports::engine::NavigationPresentationId::from_raw)
+        {
+            Some(navigation) => Some(navigation),
+            None => return false,
+        },
+        None => None,
+    };
     let Some(target) = app.try_state::<TabMenuTarget>() else {
         return false;
     };
-    if !target.arm(item) {
+    if !target.arm(item, capture) {
         return false;
     }
     let Ok(menu) = build_tab_menu(&app, context) else {
@@ -5537,7 +5538,7 @@ const BOOKMARK_MENU_ACTION_IDS: [&str; 6] = [
     "bookmarkmenu.removeFolder",
 ];
 
-const TAB_MENU_ACTION_IDS: [&str; 12] = [
+const TAB_MENU_ACTION_IDS: [&str; 13] = [
     "tabmenu.reload",
     "tabmenu.duplicate",
     "tabmenu.copyLink",
@@ -5550,11 +5551,12 @@ const TAB_MENU_ACTION_IDS: [&str; 12] = [
     "tabmenu.closeBelow",
     "tabmenu.mute",
     "tabmenu.unmute",
+    "tabmenu.stopCapture",
 ];
 
 /// What the tab menu can offer for the tab it opens on, as the sidebar sees
 /// it. Only availability: the shell checks every action again.
-#[derive(Clone, Copy, Debug, Deserialize, specta::Type)]
+#[derive(Clone, Debug, Deserialize, specta::Type)]
 struct TabMenuContext {
     /// A web page is loaded, so it can be copied, duplicated or bookmarked.
     page: bool,
@@ -5566,6 +5568,11 @@ struct TabMenuContext {
     below: bool,
     /// The person muted this tab.
     muted: bool,
+    /// The document whose camera or microphone is in use.
+    capture: Option<String>,
+    /// Only what acts on the page's camera, microphone and sound, for the
+    /// in-use indicator.
+    media_only: bool,
 }
 
 /// `site_protected` is the page's protection standing, absent where site
@@ -5729,6 +5736,18 @@ fn build_tab_menu(
     } else {
         Some(item(10, "Mute Tab", context.page)?)
     };
+    let stop_capture = match context.capture {
+        Some(_) => Some(item(12, "Stop Camera and Microphone", true)?),
+        None => None,
+    };
+    if context.media_only {
+        let items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = stop_capture
+            .iter()
+            .chain(mute.iter())
+            .map(|item| item as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
+            .collect();
+        return Menu::with_items(handle, &items);
+    }
     let second = PredefinedMenuItem::separator(handle)?;
     let close = item(7, "Close Tab", true)?;
     let others = item(8, "Close Other Tabs", context.others)?;
@@ -5747,6 +5766,9 @@ fn build_tab_menu(
     }
     if let Some(mute) = &mute {
         items.push(mute);
+    }
+    if let Some(stop_capture) = &stop_capture {
+        items.push(stop_capture);
     }
     items.extend([
         &second as &dyn tauri::menu::IsMenuItem<tauri::Wry>,
@@ -7484,7 +7506,8 @@ mod tests {
                 "tabmenu.closeOthers",
                 "tabmenu.closeBelow",
                 "tabmenu.mute",
-                "tabmenu.unmute"
+                "tabmenu.unmute",
+                "tabmenu.stopCapture"
             ]
         );
         // Context-menu actions carry their own target and must never collide
@@ -7503,8 +7526,9 @@ mod tests {
         assert_eq!(target.take(), None);
 
         let id = zephium_core::ids::ItemId::generate();
-        assert!(target.arm(id));
-        assert_eq!(target.take(), Some(id));
+        let document = zephium_core::ports::engine::NavigationPresentationId::from_raw(7);
+        assert!(target.arm(id, Some(document)));
+        assert_eq!(target.take(), Some((id, Some(document))));
         // A duplicated or delayed menu event cannot replay against a stale tab.
         assert_eq!(target.take(), None);
     }

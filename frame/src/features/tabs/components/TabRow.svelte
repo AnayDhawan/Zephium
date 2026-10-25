@@ -14,7 +14,6 @@
   import CaptureControl from "$shared/ui/CaptureControl";
   import AudioControl from "$shared/ui/AudioControl";
   import { tabs } from "$domain/tabs";
-  import { stopCaptureFor } from "$domain/capture";
   import { closeOnMiddleClick } from "../lib/middle-click";
 
   let {
@@ -106,13 +105,11 @@
         <AudioControl audio={tab.audio} onToggle={(muted) => void tabs.setMuted(tab.id, muted)} />
       {/if}
       {#if tab.capture}
-        {#key tab.capture.navigation_id}
-          <CaptureControl
-            site={tab.url ?? tab.title}
-            capture={tab.capture}
-            onStop={stopCaptureFor(tab.id, tab.capture.navigation_id)}
-          />
-        {/key}
+        <CaptureControl
+          site={tab.url ?? tab.title}
+          capture={tab.capture}
+          onOpen={(x, y) => tabs.openMediaMenu(tab.id, x, y)}
+        />
       {/if}
     </span>
   {/if}

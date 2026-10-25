@@ -11,7 +11,6 @@
   import FavIcon from "$shared/ui/FavIcon";
   import CaptureControl from "$shared/ui/CaptureControl";
   import AudioControl from "$shared/ui/AudioControl";
-  import { stopCaptureFor } from "$domain/capture";
   import { favicons } from "$domain/favicons";
 
   let {
@@ -105,11 +104,12 @@
         >{/if}
       {#if tab.capture}
         <span class="capture-badge">
-          {#key tab.capture.navigation_id}<CaptureControl
-              onStop={stopCaptureFor(tab.id, tab.capture.navigation_id)}
-              site={tab.url ?? tab.title}
-              capture={tab.capture}
-            />{/key}
+          <CaptureControl
+            badge
+            onOpen={(x, y) => tabs.openMediaMenu(tab.id, x, y)}
+            site={tab.url ?? tab.title}
+            capture={tab.capture}
+          />
         </span>
       {/if}
     </li>
@@ -140,10 +140,8 @@
 
   .capture-badge {
     position: absolute;
-    inset-inline-end: -6px;
-    inset-block-end: -4px;
-    background: var(--color-raised);
-    border-radius: var(--radius-capsule);
+    inset-inline-end: -4px;
+    inset-block-end: -3px;
   }
 
   .rail-sites {

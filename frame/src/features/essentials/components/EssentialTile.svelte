@@ -7,7 +7,6 @@
   import CaptureControl from "$shared/ui/CaptureControl";
   import AudioControl from "$shared/ui/AudioControl";
   import { tabs } from "$domain/tabs";
-  import { stopCaptureFor } from "$domain/capture";
 
   let {
     tab,
@@ -88,11 +87,12 @@
   {/if}
   {#if tab.capture}
     <span class="capture-badge">
-      {#key tab.capture.navigation_id}<CaptureControl
-          onStop={stopCaptureFor(tab.id, tab.capture.navigation_id)}
-          site={tab.url ?? tab.title}
-          capture={tab.capture}
-        />{/key}
+      <CaptureControl
+        badge
+        onOpen={(x, y) => tabs.openMediaMenu(tab.id, x, y)}
+        site={tab.url ?? tab.title}
+        capture={tab.capture}
+      />
     </span>
   {/if}
 </li>
@@ -111,10 +111,8 @@
 
   .capture-badge {
     position: absolute;
-    inset-inline-end: 0;
-    inset-block-end: 0;
-    background: var(--color-raised);
-    border-radius: var(--radius-capsule);
+    inset-inline-end: 2px;
+    inset-block-end: 2px;
   }
 
   /* A plate of quiet ground and nothing else. A drawn ring made every tile

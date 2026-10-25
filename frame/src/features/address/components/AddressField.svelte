@@ -17,6 +17,7 @@
   import Icon from "$shared/ui/Icon";
   import Button from "$shared/ui/Button";
   import IconButton from "$shared/ui/IconButton";
+  import CaptureControl from "$shared/ui/CaptureControl";
   import PageRequestCard from "./PageRequestCard.svelte";
   import ZoomBadge from "./ZoomBadge.svelte";
   import { preferences } from "$domain/preferences";
@@ -62,6 +63,9 @@
   let draft = $state("");
   let activeUrl = $derived(tabs.activeTab()?.url ?? "");
   let activeContent = $derived(tabs.activeTab()?.content ?? "web");
+  // The page in front using the camera or microphone says so where its
+  // address is, as well as on its tab.
+  let activeCapture = $derived(tabs.activeTab()?.capture ?? null);
   // Only a store page actually in front, never one behind Settings or another
   // browser page, offers to install.
   let listedId = $derived(
@@ -242,6 +246,16 @@
     class:shadow-[inset_0_0_0_1px_var(--color-danger)]={failed}
     class="address-field h-[34px] items-center gap-2 rounded-row bg-address ps-2.5 pe-1 shadow-[var(--shadow-tile)] transition-[background-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--ease-out)] [--address-centering:20px] focus-within:bg-address-hover focus-within:shadow-[var(--shadow-field-focus)] hover:bg-address-hover"
   >
+    {#if !compact && activeCapture && !editing}
+      <CaptureControl
+        site={activeUrl}
+        capture={activeCapture}
+        onOpen={(x, y) => {
+          const id = tabs.activeId();
+          if (id !== null) tabs.openMediaMenu(id, x, y);
+        }}
+      />
+    {/if}
     {#if !compact && warning}
       <span
         class="flex h-4 w-4 shrink-0 items-center justify-center text-danger"

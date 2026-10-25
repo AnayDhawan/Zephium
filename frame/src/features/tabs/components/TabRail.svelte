@@ -13,6 +13,7 @@
   import { RowDrag } from "$session/row-drag.svelte";
   import DragMark from "$shared/ui/DragMark";
   import AudioControl from "$shared/ui/AudioControl";
+  import CaptureControl from "$shared/ui/CaptureControl";
   import SpacePeek from "./SpacePeek.svelte";
   import RailSpaces from "./RailSpaces.svelte";
   import { uiCommands as ui } from "$domain/ui-commands";
@@ -177,6 +178,14 @@
               />
               <span data-zephium-tab-label class="sr-only">{tab.title}</span>
             </button>
+            {#if tab.capture}<span class="rail-capture"
+                ><CaptureControl
+                  badge
+                  site={tab.url ?? tab.title}
+                  capture={tab.capture}
+                  onOpen={(x, y) => tabs.openMediaMenu(tab.id, x, y)}
+                /></span
+              >{/if}
             {#if tab.audio}<span class="rail-audio"
                 ><AudioControl
                   badge
@@ -313,6 +322,12 @@
     position: absolute;
     inset-block-end: -3px;
     inset-inline-end: -3px;
+  }
+
+  .rail-capture {
+    position: absolute;
+    inset-block-end: -3px;
+    inset-inline-start: -3px;
   }
 
   /* A small raised disc on the mark's corner: it waits a beat before it

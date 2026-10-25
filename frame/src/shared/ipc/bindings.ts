@@ -374,7 +374,6 @@ export const commands = {
 	 *  but cannot mint or alter authority.
 	 */
 	pagePermissionRespond: (profileId: string, itemId: string, requestId: string, decision: PagePermissionPromptDecisionInput) => __TAURI_INVOKE<OperationAdmission>("page_permission_respond", { profileId, itemId, requestId, decision }),
-	captureStop: (itemId: string, navigationId: string) => __TAURI_INVOKE<OperationAdmission>("capture_stop", { itemId, navigationId }),
 	tabSetMuted: (id: string, muted: boolean) => __TAURI_INVOKE<OperationAdmission>("tab_set_muted", { id, muted }),
 	blockerStatus: () => typedError<BlockerStatusView, null>(__TAURI_INVOKE("blocker_status")),
 	blockerStats: (profile: string) => typedError<BlockerStatsView, null>(__TAURI_INVOKE("blocker_stats", { profile })),
@@ -3010,6 +3009,13 @@ export type TabMenuContext = {
 	below: boolean,
 	/**  The person muted this tab. */
 	muted: boolean,
+	/**  The document whose camera or microphone is in use. */
+	capture: string | null,
+	/**
+	 *  Only what acts on the page's camera, microphone and sound, for the
+	 *  in-use indicator.
+	 */
+	media_only: boolean,
 };
 
 export type TabView = {
