@@ -72,6 +72,7 @@ mod browser_credentials;
 mod browser_import;
 mod content_fullscreen;
 mod default_browser;
+mod diagnostic_report;
 mod diagnostics;
 mod external_links;
 #[cfg(feature = "work-product")]
@@ -1722,6 +1723,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             tabs_reload,
             tabs_answer_page_request,
             diagnostics_show_logs,
+            diagnostic_report::diagnostics_report,
             tabs_back,
             tabs_forward,
             work_pane_show,
@@ -3446,6 +3448,9 @@ fn execute_command(app: &tauri::AppHandle, id: &str) -> zephium_ipc::OperationAd
         .is_none_or(|keymap| keymap.offers(id))
     {
         return rejected_operation();
+    }
+    if id == help::DIAGNOSTICS {
+        return execute_command(app, "settings.about");
     }
     if matches!(
         id,
@@ -7185,6 +7190,7 @@ mod tests {
         assert!(source.contains("| \"settings.about\""));
         assert!(source.contains("help::url(id)"));
         assert!(source.contains("id == help::MENU"));
+        assert!(source.contains("id == help::DIAGNOSTICS"));
     }
 
     #[test]

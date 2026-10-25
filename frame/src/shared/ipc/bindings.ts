@@ -275,6 +275,8 @@ export const commands = {
 	tabsAnswerPageRequest: (id: string, answer: PageRequestAnswer) => __TAURI_INVOKE<OperationAdmission>("tabs_answer_page_request", { id, answer }),
 	/**  Shows the folder with Zephium's local log and crash report. */
 	diagnosticsShowLogs: () => __TAURI_INVOKE<boolean>("diagnostics_show_logs"),
+	/**  The text for a bug report: version, system and the redacted recent log. */
+	diagnosticsReport: () => __TAURI_INVOKE<string | null>("diagnostics_report"),
 	tabsBack: (id: string) => __TAURI_INVOKE<OperationAdmission>("tabs_back", { id }),
 	tabsForward: (id: string) => __TAURI_INVOKE<OperationAdmission>("tabs_forward", { id }),
 	/**
