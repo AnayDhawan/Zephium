@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Camera01Icon, Mic01Icon } from "@hugeicons/core-free-icons";
+  import { Camera01Icon, Location01Icon, Mic01Icon } from "@hugeicons/core-free-icons";
   import { onMount } from "svelte";
   import type {
     PagePermissionPromptDecisionInput,
@@ -17,20 +17,26 @@
   let failure = $derived(permissions.failure());
   let camera = $derived(prompt.kinds.includes("camera"));
   let microphone = $derived(prompt.kinds.includes("microphone"));
+  let location = $derived(prompt.kinds.includes("geolocation"));
   let title = $derived(
-    camera && microphone
-      ? m.page_permission_title_both()
-      : camera
-        ? m.page_permission_title_camera()
-        : m.page_permission_title_microphone(),
+    location
+      ? m.page_permission_title_location()
+      : camera && microphone
+        ? m.page_permission_title_both()
+        : camera
+          ? m.page_permission_title_camera()
+          : m.page_permission_title_microphone(),
   );
   let detail = $derived(
-    camera && microphone
-      ? m.page_permission_detail_both()
-      : camera
-        ? m.page_permission_detail_camera()
-        : m.page_permission_detail_microphone(),
+    location
+      ? m.page_permission_detail_location()
+      : camera && microphone
+        ? m.page_permission_detail_both()
+        : camera
+          ? m.page_permission_detail_camera()
+          : m.page_permission_detail_microphone(),
   );
+  let icon = $derived(location ? Location01Icon : camera ? Camera01Icon : Mic01Icon);
 
   onMount(() => queueMicrotask(() => denyButton?.focus()));
 
@@ -80,7 +86,7 @@
         class="flex h-9 w-9 shrink-0 items-center justify-center rounded-control-compact bg-accent-soft text-accent"
         aria-hidden="true"
       >
-        <Icon icon={camera ? Camera01Icon : Mic01Icon} size={19} />
+        <Icon {icon} size={19} />
       </span>
       <div class="min-w-0 flex-1">
         <h1 id="page-permission-title" class="text-[14px] leading-5 font-semibold text-text">

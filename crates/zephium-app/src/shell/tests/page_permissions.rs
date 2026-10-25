@@ -760,3 +760,69 @@ fn background_request_denies_without_store_or_view_work() {
         )]
     );
 }
+
+#[test]
+fn location_asks_through_the_same_prompt_and_honours_a_remembered_block() {
+    let store = Arc::new(FakeStore::default());
+    store.page_permission_load_outcomes.lock().unwrap().extend([
+        PagePermissionCatalogLoadOutcome::Loaded(empty_catalog()),
+        PagePermissionCatalogLoadOutcome::Loaded(
+            PagePermissionCatalog::new(
+                PagePermissionCatalogRevision::new(2).unwrap(),
+                vec![PagePermissionGrant {
+                    id: zephium_core::ids::PagePermissionGrantId::from(50),
+                    revision: PagePermissionGrantRevision::INITIAL,
+                    origin: PageOrigin::parse_exact("https://media.example").unwrap(),
+                    kind: PagePermissionKind::Geolocation,
+                    decision: RememberedPagePermission::Deny,
+                }],
+            )
+            .unwrap(),
+        ),
+    ]);
+    let (mut shell, engine, _screen, queue, profile, item) = ready_shell(store);
+    let location = PagePermissionRequestKind::Single(PagePermissionKind::Geolocation);
+    let first = request(21, location);
+    shell.handle(Command::Engine(EngineEvent::PermissionRequested {
+        id: item,
+        profile,
+        request: first.clone(),
+    }));
+    shell.handle(queue.recv().unwrap());
+    assert!(shell.page_permissions.visible_rememberable());
+    shell.handle(Command::Operation {
+        operation_id: "location-once".into(),
+        command: Box::new(Command::RespondToPagePermissionPrompt {
+            profile,
+            item,
+            request: first.id,
+            decision: PagePermissionPromptDecision::AllowOnce,
+        }),
+    });
+
+    let second = request(22, location);
+    shell.handle(Command::Engine(EngineEvent::PermissionRequested {
+        id: item,
+        profile,
+        request: second.clone(),
+    }));
+    shell.handle(queue.recv().unwrap());
+    assert!(!shell.page_permissions.has_pending());
+    assert_eq!(
+        engine.page_permission_settlements(),
+        vec![
+            (
+                profile,
+                item,
+                first.id,
+                PagePermissionRequestSettlement::Allow
+            ),
+            (
+                profile,
+                item,
+                second.id,
+                PagePermissionRequestSettlement::Deny
+            ),
+        ]
+    );
+}

@@ -139,9 +139,11 @@ fn request_kinds(kind: PagePermissionRequestKind) -> &'static [PagePermissionKin
     const MICROPHONE: &[PagePermissionKind] = &[PagePermissionKind::Microphone];
     const MEDIA: &[PagePermissionKind] =
         &[PagePermissionKind::Camera, PagePermissionKind::Microphone];
+    const LOCATION: &[PagePermissionKind] = &[PagePermissionKind::Geolocation];
     match kind {
         PagePermissionRequestKind::Single(PagePermissionKind::Camera) => CAMERA,
         PagePermissionRequestKind::Single(PagePermissionKind::Microphone) => MICROPHONE,
+        PagePermissionRequestKind::Single(PagePermissionKind::Geolocation) => LOCATION,
         PagePermissionRequestKind::CameraAndMicrophone => MEDIA,
         PagePermissionRequestKind::Single(_) => &[],
     }

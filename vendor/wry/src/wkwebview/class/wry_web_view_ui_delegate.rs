@@ -516,6 +516,38 @@ define_class!(
       })()
     }
   }
+
+  impl WryWebViewUIDelegate {
+    // Public on macOS 27; WebKit asks through the private spelling below on
+    // the releases before it. Each is called only when this delegate answers
+    // `respondsToSelector:`, and both settle through the same broker. They
+    // sit outside the protocol impl: objc2 verifies protocol methods against
+    // the runtime's protocol, which has neither before macOS 27 and never the
+    // private one, and fails class registration if one is missing.
+    #[cfg(target_os = "macos")]
+    #[unsafe(method(webView:requestGeolocationPermissionForOrigin:initiatedByFrame:decisionHandler:))]
+    fn request_geolocation_permission(
+      &self,
+      _webview: &WryWebView,
+      origin: &WKSecurityOrigin,
+      _frame: &WKFrameInfo,
+      decision_handler: &Block<dyn Fn(WKPermissionDecision)>,
+    ) {
+      self.geolocation_permission(origin, decision_handler);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[unsafe(method(_webView:requestGeolocationPermissionForOrigin:initiatedByFrame:decisionHandler:))]
+    fn request_geolocation_permission_before_27(
+      &self,
+      _webview: &WryWebView,
+      origin: &WKSecurityOrigin,
+      _frame: &WKFrameInfo,
+      decision_handler: &Block<dyn Fn(WKPermissionDecision)>,
+    ) {
+      self.geolocation_permission(origin, decision_handler);
+    }
+  }
 );
 
 impl WryWebViewUIDelegate {
@@ -600,6 +632,25 @@ impl WryWebViewUIDelegate {
       PermissionRequestDisposition::Defer => {}
     }
     true
+  }
+
+  #[cfg(target_os = "macos")]
+  fn geolocation_permission(
+    &self,
+    origin: &WKSecurityOrigin,
+    decision_handler: &Block<dyn Fn(WKPermissionDecision)>,
+  ) {
+    let kind = PermissionRequestKind::Single(PermissionKind::Geolocation);
+    if self.broker_permission_request(origin, kind, decision_handler) {
+      return;
+    }
+    let decision = self
+      .ivars()
+      .permission_handler
+      .as_ref()
+      .map(|handler| permission_decision(handler(PermissionKind::Geolocation)))
+      .unwrap_or(WKPermissionDecision::Deny);
+    decision_handler.call((decision,));
   }
 
   #[cfg(target_os = "macos")]

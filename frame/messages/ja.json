@@ -3084,6 +3084,8 @@
   "page_permission_detail_camera": "許可すると、このサイトはカメラを使えるようになります。",
   "page_permission_detail_microphone": "許可すると、このサイトはマイクを使えるようになります。",
   "page_permission_detail_both": "許可すると、このサイトはカメラとマイクを使えるようになります。",
+  "page_permission_title_location": "現在地を使用しますか？",
+  "page_permission_detail_location": "許可すると、このサイトはあなたの現在地を知ることができます。",
   "page_permission_ask_again": "次回、Zephium は改めて確認します。",
   "page_capture_camera": "カメラを使用中",
   "page_capture_microphone": "マイクを使用中",

@@ -316,6 +316,7 @@ pub struct ExtensionActionShortcutView {
 pub enum PagePermissionKindView {
     Camera,
     Microphone,
+    Geolocation,
 }
 
 /// One exact, foreground page-permission request. Every identity is an opaque

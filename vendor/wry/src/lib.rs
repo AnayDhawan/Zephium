@@ -972,8 +972,9 @@ struct WebViewAttributes<'a> {
   ///
   /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
   /// - **macOS / iOS**: Camera and microphone via WKUIDelegate's public media
-  ///   capture callback (macOS 12+ / iOS 15+). This is not a deny-all capability
-  ///   boundary: display capture, geolocation and WebAuthn are not routed here.
+  ///   capture callback (macOS 12+ / iOS 15+), and on macOS geolocation. This
+  ///   is not a deny-all capability boundary: display capture and WebAuthn are
+  ///   not routed here.
   /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
   /// - **Android**: Supported via JNI bridge for geolocation, microphone, camera,
   ///   protected media, and MIDI requests. Android runtime permissions may still
@@ -1576,8 +1577,9 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
   /// - **macOS / iOS**: Camera and microphone via WKUIDelegate's public media
-  ///   capture callback (macOS 12+ / iOS 15+). This is not a deny-all capability
-  ///   boundary: display capture, geolocation and WebAuthn are not routed here.
+  ///   capture callback (macOS 12+ / iOS 15+), and on macOS geolocation. This
+  ///   is not a deny-all capability boundary: display capture and WebAuthn are
+  ///   not routed here.
   /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
   /// - **Android**: Supported via JNI bridge for geolocation, microphone, camera,
   ///   protected media, and MIDI requests. Android runtime permissions may still

@@ -61,3 +61,14 @@ test("Escape answers this request only", async () => {
   await userEvent.keyboard("{Escape}");
   expect(native.respond).toHaveBeenLastCalledWith(shown, "deny_once");
 });
+
+test("a location request names what the site will learn", async () => {
+  const shown = { ...prompt(true), kinds: ["geolocation" as const] };
+  const screen = await render(PagePermissionPrompt, { prompt: shown });
+  await expect.element(screen.getByText("Know your location?")).toBeVisible();
+  await expect
+    .element(screen.getByText("Granting access lets this site know where you are."))
+    .toBeVisible();
+  await screen.getByRole("button", { name: "Allow while visiting the site" }).click();
+  expect(native.respond).toHaveBeenLastCalledWith(shown, "always_allow");
+});

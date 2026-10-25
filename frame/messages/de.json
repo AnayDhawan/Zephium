@@ -3084,6 +3084,8 @@
   "page_permission_detail_camera": "Mit dem Zugriff darf diese Website deine Kamera verwenden.",
   "page_permission_detail_microphone": "Mit dem Zugriff darf diese Website dein Mikrofon verwenden.",
   "page_permission_detail_both": "Mit dem Zugriff darf diese Website deine Kamera und dein Mikrofon verwenden.",
+  "page_permission_title_location": "Standort abfragen?",
+  "page_permission_detail_location": "Mit dem Zugriff darf diese Website deinen Standort abfragen.",
   "page_permission_ask_again": "Zephium fragt beim nächsten Mal erneut nach.",
   "page_capture_camera": "Kamera wird verwendet",
   "page_capture_microphone": "Mikrofon wird verwendet",

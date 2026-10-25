@@ -330,7 +330,13 @@ a site is allowed to show use WebView2's default notification UI; Zephium does n
 handle `NotificationReceived`. On macOS, Zephium replaces Wry's
 permission callback with a browser-owned broker that is on by default (the
 `macos-page-permission-prompts` desktop feature). It uses WebKit's structured
-security origin, retains the native completion on the main thread, and binds it to the
+security origin for camera and microphone and, for geolocation, WKUIDelegate's
+geolocation callback (public on macOS 27, the underscored spelling of the same
+selector before it; WebKit calls either only when the delegate responds to it). Agent,
+extension and privileged views do not install the broker and deny geolocation. The
+bundle declares location usage and the hardened-runtime location entitlement;
+CoreLocation still asks the person once for Zephium itself. The broker retains the
+native completion on the main thread, and binds it to the
 exact profile, item, physical view generation and committed navigation. It admits only
 the focused resident tab, loads no catalog at startup, serializes one browser-owned
 prompt, and has independent exact Shell, navigation, close/retirement, 25-second Shell
@@ -1769,7 +1775,11 @@ unknown settlement keeps the owner poisoned until recovery.
 
 The following are roadmap items or disabled backends, not current security guarantees:
 
-- on macOS, any permission beyond camera and microphone;
+- on macOS, website notifications and any permission beyond camera, microphone and
+  geolocation. WKWebView delivers the Notification API to a non-Safari app only through
+  WebKit's C notification-provider SPI or its built-in notifications, which are an
+  internal feature that is off by default and depend on Safari's push daemon and
+  private entitlement; neither is a stable path, so `Notification` stays denied;
 - on Windows, Zephium-branded notifications that focus their tab when clicked;
 - Linux as a supported platform: the code stays in the tree, but the app refuses to
   start there;

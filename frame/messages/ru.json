@@ -3084,6 +3084,8 @@
   "page_permission_detail_camera": "Разрешив доступ, вы позволите этому сайту использовать камеру.",
   "page_permission_detail_microphone": "Разрешив доступ, вы позволите этому сайту использовать микрофон.",
   "page_permission_detail_both": "Разрешив доступ, вы позволите этому сайту использовать камеру и микрофон.",
+  "page_permission_title_location": "Определять ваше местоположение?",
+  "page_permission_detail_location": "Если разрешить доступ, этот сайт сможет узнать, где вы находитесь.",
   "page_permission_ask_again": "Zephium спросит снова в следующий раз.",
   "page_capture_camera": "Камера используется",
   "page_capture_microphone": "Микрофон используется",

@@ -3084,6 +3084,8 @@
   "page_permission_detail_camera": "Erişim verdiğinizde bu site kameranızı kullanabilir.",
   "page_permission_detail_microphone": "Erişim verdiğinizde bu site mikrofonunuzu kullanabilir.",
   "page_permission_detail_both": "Erişim verdiğinizde bu site kameranızı ve mikrofonunuzu kullanabilir.",
+  "page_permission_title_location": "Konumunuz kullanılsın mı?",
+  "page_permission_detail_location": "Erişim verdiğinizde bu site nerede olduğunuzu bilebilir.",
   "page_permission_ask_again": "Zephium bir dahaki sefere yeniden soracak.",
   "page_capture_camera": "Kamera kullanımda",
   "page_capture_microphone": "Mikrofon kullanımda",

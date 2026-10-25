@@ -3084,6 +3084,8 @@
   "page_permission_detail_camera": "En accordant l’accès, ce site peut utiliser votre caméra.",
   "page_permission_detail_microphone": "En accordant l’accès, ce site peut utiliser votre micro.",
   "page_permission_detail_both": "En accordant l’accès, ce site peut utiliser votre caméra et votre micro.",
+  "page_permission_title_location": "Connaître votre position ?",
+  "page_permission_detail_location": "En accordant l’accès, ce site peut connaître votre position.",
   "page_permission_ask_again": "Zephium demandera à nouveau la prochaine fois.",
   "page_capture_camera": "Caméra utilisée",
   "page_capture_microphone": "Micro utilisé",

@@ -3084,6 +3084,8 @@
   "page_permission_detail_camera": "허용하면 이 사이트가 카메라를 사용할 수 있어요.",
   "page_permission_detail_microphone": "허용하면 이 사이트가 마이크를 사용할 수 있어요.",
   "page_permission_detail_both": "허용하면 이 사이트가 카메라와 마이크를 사용할 수 있어요.",
+  "page_permission_title_location": "위치를 확인할까요?",
+  "page_permission_detail_location": "허용하면 이 사이트가 내 위치를 알 수 있어요.",
   "page_permission_ask_again": "다음에 Zephium이 다시 물어볼 거예요.",
   "page_capture_camera": "카메라 사용 중",
   "page_capture_microphone": "마이크 사용 중",

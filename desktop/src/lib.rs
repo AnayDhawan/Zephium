@@ -9072,6 +9072,16 @@ mod tests {
         ));
         assert!(plist.contains("<key>NSSpeechRecognitionUsageDescription</key>"));
         assert!(plist.contains("Zephium turns what you dictate in Work into text on this Mac."));
+        for key in [
+            "NSLocationUsageDescription",
+            "NSLocationWhenInUseUsageDescription",
+        ] {
+            assert!(plist.contains(&format!("<key>{key}</key>")), "{key}");
+        }
+        let entitlements = include_str!("../Entitlements.plist");
+        assert!(
+            entitlements.contains("<key>com.apple.security.personal-information.location</key>")
+        );
     }
 
     #[test]

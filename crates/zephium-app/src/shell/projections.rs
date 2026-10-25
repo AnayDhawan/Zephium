@@ -579,10 +579,12 @@ fn page_permission_kind_view(
         zephium_core::permissions::PagePermissionKind::Microphone => {
             Some(PagePermissionKindView::Microphone)
         }
-        // The current native broker never admits these capabilities. Keep the
+        zephium_core::permissions::PagePermissionKind::Geolocation => {
+            Some(PagePermissionKindView::Geolocation)
+        }
+        // The native broker never admits these capabilities. Keep the
         // projection total while preserving a closed UI vocabulary.
-        zephium_core::permissions::PagePermissionKind::Geolocation
-        | zephium_core::permissions::PagePermissionKind::Notifications
+        zephium_core::permissions::PagePermissionKind::Notifications
         | zephium_core::permissions::PagePermissionKind::ClipboardRead => None,
     }
 }

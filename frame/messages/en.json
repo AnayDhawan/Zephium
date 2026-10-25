@@ -3084,6 +3084,8 @@
   "page_permission_detail_camera": "Granting access lets this site use your camera.",
   "page_permission_detail_microphone": "Granting access lets this site use your microphone.",
   "page_permission_detail_both": "Granting access lets this site use your camera and microphone.",
+  "page_permission_title_location": "Know your location?",
+  "page_permission_detail_location": "Granting access lets this site know where you are.",
   "page_permission_ask_again": "Zephium will ask again next time.",
   "page_capture_camera": "Camera in use",
   "page_capture_microphone": "Microphone in use",
