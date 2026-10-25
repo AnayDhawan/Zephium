@@ -563,6 +563,7 @@ fn scrub_profile_database(path: &Path) -> rusqlite::Result<()> {
          DELETE FROM history;
          DELETE FROM history_usage;
          DELETE FROM favicons;
+         DELETE FROM page_favicons;
          DELETE FROM settings;
          DELETE FROM items;
          DELETE FROM spaces;
@@ -634,6 +635,11 @@ mod tests {
                 format!("https://history.example/{PROFILE_SCRUB_MARKER}"),
                 PROFILE_SCRUB_MARKER
             ],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO page_favicons(page, icon, fetched_at) VALUES (?1, zeroblob(4096), 1)",
+            [format!("https://history.example/{PROFILE_SCRUB_MARKER}")],
         )
         .unwrap();
         conn.execute(
@@ -749,6 +755,7 @@ mod tests {
             "history_fts_idx",
             "history_usage",
             "items",
+            "page_favicons",
             "page_permission_catalog",
             "page_permission_grants",
             "resource_titles_fts",
@@ -817,6 +824,7 @@ mod tests {
             "history",
             "history_usage",
             "favicons",
+            "page_favicons",
             "settings",
             "userscript_catalog",
             "userscripts",

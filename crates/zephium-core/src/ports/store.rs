@@ -626,7 +626,9 @@ pub trait Store {
     }
     /// Replaces the placeholder title on the newest recent visit to an address.
     fn amend_visit_title(&self, profile: ProfileId, url: String, title: String) -> bool;
-    /// Age in seconds of the cached icon for a page origin, None when absent.
+    /// Age in seconds of the cached icon for a favicon key, None when absent.
+    /// A key is a page origin, or one page of it (`icon::page_key`) whose own
+    /// icon differs from its origin's.
     fn favicon_age(&self, profile: ProfileId, origin: &str) -> Option<i64>;
     fn save_favicon(
         &self,
@@ -636,6 +638,8 @@ pub trait Store {
         bytes: Vec<u8>,
     );
     fn favicon_bytes(&self, profile: ProfileId, origin: &str) -> Option<(Option<String>, Vec<u8>)>;
+    /// Drops the icon kept for one page, as when it now matches its origin's.
+    fn forget_page_favicon(&self, _profile: ProfileId, _page: String) {}
 
     /// Loads one already-decoded favicon with the age of the stored copy.
     /// Age decides whether to refresh, never whether to display: an old

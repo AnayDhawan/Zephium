@@ -69,7 +69,7 @@ pub(crate) use compatibility::LEGACY_IMPORT_STATE_KEY;
 #[cfg(test)]
 pub(crate) use compatibility::{LEGACY_HISTORY_MARKER, MAX_SPLIT_JSON_BYTES};
 use deletion::deletion_process_generation;
-pub(crate) use favicons::{valid_favicon_origin, validated_favicon};
+pub(crate) use favicons::{valid_favicon_key, validated_favicon};
 pub(crate) use history::{
     MAX_HISTORY_BYTES, MAX_HISTORY_FORGET_URLS, MAX_HISTORY_PAGE, MAX_HISTORY_QUERY_BYTES,
     MAX_HISTORY_RESULTS,

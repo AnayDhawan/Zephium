@@ -419,6 +419,7 @@ enum Cmd {
     FaviconAge(ProfileId, String, Sender<Option<i64>>),
     FaviconRasterWithAge(ProfileId, String, Sender<Option<(Vec<u8>, i64)>>),
     SaveFavicon(ProfileId, String, Option<String>, Vec<u8>),
+    ForgetPageFavicon(ProfileId, String),
     FaviconBytes(ProfileId, String, Sender<Option<(Option<String>, Vec<u8>)>>),
     FaviconRasters(ProfileId, Vec<String>, Sender<Vec<(String, Vec<u8>)>>),
     PendingProfileDeletions(Sender<ProfileDeletionLoad>),
@@ -1215,7 +1216,7 @@ impl Store for SqliteStore {
     }
 
     fn favicon_age(&self, profile: ProfileId, origin: &str) -> Option<i64> {
-        if !hub::valid_favicon_origin(origin) {
+        if !hub::valid_favicon_key(origin) {
             return None;
         }
         let (tx, rx) = mpsc::channel();
@@ -1240,8 +1241,14 @@ impl Store for SqliteStore {
             .try_send(Cmd::SaveFavicon(profile, origin, Some(content_type), bytes));
     }
 
+    fn forget_page_favicon(&self, profile: ProfileId, page: String) {
+        if hub::valid_favicon_key(&page) {
+            let _ = self.tx.try_send(Cmd::ForgetPageFavicon(profile, page));
+        }
+    }
+
     fn favicon_bytes(&self, profile: ProfileId, origin: &str) -> Option<(Option<String>, Vec<u8>)> {
-        if !hub::valid_favicon_origin(origin) {
+        if !hub::valid_favicon_key(origin) {
             return None;
         }
         let (tx, rx) = mpsc::channel();
@@ -1252,7 +1259,7 @@ impl Store for SqliteStore {
     }
 
     fn favicon_raster_with_age(&self, profile: ProfileId, origin: &str) -> Option<(Vec<u8>, i64)> {
-        if !hub::valid_favicon_origin(origin) {
+        if !hub::valid_favicon_key(origin) {
             return None;
         }
         let (tx, rx) = mpsc::channel();
@@ -1264,9 +1271,7 @@ impl Store for SqliteStore {
 
     fn favicon_rasters(&self, profile: ProfileId, origins: &[String]) -> Vec<(String, Vec<u8>)> {
         if origins.len() > MAX_FAVICON_BATCH_ORIGINS
-            || origins
-                .iter()
-                .any(|origin| !hub::valid_favicon_origin(origin))
+            || origins.iter().any(|origin| !hub::valid_favicon_key(origin))
         {
             return Vec::new();
         }
@@ -2017,6 +2022,9 @@ fn actor(
             }
             Some(Cmd::SaveFavicon(profile, origin, content_type, bytes)) => {
                 hub.save_favicon(profile, &origin, content_type.as_deref(), &bytes);
+            }
+            Some(Cmd::ForgetPageFavicon(profile, page)) => {
+                hub.forget_page_favicon(profile, &page);
             }
             Some(Cmd::FaviconBytes(profile, origin, reply)) => {
                 let _ = reply.send(hub.favicon_bytes(profile, &origin));
