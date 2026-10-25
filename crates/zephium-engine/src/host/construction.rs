@@ -1907,6 +1907,24 @@ impl EngineHost {
                 }
                 return None;
             }
+            // WebView2's own password and form autofill, saved in this
+            // profile's data folder, until Zephium has its own manager.
+            // Private tabs and agent views keep it off.
+            if !matches!(partition, Partition::Ephemeral(_))
+                && unsafe { view.webview().Settings() }
+                    .and_then(|settings| {
+                        windows_core::Interface::cast::<
+                            webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings4,
+                        >(&settings)
+                    })
+                    .and_then(|settings| unsafe {
+                        settings.SetIsPasswordAutosaveEnabled(true)?;
+                        settings.SetIsGeneralAutofillEnabled(true)
+                    })
+                    .is_err()
+            {
+                eprintln!("engine: WebView2 autofill could not be enabled");
+            }
             debug_assert!(!self.construction_unproven.contains(&partition.profile()));
         }
         #[cfg(target_os = "macos")]

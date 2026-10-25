@@ -1240,7 +1240,10 @@ These inherited properties must not be overstated:
   password autosave/general autofill, and installs permission denial. Any failure aborts
   startup.
   Raw content requires Settings4, disables password autosave and general autofill, and
-  reads both values back before navigation. It also disables browser accelerator keys
+  reads both values back before navigation. Only a constructed human view in a
+  persistent profile then turns both back on, so WebView2 saves and fills
+  passwords and forms in that profile's data folder; private and agent views
+  keep them off. It also disables browser accelerator keys
   and default context menus and requires Settings7 to hide PDF Save, Save As, and Print.
   Privileged downloads remain denied; raw human views use the native download adapter. Both view classes replace Wry's
   broader default browser arguments with only the `msWebOOUI`/`msPdfOOUI` suppressions,
