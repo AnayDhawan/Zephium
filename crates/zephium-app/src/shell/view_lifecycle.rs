@@ -986,21 +986,20 @@ impl Shell {
         self.residency.last_shown = shown.clone();
     }
 
-    fn retire_crashed_view(&mut self, id: ItemId) {
+    /// A shown tab's crash is said in its pane. A hidden one (often reclaimed
+    /// by the system for memory) just sleeps and reloads when opened.
+    fn retire_crashed_view(&mut self, id: ItemId, shown: bool) {
         // Renderer death is physical retirement proof and supersedes an
         // unfinished discard. Its old terminal callback may never arrive.
         self.clear_discard_after_retirement(id);
         self.record_view_retirement(id);
         self.zoom.pending.remove(&id);
-        let title = self.items.tab(id).map(|tab| tab.title.clone());
-        self.items.view_creation_failed(id);
-        if let Some(title) = title {
-            // `view_creation_failed` owns the generic create-failure label.
-            // A renderer crash is different: its label is transient chrome
-            // state and must not replace the last committed document title.
-            self.items.set_title(id, title);
+        self.items.mark_view_discarded(id);
+        if shown {
+            self.crash.presentations.insert(id);
+        } else {
+            self.crash.presentations.remove(&id);
         }
-        self.crash.presentations.insert(id);
     }
 
     fn clear_discard_after_retirement(&mut self, id: ItemId) {
@@ -1024,15 +1023,15 @@ impl Shell {
         // and revoked the exact native-view generation. Sending a second,
         // id-only close here could be reordered behind recovery and destroy
         // the replacement generation.
-        self.retire_crashed_view(id);
+        let active = self.windows.focused().and_then(|window| window.active);
+        let visible = active == Some(id) || self.work_pane_shows(id);
+        self.retire_crashed_view(id, visible);
         self.items.set_loading(id, false);
         let recent = self
             .crash
             .crashes
             .insert(id, std::time::Instant::now())
             .is_some_and(|t| t.elapsed() < RETRY_WINDOW);
-        let active = self.windows.focused().and_then(|window| window.active);
-        let visible = active == Some(id) || self.work_pane_shows(id);
         let effects = if !recent && visible {
             self.items.ensure_view(id)
         } else {
@@ -1069,7 +1068,7 @@ impl Shell {
                 .crashes
                 .insert(id, std::time::Instant::now())
                 .is_some_and(|time| time.elapsed() < RETRY_WINDOW);
-            self.retire_crashed_view(id);
+            self.retire_crashed_view(id, visible.contains(&id));
             // A browser-process loss can report hundreds of tabs at once.
             // Recreate every currently visible split leaf, because native
             // layout admission requires a live token for every leaf. Hidden

@@ -10,6 +10,7 @@
   // never a startup request.
   const loadNotesPage = () => import("$features/notes").then((notes) => notes.loadNotesPage());
   import LazyView from "$shared/ui/LazyView";
+  import type { TabView } from "$shared/ipc/bindings";
   import RenderBoundary from "$shared/ui/RenderBoundary";
   import { loadSettings } from "$features/settings";
   import { EssentialTile } from "$features/essentials";
@@ -257,13 +258,19 @@
       else if (!tab || tab.url || tab.id !== newTabLoad) newTabLoad = null;
     });
   });
+  // A tab with nothing to show (a first load that failed, a restored page
+  // that did not load, a crash it could not recover from) says why in its pane.
+  function failedPane(tab: TabView): boolean {
+    return !!tab.failure && !tab.loading && (!tab.url || tab.availability?.state === "sleeping");
+  }
   // A load that failed over a page still showing leaves that page in place;
   // a notice says the new address did not open.
   let failureNoticed: string | null = null;
   $effect(() => {
     const tab = tabs.activeTab();
     const failure = tab?.failure;
-    const key = failure && tab.url ? `${tab.id} ${failure.url} ${failure.reason}` : null;
+    const key =
+      failure && tab.url && !failedPane(tab) ? `${tab.id} ${failure.url} ${failure.reason}` : null;
     untrack(() => {
       if (key === null || key === failureNoticed) return;
       failureNoticed = key;
@@ -466,10 +473,10 @@
             >{#snippet children(View)}<View tab={capacityTab} />{/snippet}</LazyView
           >{/if}
       </main>
-    {:else if tabs.activeTab()?.failure && !tabs.activeTab()?.url && !tabs.activeTab()?.loading && browserPage.currentPage() === null}
+    {:else if tabs.activeTab() && failedPane(tabs.activeTab()!) && browserPage.currentPage() === null}
       {@const failedTab = tabs.activeTab()}
       {@const failure = failedTab?.failure}
-      <!-- A first load that failed: the pane says why instead of a blank new tab. -->
+      <!-- A page that could not be shown: the pane says why instead of staying blank. -->
       <main class="min-w-0 flex-1 ps-2">
         <div class="content-pane h-full w-full overflow-hidden">
           {#if failedTab && failure}<LazyView

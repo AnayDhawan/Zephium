@@ -20,22 +20,28 @@
     unreachable: m.navigation_error_unreachable,
     timed_out: m.navigation_error_timed_out,
     insecure: m.navigation_error_insecure,
+    crashed: m.navigation_error_crashed,
     other: m.navigation_error_other,
   };
 </script>
 
 <!--
-  A page the person asked for did not load. Chrome says why in plain words and
-  offers the same address again; a secure-connection failure has no way past.
+  A page the person asked for did not load, or its process ended. Chrome says
+  why in plain words and offers the same address again; a secure-connection
+  failure has no way past.
 -->
 <div class="failed-page" role="alert">
   <h1>
     {failure.reason === "insecure"
       ? m.navigation_error_insecure_title({ host })
-      : m.navigation_error_title({ host })}
+      : failure.reason === "crashed"
+        ? m.navigation_error_crashed_title({ host })
+        : m.navigation_error_title({ host })}
   </h1>
   <p>{help[failure.reason]()}</p>
-  <Button onclick={() => tabs.navigate(tab.id, failure.url)}>{m.surface_retry()}</Button>
+  <Button onclick={() => tabs.navigate(tab.id, failure.url)}
+    >{failure.reason === "crashed" ? m.navigation_error_reload() : m.surface_retry()}</Button
+  >
 </div>
 
 <style>

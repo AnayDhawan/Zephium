@@ -98,6 +98,8 @@ pub enum TabFailureReason {
     Unreachable,
     TimedOut,
     Insecure,
+    /// The page's process ended and it could not be brought back on its own.
+    Crashed,
     Other,
 }
 

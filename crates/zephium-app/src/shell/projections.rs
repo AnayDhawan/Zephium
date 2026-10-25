@@ -484,8 +484,11 @@ impl Shell {
         icon: Option<zephium_ipc::IconRef>,
     ) -> TabView {
         let mut view = tab_view(id, tab, icon, self.next_projection_revision());
-        if self.crash.presentations.contains(&id) {
-            view.title = "Page crashed".into();
+        if self.crash.presentations.contains(&id) && view.failure.is_none() {
+            view.failure = view.url.clone().map(|url| zephium_ipc::TabFailure {
+                url,
+                reason: zephium_ipc::TabFailureReason::Crashed,
+            });
         }
         view.availability = self.capacity_presentation(id).or_else(|| {
             (!tab.has_view()

@@ -2925,7 +2925,9 @@ export type TabFailure = {
 	reason: TabFailureReason,
 };
 
-export type TabFailureReason = "offline" | "host_not_found" | "unreachable" | "timed_out" | "insecure" | "other";
+export type TabFailureReason = "offline" | "host_not_found" | "unreachable" | "timed_out" | "insecure" |
+/**  The page's process ended and it could not be brought back on its own. */
+"crashed" | "other";
 
 /**
  *  What the tab menu can offer for the tab it opens on, as the sidebar sees

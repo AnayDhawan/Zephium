@@ -39,6 +39,10 @@ pub struct Items {
     // use TabState::url, which changes only after an authoritative native
     // UrlChanged observation.
     pending_navigations: HashMap<ItemId, PendingNavigation>,
+    /// The address a native view was created for, until its first document
+    /// commits. A first load that fails has no page to show, so this is what
+    /// chrome names and offers again, also for restored tabs.
+    opening: HashMap<ItemId, Url>,
     next_navigation_request: u64,
 }
 
@@ -289,6 +293,7 @@ impl Items {
         while let Some(next) = stack.pop() {
             stack.extend(self.children.remove(&next).unwrap_or_default());
             self.pending_navigations.remove(&next);
+            self.opening.remove(&next);
             if let Some(removed) = self.items.remove(&next) {
                 if removed.tab().is_some_and(TabState::has_view) {
                     effects.push(Effect::Close { id: next });
@@ -367,6 +372,7 @@ impl Items {
         }
         for id in ordered {
             self.pending_navigations.remove(&id);
+            self.opening.remove(&id);
             self.items.remove(&id);
         }
         self.roots.retain(|_, roots| !roots.is_empty());
@@ -401,12 +407,20 @@ impl Items {
             return Vec::new();
         };
         tab.failure = None;
-        let url = url.to_string();
         if tab.view {
-            vec![Effect::Navigate { id, url, request }]
+            vec![Effect::Navigate {
+                id,
+                url: url.to_string(),
+                request,
+            }]
         } else {
             tab.view = true;
-            vec![Effect::CreateView { id, url }]
+            let effect = Effect::CreateView {
+                id,
+                url: url.to_string(),
+            };
+            self.opening.insert(id, url);
+            vec![effect]
         }
     }
 
@@ -473,10 +487,12 @@ impl Items {
             if tab.content == TabContent::Web && !tab.view {
                 if let Some(url) = tab.url.clone() {
                     tab.view = true;
-                    return vec![Effect::CreateView {
+                    let effect = Effect::CreateView {
                         id,
                         url: url.to_string(),
-                    }];
+                    };
+                    self.opening.insert(id, url);
+                    return vec![effect];
                 }
             }
         }
@@ -514,6 +530,7 @@ impl Items {
     /// exact view generation and released its same-id reuse gate.
     pub fn mark_view_discarded(&mut self, id: ItemId) -> bool {
         self.pending_navigations.remove(&id);
+        self.opening.remove(&id);
         let Some(tab) = self.tab_mut(id) else {
             return false;
         };
@@ -542,14 +559,36 @@ impl Items {
     /// Roll back the optimistic `view` bit when the native engine cannot
     /// create a controller. The next explicit navigation/activation can then
     /// retry instead of leaving an unrecoverable blank tab.
+    /// A tab whose page could not be opened keeps its address and says why,
+    /// with the address to try again, instead of an empty pane.
     pub fn view_creation_failed(&mut self, id: ItemId) {
-        self.pending_navigations.remove(&id);
+        let pending = self
+            .pending_navigations
+            .remove(&id)
+            .and_then(|pending| pending.url);
+        let opening = self.opening.remove(&id);
         if let Some(tab) = self.tab_mut(id) {
             tab.view = false;
             tab.capture = None;
             tab.loading = false;
             tab.lifecycle = Lifecycle::Hibernated;
-            tab.title = "Page failed to open".into();
+            if tab.content == TabContent::Web && tab.failure.is_none() {
+                if let Some(url) = pending.or(opening).or_else(|| tab.url.clone()) {
+                    tab.failure = Some(Box::new(crate::item::NavigationFailure {
+                        url,
+                        reason: crate::ports::engine::NavigationFailureReason::Other,
+                    }));
+                }
+            }
+            if tab.url.is_none() {
+                if let Some(host) = tab
+                    .failure
+                    .as_ref()
+                    .and_then(|failure| failure.url.host_str())
+                {
+                    tab.title = host.to_owned();
+                }
+            }
         }
     }
 
@@ -613,6 +652,7 @@ impl Items {
             tab.page_request = None;
             tab.failure = None;
             self.pending_navigations.remove(&id);
+            self.opening.remove(&id);
             true
         } else {
             false
@@ -632,9 +672,9 @@ impl Items {
         current
     }
 
-    /// Remembers why the address the person asked for did not load, so chrome
-    /// can say so and offer it again. A page's own navigation has no pending
-    /// address and is left alone.
+    /// Remembers why the address the person asked for, or the one a view was
+    /// opened for, did not load, so chrome can say so and offer it again. A
+    /// page's own navigation away from a shown document is left alone.
     pub fn record_navigation_failure(
         &mut self,
         id: ItemId,
@@ -644,6 +684,7 @@ impl Items {
             .pending_navigations
             .get(&id)
             .and_then(|pending| pending.url.clone())
+            .or_else(|| self.opening.get(&id).cloned())
         else {
             return false;
         };
@@ -853,6 +894,37 @@ mod tests {
             kind: ItemKind::Tab(TabState::new()),
         }));
         assert_eq!(items.items.len(), crate::session::MAX_ITEM_TREE_DEPTH + 1);
+    }
+
+    #[test]
+    fn a_restored_page_that_fails_to_load_keeps_its_address_and_reason() {
+        use crate::ports::engine::NavigationFailureReason as Reason;
+        let mut items = Items::default();
+        let url = Url::parse("http://localhost:5173/app").unwrap();
+        assert!(items.insert_unloaded_tab(id(1), today(), url.clone(), "Dev app"));
+        assert_eq!(items.ensure_view(id(1)).len(), 1);
+
+        assert!(items.record_navigation_failure(id(1), Reason::Unreachable));
+        items.view_creation_failed(id(1));
+
+        let tab = items.tab(id(1)).unwrap();
+        assert!(!tab.has_view());
+        assert_eq!(tab.title, "Dev app");
+        assert_eq!(tab.url.as_ref(), Some(&url));
+        let failure = tab.failure.as_deref().unwrap();
+        assert_eq!((&failure.url, failure.reason), (&url, Reason::Unreachable));
+    }
+
+    #[test]
+    fn a_page_navigation_after_commit_is_not_a_tab_failure() {
+        use crate::ports::engine::NavigationFailureReason as Reason;
+        let mut items = Items::default();
+        assert!(items.insert_tab(id(1), today()));
+        items.navigate(id(1), "example.com");
+        assert!(items.set_committed_url_str(id(1), "https://example.com/"));
+
+        assert!(!items.record_navigation_failure(id(1), Reason::Offline));
+        assert!(items.tab(id(1)).unwrap().failure.is_none());
     }
 
     #[test]
