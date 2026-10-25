@@ -315,6 +315,8 @@ pub enum Command {
     Focus(zephium_ipc::FocusControl),
     /// The running focus session reached its next change.
     FocusWake,
+    /// A quiet tab's speaker is due to go.
+    AudioWake,
     /// Writes what was read from another browser into the focused profile,
     /// restoring the session first when it has not been yet (onboarding).
     Import {
@@ -431,6 +433,11 @@ pub enum Command {
     StopMediaCapture {
         item: ItemId,
         navigation: zephium_core::ports::engine::NavigationPresentationId,
+    },
+    /// Mutes or unmutes one tab for as long as it is open.
+    SetTabMuted {
+        id: ItemId,
+        muted: bool,
     },
     /// The sidebar's width, and whether it changed by a deliberate change of
     /// shape — a toggle, a snap, a tool opening — that the content should

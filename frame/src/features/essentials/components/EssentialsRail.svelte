@@ -10,6 +10,7 @@
   import type { TabView } from "$shared/ipc/bindings";
   import FavIcon from "$shared/ui/FavIcon";
   import CaptureControl from "$shared/ui/CaptureControl";
+  import AudioControl from "$shared/ui/AudioControl";
   import { stopCaptureFor } from "$domain/capture";
   import { favicons } from "$domain/favicons";
 
@@ -95,6 +96,13 @@
         />
         <span data-zephium-tab-label class="sr-only">{tab.title}</span>
       </button>
+      {#if tab.audio}<span class="audio-badge"
+          ><AudioControl
+            badge
+            audio={tab.audio}
+            onToggle={(muted) => void tabs.setMuted(tab.id, muted)}
+          /></span
+        >{/if}
       {#if tab.capture}
         <span class="capture-badge">
           {#key tab.capture.navigation_id}<CaptureControl
@@ -122,6 +130,12 @@
 <style>
   .rail-sites > li {
     position: relative;
+  }
+
+  .audio-badge {
+    position: absolute;
+    inset-inline-start: -4px;
+    inset-block-end: -3px;
   }
 
   .capture-badge {

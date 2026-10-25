@@ -334,6 +334,7 @@ pub(crate) struct FakeEngine {
     reject_discard_dispatch: std::sync::atomic::AtomicBool,
     reject_native_dispatch: std::sync::atomic::AtomicBool,
     native_favicons: std::sync::atomic::AtomicBool,
+    cannot_mute: std::sync::atomic::AtomicBool,
     unsupported_presentation: std::sync::atomic::AtomicBool,
     runtime_restart_required: std::sync::atomic::AtomicBool,
     runtime_security_advisories: Mutex<zephium_core::runtime_security::RuntimeSecurityAdvisories>,
@@ -743,8 +744,15 @@ impl Engine for FakeEngine {
         }
         admission
     }
-    fn set_muted(&self, _id: ItemId, _muted: bool) -> NativeDispatch {
-        NativeDispatch::Unsupported
+    fn set_muted(&self, id: ItemId, muted: bool) -> NativeDispatch {
+        if !self.can_mute() {
+            return NativeDispatch::Unsupported;
+        }
+        self.log(format!("mute {id} {muted}"));
+        self.native_admission()
+    }
+    fn can_mute(&self) -> bool {
+        !self.cannot_mute.load(std::sync::atomic::Ordering::Acquire)
     }
     fn find(
         &self,
@@ -2096,6 +2104,7 @@ fn acknowledge_safe_discard(shell: &mut Shell, id: ItemId, probe: DiscardProbeId
 }
 
 mod actor_integration;
+mod audio;
 mod blocker;
 mod bootstrap;
 mod engine_events;

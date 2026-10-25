@@ -12,6 +12,8 @@
   import { favicons } from "$domain/favicons";
   import Icon from "$shared/ui/Icon";
   import CaptureControl from "$shared/ui/CaptureControl";
+  import AudioControl from "$shared/ui/AudioControl";
+  import { tabs } from "$domain/tabs";
   import { stopCaptureFor } from "$domain/capture";
   import { closeOnMiddleClick } from "../lib/middle-click";
 
@@ -98,15 +100,20 @@
     />
     <span data-zephium-tab-label class="tab-label">{tab.title}</span>
   </button>
-  {#if tab.capture}
-    <span style:margin-inline-end={closable ? "28px" : "4px"}>
-      {#key tab.capture.navigation_id}
-        <CaptureControl
-          site={tab.url ?? tab.title}
-          capture={tab.capture}
-          onStop={stopCaptureFor(tab.id, tab.capture.navigation_id)}
-        />
-      {/key}
+  {#if tab.audio || tab.capture}
+    <span class="tab-status" style:margin-inline-end={closable ? "28px" : "4px"}>
+      {#if tab.audio}
+        <AudioControl audio={tab.audio} onToggle={(muted) => void tabs.setMuted(tab.id, muted)} />
+      {/if}
+      {#if tab.capture}
+        {#key tab.capture.navigation_id}
+          <CaptureControl
+            site={tab.url ?? tab.title}
+            capture={tab.capture}
+            onStop={stopCaptureFor(tab.id, tab.capture.navigation_id)}
+          />
+        {/key}
+      {/if}
     </span>
   {/if}
   {#if closable}
@@ -217,6 +224,13 @@
   .browse-tab:is(:hover, :focus-within) .tab-label,
   :global([data-close-buttons="always"]) .browse-tab:has(.tab-close) .tab-label {
     margin-inline-end: 22px;
+  }
+
+  .tab-status {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 2px;
   }
 
   .tab-close {

@@ -8,6 +8,7 @@ impl Shell {
             Command::StopMediaCapture { item, navigation } => {
                 self.operation_stop_media_capture(item, navigation)
             }
+            Command::SetTabMuted { id, muted } => self.operation_set_tab_muted(id, muted),
             Command::ShowBrowserPage(page) => self.operation_show_browser_page(page),
             Command::WorkPaneShow { target, rect } => self.operation_work_pane_show(target, rect),
             Command::WorkPaneHide => self.operation_work_pane_hide(),

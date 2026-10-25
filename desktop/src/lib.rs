@@ -1752,6 +1752,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             browser_credentials::browser_passkey_authorization_request,
             page_permission_respond,
             capture_stop,
+            tab_set_muted,
             blocker_status,
             blocker_stats,
             blocker_set_enabled,
@@ -2983,6 +2984,22 @@ fn tabs_reload(
 
 #[tauri::command]
 #[specta::specta]
+fn tab_set_muted(
+    caller: WebviewWindow,
+    shell: State<'_, Handle>,
+    id: String,
+    muted: bool,
+) -> zephium_ipc::OperationAdmission {
+    if !authorize(&caller, CallerPolicy::Main, "tab_set_muted") {
+        return rejected_operation();
+    }
+    dispatch_with_id(caller.app_handle(), &shell, &id, |id| {
+        Command::SetTabMuted { id, muted }
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
 fn tabs_back(
     caller: WebviewWindow,
     shell: State<'_, Handle>,
@@ -3744,6 +3761,14 @@ fn execute_tab_menu_action(
         "closeOthers" => dispatch_operation(app, &shell, tab_action(TabAction::CloseOthers)),
         "closeBelow" => dispatch_operation(app, &shell, tab_action(TabAction::CloseBelow)),
         "keep" => dispatch_operation(app, &shell, keep(true)),
+        "mute" | "unmute" => dispatch_operation(
+            app,
+            &shell,
+            Command::SetTabMuted {
+                id,
+                muted: action == "mute",
+            },
+        ),
         "unkeep" => dispatch_operation(app, &shell, keep(false)),
         "split" => dispatch_operation(
             app,
@@ -5512,7 +5537,7 @@ const BOOKMARK_MENU_ACTION_IDS: [&str; 6] = [
     "bookmarkmenu.removeFolder",
 ];
 
-const TAB_MENU_ACTION_IDS: [&str; 10] = [
+const TAB_MENU_ACTION_IDS: [&str; 12] = [
     "tabmenu.reload",
     "tabmenu.duplicate",
     "tabmenu.copyLink",
@@ -5523,6 +5548,8 @@ const TAB_MENU_ACTION_IDS: [&str; 10] = [
     "tabmenu.close",
     "tabmenu.closeOthers",
     "tabmenu.closeBelow",
+    "tabmenu.mute",
+    "tabmenu.unmute",
 ];
 
 /// What the tab menu can offer for the tab it opens on, as the sidebar sees
@@ -5537,6 +5564,8 @@ struct TabMenuContext {
     others: bool,
     /// Open tabs follow this one.
     below: bool,
+    /// The person muted this tab.
+    muted: bool,
 }
 
 /// `site_protected` is the page's protection standing, absent where site
@@ -5693,6 +5722,13 @@ fn build_tab_menu(
         item(4, "Add to Essentials", context.page)?
     };
     let split = item(6, "Open in Split View", context.can_split)?;
+    let mute = if !zephium_engine::page_mute_supported() {
+        None
+    } else if context.muted {
+        Some(item(11, "Unmute Tab", true)?)
+    } else {
+        Some(item(10, "Mute Tab", context.page)?)
+    };
     let second = PredefinedMenuItem::separator(handle)?;
     let close = item(7, "Close Tab", true)?;
     let others = item(8, "Close Other Tabs", context.others)?;
@@ -5708,6 +5744,9 @@ fn build_tab_menu(
     ];
     if let Some(move_to) = &move_to {
         items.push(move_to);
+    }
+    if let Some(mute) = &mute {
+        items.push(mute);
     }
     items.extend([
         &second as &dyn tauri::menu::IsMenuItem<tauri::Wry>,
@@ -7443,7 +7482,9 @@ mod tests {
                 "tabmenu.split",
                 "tabmenu.close",
                 "tabmenu.closeOthers",
-                "tabmenu.closeBelow"
+                "tabmenu.closeBelow",
+                "tabmenu.mute",
+                "tabmenu.unmute"
             ]
         );
         // Context-menu actions carry their own target and must never collide

@@ -1126,6 +1126,7 @@ impl RetirementGate {
             | event @ EngineEvent::NativeActionFailed { id, .. }
             | event @ EngineEvent::LoadingChanged { id, .. }
             | event @ EngineEvent::MediaCaptureChanged { id, .. }
+            | event @ EngineEvent::AudioChanged { id, .. }
             | event @ EngineEvent::FullscreenChanged { id, .. }
             | event @ EngineEvent::FaviconPixels { id, .. }
             | event @ EngineEvent::FaviconRasterFailed { id, .. }
@@ -2122,6 +2123,23 @@ impl WebviewEngine {
     }
 }
 
+/// Whether a tab can be muted on this system: WebView2 always, WebKit when
+/// it has the page-mute SPI.
+pub fn page_mute_supported() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        platform::macos::audio::mute_supported()
+    }
+    #[cfg(target_os = "windows")]
+    {
+        true
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        false
+    }
+}
+
 impl Engine for WebviewEngine {
     fn set_focus_gate(&self, gate: Option<zephium_core::time::FocusGate>) {
         let _ = self.run(move || {
@@ -2943,8 +2961,23 @@ impl Engine for WebviewEngine {
         self.run_for_active_item(id, move |h| h.zoom(id, scale, request))
     }
 
-    fn set_muted(&self, _id: ItemId, _muted: bool) -> NativeDispatch {
-        NativeDispatch::Unsupported
+    fn set_muted(&self, id: ItemId, muted: bool) -> NativeDispatch {
+        if !page_mute_supported() {
+            return NativeDispatch::Unsupported;
+        }
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        {
+            self.run_for_active_item(id, move |h| h.set_muted(id, muted))
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        {
+            let _ = (id, muted);
+            NativeDispatch::Unsupported
+        }
+    }
+
+    fn can_mute(&self) -> bool {
+        page_mute_supported()
     }
 
     fn find(
@@ -3945,7 +3978,14 @@ mod tests {
             engine.zoom(id, 1.25, ZoomRequestId(1)),
             NativeDispatch::Rejected
         );
-        assert_eq!(engine.set_muted(id, true), NativeDispatch::Unsupported);
+        assert_eq!(
+            engine.set_muted(id, true),
+            if page_mute_supported() {
+                NativeDispatch::Rejected
+            } else {
+                NativeDispatch::Unsupported
+            }
+        );
         assert_eq!(
             engine.find(
                 id,

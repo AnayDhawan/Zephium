@@ -482,6 +482,10 @@ impl Shell {
     ) -> TabView {
         let mut view = tab_view(id, tab, icon, self.next_projection_revision());
         view.zoom = self.zoom_view(id, tab);
+        view.audio = (tab.audio.muted || tab.audio.shown()).then(|| zephium_ipc::TabAudioView {
+            muted: tab.audio.muted,
+            can_mute: self.engine.can_mute(),
+        });
         if self.crash.presentations.contains(&id) && view.failure.is_none() {
             view.failure = view.url.clone().map(|url| zephium_ipc::TabFailure {
                 url,
@@ -742,5 +746,6 @@ fn tab_view(
             },
         ),
         zoom: None,
+        audio: None,
     }
 }

@@ -32,6 +32,8 @@ mod http_auth;
 pub(crate) use certificates::clear_certificate_decisions;
 pub(crate) use find::{find, FindReport, FindSession};
 pub(crate) use http_auth::BasicAuthResponder;
+mod audio;
+pub use audio::{install_audio_observer, AudioObserver};
 mod automatic_pip;
 mod favicon;
 pub use favicon::{install_favicon_observer, FaviconObserver};

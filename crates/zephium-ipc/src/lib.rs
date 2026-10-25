@@ -56,6 +56,17 @@ pub struct TabView {
     #[serde(default)]
     #[specta(optional)]
     pub zoom: Option<u16>,
+    /// Present while the page plays sound, and for as long as it is muted.
+    #[serde(default)]
+    #[specta(optional)]
+    pub audio: Option<TabAudioView>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct TabAudioView {
+    pub muted: bool,
+    /// The engine can mute this tab; without it the speaker only informs.
+    pub can_mute: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]

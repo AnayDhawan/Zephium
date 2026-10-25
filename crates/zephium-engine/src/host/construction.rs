@@ -2307,6 +2307,32 @@ impl EngineHost {
                 }
             })
         };
+        // Whether the page makes sound, from the engine's own notification.
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        let audio_observer = {
+            let audio_id = id.clone();
+            let audio_permit = event_permit.clone();
+            let audio_sink = self.sink.clone();
+            let changed = move |audible| {
+                if audio_permit.active_token().is_some() {
+                    audio_permit.emit(
+                        &audio_sink,
+                        EngineEvent::AudioChanged {
+                            id: audio_id.get(),
+                            audible,
+                        },
+                    );
+                }
+            };
+            #[cfg(target_os = "macos")]
+            {
+                crate::platform::macos::audio::AudioObserver::install(&view, changed)
+            }
+            #[cfg(target_os = "windows")]
+            {
+                crate::platform::imp::install_audio_observer(&view, changed)
+            }
+        };
         let observation_permit = event_permit.clone();
         let observation_navigation = navigation.clone();
         let observer = match crate::platform::imp::install_navigation_observer(
@@ -2401,6 +2427,10 @@ impl EngineHost {
             _favicon_observer: favicon_observer,
             #[cfg(target_os = "macos")]
             _capture_observer: capture_observer,
+            #[cfg(target_os = "macos")]
+            _audio_observer: audio_observer,
+            #[cfg(target_os = "windows")]
+            audio_observer,
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             _fullscreen_observer: fullscreen_observer,
             replay_safety,

@@ -765,7 +765,13 @@ pub trait Engine {
     /// Queue admission is not application: the authoritative native scale
     /// arrives as [`EngineEvent::ZoomSettled`] carrying the same `request`.
     fn zoom(&self, id: ItemId, scale: f64, request: ZoomRequestId) -> NativeDispatch;
+    /// Mutes or unmutes the current native view. The view keeps it across
+    /// navigations; a new view starts unmuted, so the shell sends it again.
     fn set_muted(&self, id: ItemId, muted: bool) -> NativeDispatch;
+    /// Whether [`Engine::set_muted`] works here, so chrome can offer it.
+    fn can_mute(&self) -> bool {
+        false
+    }
     /// One step of finding text in the page; `None` ends the session and
     /// clears its highlights. Results arrive as `EngineEvent::FindResult`.
     fn find(&self, id: ItemId, request: Option<FindRequest>) -> NativeDispatch;
@@ -1340,6 +1346,12 @@ pub enum EngineEvent {
         id: ItemId,
         navigation: NavigationPresentationId,
         state: MediaCaptureState,
+    },
+    /// The page started or stopped making sound, muted or not. Native state
+    /// that page script cannot fake.
+    AudioChanged {
+        id: ItemId,
+        audible: bool,
     },
     /// The page entered or left element fullscreen. At most one view per
     /// engine is reported active at a time.

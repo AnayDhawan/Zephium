@@ -37,6 +37,7 @@ pub(crate) mod page_glow;
 mod page_reader_probe;
 #[cfg(feature = "page-reader-probe")]
 pub(crate) use page_reader_probe::run as run_page_reader_probe;
+pub(crate) mod audio;
 pub(crate) mod capture;
 pub(crate) mod fullscreen;
 pub(crate) use automatic_pip::automatic_pip;

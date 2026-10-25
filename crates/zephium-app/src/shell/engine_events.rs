@@ -101,6 +101,7 @@ impl Shell {
                     // Its native sign-in request went with the view.
                     self.end_http_auth_prompt(*id, None);
                     self.items.set_media_capture(*id, None);
+                    self.silence_tab_audio(*id);
                     // A replacement view starts out of fullscreen.
                     self.forget_content_fullscreen(*id);
                 }
@@ -461,6 +462,7 @@ impl Shell {
                     self.project_tab(id);
                 }
             }
+            EngineEvent::AudioChanged { id, audible } => self.on_audio_changed(id, audible),
             EngineEvent::FullscreenChanged { id, active } => self.on_fullscreen_changed(id, active),
             EngineEvent::PermissionRequested {
                 id,
@@ -724,6 +726,7 @@ impl Shell {
             | EngineEvent::HtmlExtracted { id, .. }
             | EngineEvent::FindResult { id, .. } => self.profile_of_item(*id),
             EngineEvent::MediaCaptureChanged { id, .. }
+            | EngineEvent::AudioChanged { id, .. }
             | EngineEvent::FullscreenChanged { id, .. } => self.profile_of_item(*id),
             EngineEvent::PermissionRequested { profile, .. }
             | EngineEvent::WorkPageFavicon { profile, .. } => Some(*profile),

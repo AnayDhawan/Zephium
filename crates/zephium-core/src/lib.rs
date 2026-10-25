@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
 pub mod accelerator;
+/// Whether a tab is making sound, and whether the person muted it.
+pub mod audio;
 pub mod blocker;
 pub mod bookmarks;
 pub mod certificates;

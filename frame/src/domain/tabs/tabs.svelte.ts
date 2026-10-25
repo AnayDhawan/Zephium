@@ -129,6 +129,8 @@ const onActive = (fn: (id: string) => void) => () => {
   if (id !== null) fn(id);
 };
 
+/** Mutes or unmutes a tab; the projected tab says what native applied. */
+export const setMuted = (id: string, muted: boolean) => settle(commands.tabSetMuted(id, muted));
 export const reloadActive = onActive((id) => void commands.tabsReload(id));
 export const backActive = onActive((id) => void commands.tabsBack(id));
 export const forwardActive = onActive((id) => void commands.tabsForward(id));
@@ -172,6 +174,7 @@ function tabMenuContext(id: string): TabMenuContext {
     essential: state.nodes.some((node) => tabOf(node) === id && node.section === "favorites"),
     others: open.some((candidate) => candidate !== id),
     below: at >= 0 && at < open.length - 1,
+    muted: tab?.audio?.muted ?? false,
   };
 }
 

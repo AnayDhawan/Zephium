@@ -1276,6 +1276,7 @@ fn tracked_operation_command(command: &Command) -> bool {
             | Command::InvokeExtensionAction { .. }
             | Command::RespondToPagePermissionPrompt { .. }
             | Command::StopMediaCapture { .. }
+            | Command::SetTabMuted { .. }
             | Command::OpenUrl { .. }
             | Command::SetAppSetting { .. }
             | Command::Focus(_)
@@ -1612,6 +1613,13 @@ fn spawn_suspended_with_worker_spawner<Agent: PendingAgentLifecycle>(
                     Err(TryPushError::Full(_)) => timer_queue.schedule_focus(Some(
                         std::time::Instant::now() + std::time::Duration::from_millis(25),
                     )),
+                    Err(TryPushError::Closed(_)) => break,
+                },
+                TimerWake::Audio => match timer_queue.try_push(Command::AudioWake) {
+                    Ok(()) | Err(TryPushError::Sealed(_)) => {}
+                    Err(TryPushError::Full(_)) => timer_queue.schedule_audio(
+                        std::time::Instant::now() + std::time::Duration::from_millis(25),
+                    ),
                     Err(TryPushError::Closed(_)) => break,
                 },
                 TimerWake::Persist => match timer_queue.try_push(Command::Persist) {

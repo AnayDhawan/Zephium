@@ -375,6 +375,7 @@ export const commands = {
 	 */
 	pagePermissionRespond: (profileId: string, itemId: string, requestId: string, decision: PagePermissionPromptDecisionInput) => __TAURI_INVOKE<OperationAdmission>("page_permission_respond", { profileId, itemId, requestId, decision }),
 	captureStop: (itemId: string, navigationId: string) => __TAURI_INVOKE<OperationAdmission>("capture_stop", { itemId, navigationId }),
+	tabSetMuted: (id: string, muted: boolean) => __TAURI_INVOKE<OperationAdmission>("tab_set_muted", { id, muted }),
 	blockerStatus: () => typedError<BlockerStatusView, null>(__TAURI_INVOKE("blocker_status")),
 	blockerStats: (profile: string) => typedError<BlockerStatsView, null>(__TAURI_INVOKE("blocker_stats", { profile })),
 	blockerSetEnabled: (enabled: boolean) => __TAURI_INVOKE<OperationAdmission>("blocker_set_enabled", { enabled }),
@@ -2956,6 +2957,12 @@ export type SwipeScroll = {
 	time: number | null,
 };
 
+export type TabAudioView = {
+	muted: boolean,
+	/**  The engine can mute this tab; without it the speaker only informs. */
+	can_mute: boolean,
+};
+
 export type TabAvailability = { state: "sleeping" } | { state: "waiting_for_capacity"; url: string } | { state: "blocked_by_capacity"; url: string };
 
 export type TabCertificateProblem =
@@ -3001,6 +3008,8 @@ export type TabMenuContext = {
 	others: boolean,
 	/**  Open tabs follow this one. */
 	below: boolean,
+	/**  The person muted this tab. */
+	muted: boolean,
 };
 
 export type TabView = {
@@ -3043,6 +3052,8 @@ export type TabView = {
 	 *  is the level just asked for until the view reports it applied.
 	 */
 	zoom?: number | null,
+	/**  Present while the page plays sound, and for as long as it is muted. */
+	audio?: TabAudioView | null,
 };
 
 /**

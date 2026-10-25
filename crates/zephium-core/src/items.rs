@@ -102,6 +102,36 @@ impl Items {
         true
     }
 
+    /// Applies the engine's report of sound; true when the speaker changed.
+    pub fn observe_audio(&mut self, id: ItemId, audible: bool, now: std::time::Instant) -> bool {
+        self.tab_mut(id)
+            .filter(|tab| tab.view)
+            .is_some_and(|tab| tab.audio.observe(audible, now))
+    }
+
+    /// Hides the speaker of a tab quiet past its hold; true when it did.
+    pub fn settle_audio(&mut self, id: ItemId, now: std::time::Instant) -> bool {
+        self.tab_mut(id).is_some_and(|tab| tab.audio.settle(now))
+    }
+
+    /// The tab's native view or its process is gone, and its sound with it.
+    pub fn silence_audio(&mut self, id: ItemId) -> bool {
+        self.tab_mut(id).is_some_and(|tab| tab.audio.silence())
+    }
+
+    /// Records the person's mute for a web tab; true when it changed.
+    pub fn set_muted(&mut self, id: ItemId, muted: bool) -> bool {
+        let Some(tab) = self
+            .tab_mut(id)
+            .filter(|tab| tab.content == TabContent::Web)
+        else {
+            return false;
+        };
+        let changed = tab.audio.muted != muted;
+        tab.audio.muted = muted;
+        changed
+    }
+
     pub fn roots(&self, placement: Placement) -> &[ItemId] {
         self.roots.get(&placement).map(Vec::as_slice).unwrap_or(&[])
     }
@@ -539,6 +569,7 @@ impl Items {
         }
         tab.view = false;
         tab.capture = None;
+        tab.audio.silence();
         tab.loading = false;
         tab.lifecycle = Lifecycle::Hibernated;
         true
@@ -570,6 +601,7 @@ impl Items {
         if let Some(tab) = self.tab_mut(id) {
             tab.view = false;
             tab.capture = None;
+            tab.audio.silence();
             tab.loading = false;
             tab.lifecycle = Lifecycle::Hibernated;
             if tab.content == TabContent::Web && tab.failure.is_none() {

@@ -132,6 +132,8 @@ pub struct TabState {
         crate::ports::engine::NavigationPresentationId,
         crate::ports::engine::MediaCaptureState,
     )>,
+    /// Sound and mute. Process-local: never restored or persisted.
+    pub audio: crate::audio::TabAudio,
     // Distinct from `url`: a restored/hibernated tab has a url but no live view.
     pub(crate) view: bool,
 }
@@ -169,6 +171,7 @@ impl TabState {
             last_active_ms: None,
             failure: None,
             capture: None,
+            audio: crate::audio::TabAudio::default(),
             view: false,
         }
     }

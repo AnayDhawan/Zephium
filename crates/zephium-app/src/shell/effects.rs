@@ -183,6 +183,7 @@ impl Shell {
                         continue;
                     }
                     self.record_view_creation(id);
+                    self.restore_tab_mute(id);
                     logical_residents += 1;
                     native.scheduled = true;
                     // A newly constructed view starts at 1.0. Do not keep or

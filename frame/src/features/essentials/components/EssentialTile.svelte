@@ -5,6 +5,8 @@
   import FavIcon from "$shared/ui/FavIcon";
   import { favicons } from "$domain/favicons";
   import CaptureControl from "$shared/ui/CaptureControl";
+  import AudioControl from "$shared/ui/AudioControl";
+  import { tabs } from "$domain/tabs";
   import { stopCaptureFor } from "$domain/capture";
 
   let {
@@ -75,6 +77,15 @@
     />
     <span data-zephium-tab-label class="sr-only">{tab.title}</span>
   </button>
+  {#if tab.audio}
+    <span class="audio-badge"
+      ><AudioControl
+        badge
+        audio={tab.audio}
+        onToggle={(muted) => void tabs.setMuted(tab.id, muted)}
+      /></span
+    >
+  {/if}
   {#if tab.capture}
     <span class="capture-badge">
       {#key tab.capture.navigation_id}<CaptureControl
@@ -90,6 +101,12 @@
   .essential {
     position: relative;
     min-width: 0;
+  }
+
+  .audio-badge {
+    position: absolute;
+    inset-inline-start: 2px;
+    inset-block-end: 2px;
   }
 
   .capture-badge {

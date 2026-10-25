@@ -21,6 +21,7 @@ enum CoalescedKey {
     Work,
     Bootstrap,
     FocusWake,
+    AudioWake,
     Title(ItemId),
     Url(ItemId),
     Loading(ItemId),
@@ -60,6 +61,7 @@ enum CoalescedKey {
     WindowSize,
     WindowVisible,
     MediaCapture(ItemId),
+    Audio(ItemId),
     MemoryPressure,
     SidebarWidth,
     SidebarGuide,
@@ -97,6 +99,7 @@ impl CoalescedKey {
             EngineEvent::ExtensionPageClosed { id, .. } => Self::ExtensionPageClosed(*id),
             EngineEvent::ExtensionPageChanged { id, .. } => Self::ExtensionPageChanged(*id),
             EngineEvent::MediaCaptureChanged { id, .. } => Self::MediaCapture(*id),
+            EngineEvent::AudioChanged { id, .. } => Self::Audio(*id),
             EngineEvent::FullscreenChanged { id, .. } => Self::Fullscreen(*id),
             EngineEvent::SplitChanged { window, .. } => Self::Split(*window),
             EngineEvent::ContentRulesSettled {
@@ -115,14 +118,14 @@ impl CoalescedKey {
 // burst.
 const NORMAL_COMMAND_CAPACITY: usize = 960;
 // Each tracked tab can have one latest URL, presentation, navigation failure,
-// terminal view-state, zoom settlement, native-action failure, media-capture
-// and fullscreen fact. Each profile can independently have one process-exit
+// terminal view-state, zoom settlement, native-action failure, media-capture,
+// audio and fullscreen fact. Each profile can independently have one process-exit
 // fact, compiler-result wake, preference-store wake, native-policy settlement,
 // and durable-deletion callback wakeup. The current single-window shell can
 // have one native split fact, and the process can have one sticky
 // runtime-update fact. Reserve all of those independently of the
 // already-accepted user FIFO.
-const MAX_CRITICAL_LIFECYCLE_FACTS: usize = zephium_core::session::MAX_SESSION_ITEMS * 10
+const MAX_CRITICAL_LIFECYCLE_FACTS: usize = zephium_core::session::MAX_SESSION_ITEMS * 11
     + zephium_core::session::MAX_SESSION_PROFILES * 7
     + zephium_core::extensions::MAX_PENDING_EXTENSION_BROWSER_REQUESTS
     + zephium_core::permissions::MAX_PENDING_PAGE_PERMISSION_REQUESTS
@@ -153,6 +156,7 @@ pub(crate) struct TimerState {
     stopped: bool,
     pub(crate) persist_deadline: Option<std::time::Instant>,
     focus_deadline: Option<std::time::Instant>,
+    audio_deadline: Option<std::time::Instant>,
     favicon_deadlines: std::collections::HashMap<ItemId, (std::time::Instant, u8)>,
     pub(crate) presentation_deadlines: std::collections::HashMap<ItemId, PresentationDeadline>,
     discard_deadlines: std::collections::HashMap<ItemId, (std::time::Instant, DiscardProbeId)>,
@@ -181,6 +185,7 @@ pub(crate) enum TimerWake {
     Maintenance,
     Persist,
     Focus,
+    Audio,
     Favicon {
         id: ItemId,
         attempt: u8,
@@ -243,6 +248,7 @@ const _: () = assert!(std::mem::size_of::<TryPushError>() <= 160);
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum RecoveryKey {
     MediaCapture(ItemId),
+    Audio(ItemId),
     Fullscreen(ItemId),
     RuntimeRestart,
     MemoryPressure,
@@ -268,6 +274,7 @@ fn recovery_key(command: &Command) -> Option<RecoveryKey> {
         Command::Engine(EngineEvent::MediaCaptureChanged { id, .. }) => {
             Some(RecoveryKey::MediaCapture(*id))
         }
+        Command::Engine(EngineEvent::AudioChanged { id, .. }) => Some(RecoveryKey::Audio(*id)),
         Command::Engine(EngineEvent::FullscreenChanged { id, .. }) => {
             Some(RecoveryKey::Fullscreen(*id))
         }
@@ -544,6 +551,7 @@ impl CommandQueue {
         timer.stopped = true;
         timer.persist_deadline = None;
         timer.focus_deadline = None;
+        timer.audio_deadline = None;
         timer.favicon_deadlines.clear();
         timer.presentation_deadlines.clear();
         timer.discard_deadlines.clear();
@@ -580,6 +588,25 @@ impl CommandQueue {
             return;
         }
         timer.focus_deadline = deadline;
+        self.inner.timer_ready.notify_one();
+    }
+
+    /// Wakes the shell when the earliest quiet tab's speaker is due to go.
+    /// A later deadline never postpones an earlier one.
+    pub(crate) fn schedule_audio(&self, deadline: std::time::Instant) {
+        let mut timer = self
+            .inner
+            .timer_state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if timer.stopped {
+            return;
+        }
+        timer.audio_deadline = Some(
+            timer
+                .audio_deadline
+                .map_or(deadline, |current| current.min(deadline)),
+        );
         self.inner.timer_ready.notify_one();
     }
 
@@ -933,6 +960,10 @@ impl CommandQueue {
                 timer.focus_deadline = None;
                 return TimerWake::Focus;
             }
+            if timer.audio_deadline.is_some_and(|deadline| now >= deadline) {
+                timer.audio_deadline = None;
+                return TimerWake::Audio;
+            }
             let next_favicon = timer
                 .favicon_deadlines
                 .iter()
@@ -1038,6 +1069,9 @@ impl CommandQueue {
             }
             if let Some(focus) = timer.focus_deadline {
                 deadline = deadline.min(focus);
+            }
+            if let Some(audio) = timer.audio_deadline {
+                deadline = deadline.min(audio);
             }
             if let Some((_, favicon, _)) = next_favicon {
                 deadline = deadline.min(favicon);
@@ -1201,6 +1235,7 @@ fn command_is_critical(command: &Command) -> bool {
                     | EngineEvent::HttpAuthRequested { .. }
                     | EngineEvent::HttpAuthEnded { .. }
                     | EngineEvent::MediaCaptureChanged { .. }
+                    | EngineEvent::AudioChanged { .. }
                     | EngineEvent::FullscreenChanged { .. }
                     | EngineEvent::ExtensionActionsInvalidated { .. }
                     | EngineEvent::NavigationFailed { .. }
@@ -1273,6 +1308,7 @@ fn command_coalesced_key(command: &Command) -> Option<CoalescedKey> {
         }
         Command::Persist => Some(CoalescedKey::Persist),
         Command::FocusWake => Some(CoalescedKey::FocusWake),
+        Command::AudioWake => Some(CoalescedKey::AudioWake),
         Command::Tick => Some(CoalescedKey::Tick),
         _ => None,
     }

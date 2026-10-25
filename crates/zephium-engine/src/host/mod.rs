@@ -164,6 +164,10 @@ struct ObservedView {
     #[cfg(target_os = "macos")]
     _capture_observer: objc2::rc::Retained<crate::platform::macos::capture::CaptureObserver>,
     #[cfg(target_os = "macos")]
+    _audio_observer: Option<objc2::rc::Retained<crate::platform::macos::audio::AudioObserver>>,
+    #[cfg(target_os = "windows")]
+    audio_observer: Option<crate::platform::imp::AudioObserver>,
+    #[cfg(target_os = "macos")]
     _fullscreen_observer:
         objc2::rc::Retained<crate::platform::macos::fullscreen::FullscreenObserver>,
     #[cfg(target_os = "windows")]

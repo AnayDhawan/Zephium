@@ -12,6 +12,7 @@
   import * as tabDrag from "$session/tab-drag.svelte";
   import { RowDrag } from "$session/row-drag.svelte";
   import DragMark from "$shared/ui/DragMark";
+  import AudioControl from "$shared/ui/AudioControl";
   import SpacePeek from "./SpacePeek.svelte";
   import RailSpaces from "./RailSpaces.svelte";
   import { uiCommands as ui } from "$domain/ui-commands";
@@ -176,6 +177,13 @@
               />
               <span data-zephium-tab-label class="sr-only">{tab.title}</span>
             </button>
+            {#if tab.audio}<span class="rail-audio"
+                ><AudioControl
+                  badge
+                  audio={tab.audio}
+                  onToggle={(muted) => void tabs.setMuted(tab.id, muted)}
+                /></span
+              >{/if}
             <!-- A rail has no row to put a close control in, so it rides the
              mark's corner, the way a notification's does. -->
             {#if !tabs.loneNewTab(tab.id)}<button
@@ -298,6 +306,13 @@
 
   .rail-list > li {
     position: relative;
+  }
+
+  /* Sound rides the mark's other corner from the close control, and stays. */
+  .rail-audio {
+    position: absolute;
+    inset-block-end: -3px;
+    inset-inline-end: -3px;
   }
 
   /* A small raised disc on the mark's corner: it waits a beat before it

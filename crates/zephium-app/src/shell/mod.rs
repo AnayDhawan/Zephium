@@ -1,6 +1,7 @@
 //! Authoritative browser-shell state machine and effect coordination.
 
 mod archive;
+mod audio;
 mod blocker;
 mod blocker_sites;
 mod blocker_statistics;
@@ -226,6 +227,8 @@ pub struct Shell {
     tab_preferences: tabs::TabPreferences,
     presentation: PresentationState,
     zoom: ZoomState,
+    /// Tabs gone quiet whose speaker is still held.
+    audio_quiet: std::collections::HashSet<ItemId>,
     divider: Option<GrabbedDivider>,
     private: Option<private::PrivateSession>,
     private_projected: (bool, Option<u32>),
@@ -469,6 +472,7 @@ impl Shell {
             tab_preferences: tabs::TabPreferences::load(&*store),
             presentation: PresentationState::default(),
             zoom: ZoomState::load(&*store),
+            audio_quiet: std::collections::HashSet::new(),
             divider: None,
             private: None,
             private_projected: (false, None),
@@ -864,6 +868,9 @@ impl Shell {
             }
             Command::StopMediaCapture { item, navigation } => {
                 let _ = self.operation_stop_media_capture(item, navigation);
+            }
+            Command::SetTabMuted { id, muted } => {
+                let _ = self.operation_set_tab_muted(id, muted);
             }
             Command::SetWindowVisible(visible) => {
                 if self.window_visible != visible {
@@ -1318,6 +1325,7 @@ impl Shell {
             Command::SetSystemAwake(awake) => self.set_system_awake(awake),
             Command::SetMemoryPressure(pressure) => self.on_memory_pressure(pressure),
             Command::FocusWake => self.focus_wake(),
+            Command::AudioWake => self.audio_wake(),
             // Accepted only through `Command::Operation`.
             Command::Focus(_) => {}
         }
