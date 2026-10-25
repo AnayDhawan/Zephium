@@ -3089,6 +3089,7 @@
   "history_page_open": "Abrir Historial",
   "notice_download_started": "Descarga iniciada",
   "notice_download_finished": "Descarga terminada",
+  "notice_autofill_hint": "Haz clic derecho en un campo y elige Autorrelleno para usar tus contraseñas guardadas",
   "page_permission_title_camera": "¿Usar tu cámara?",
   "page_permission_title_microphone": "¿Usar tu micrófono?",
   "page_permission_title_both": "¿Usar tu cámara y tu micrófono?",

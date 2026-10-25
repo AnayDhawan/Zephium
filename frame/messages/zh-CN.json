@@ -3089,6 +3089,7 @@
   "history_page_open": "打开历史记录",
   "notice_download_started": "下载已开始",
   "notice_download_finished": "下载已完成",
+  "notice_autofill_hint": "右键点按输入框并选择“自动填充”，即可使用已存储的密码",
   "page_permission_title_camera": "使用你的摄像头？",
   "page_permission_title_microphone": "使用你的麦克风？",
   "page_permission_title_both": "使用你的摄像头和麦克风？",

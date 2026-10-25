@@ -394,6 +394,7 @@ impl Shell {
             }
             EngineEvent::HttpAuthEnded { id, request } => self.on_http_auth_ended(id, request),
             EngineEvent::FocusBlocked { id, url } => self.on_focus_blocked(id, url),
+            EngineEvent::PasswordFieldFocused { id } => self.on_password_field_focused(id),
             EngineEvent::LinkedDownloadStarted { id } => {
                 if self.items.tab(id).is_some_and(|tab| {
                     tab.url
@@ -619,6 +620,7 @@ impl Shell {
                 }
                 self.reconcile_zoom(id);
                 self.maybe_discover_favicon(id);
+                self.maybe_watch_password_focus(id);
                 // History is attributed to the profile that owns the item,
                 // not the focused window; incognito profiles never record.
                 let recording = self.profile_of_item(id).filter(|p| {
@@ -709,6 +711,7 @@ impl Shell {
             | EngineEvent::FaviconRasterFailed { id, .. }
             | EngineEvent::FaviconCandidates { id, .. }
             | EngineEvent::FaviconImage { id, .. }
+            | EngineEvent::PasswordFieldFocused { id }
             | EngineEvent::DiscardSafety { id, .. }
             | EngineEvent::NavState { id, .. }
             | EngineEvent::NativeTabCloseRequested { id }

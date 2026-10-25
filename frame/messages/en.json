@@ -3089,6 +3089,7 @@
   "history_page_open": "Open History",
   "notice_download_started": "Download started",
   "notice_download_finished": "Download finished",
+  "notice_autofill_hint": "Right-click a field and choose AutoFill to use your saved passwords",
   "page_permission_title_camera": "Use your camera?",
   "page_permission_title_microphone": "Use your microphone?",
   "page_permission_title_both": "Use your camera and microphone?",

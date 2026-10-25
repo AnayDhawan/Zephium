@@ -3089,6 +3089,7 @@
   "history_page_open": "Abrir Histórico",
   "notice_download_started": "Download iniciado",
   "notice_download_finished": "Download concluído",
+  "notice_autofill_hint": "Clique com o botão direito em um campo e escolha Preenchimento Automático para usar suas senhas salvas",
   "page_permission_title_camera": "Usar sua câmera?",
   "page_permission_title_microphone": "Usar seu microfone?",
   "page_permission_title_both": "Usar sua câmera e seu microfone?",

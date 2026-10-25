@@ -3089,6 +3089,7 @@
   "history_page_open": "Ouvrir l’historique",
   "notice_download_started": "Téléchargement commencé",
   "notice_download_finished": "Téléchargement terminé",
+  "notice_autofill_hint": "Faites un clic droit sur un champ et choisissez Remplir pour utiliser vos mots de passe enregistrés",
   "page_permission_title_camera": "Utiliser votre caméra ?",
   "page_permission_title_microphone": "Utiliser votre micro ?",
   "page_permission_title_both": "Utiliser votre caméra et votre micro ?",

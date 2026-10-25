@@ -3,6 +3,7 @@
     Delete02Icon,
     Download01Icon,
     HourglassIcon,
+    Key01Icon,
     Link04Icon,
   } from "@hugeicons/core-free-icons";
   import * as notices from "$session/notice.svelte";
@@ -10,6 +11,8 @@
 
   /** Long enough to read two words, short enough to never be in the way. */
   const LINGER = 1800;
+  /** A hint is a sentence to act on, so it stays until it can be read. */
+  const HINT_LINGER = 6000;
   /** Matches the exit transition below. */
   const EXIT = 140;
 
@@ -18,6 +21,7 @@
     download: Download01Icon,
     focus: HourglassIcon,
     data: Delete02Icon,
+    autofill: Key01Icon,
   };
 
   let current = $derived(notices.notice());
@@ -27,8 +31,9 @@
     const shown = current;
     if (!shown) return;
     leaving = false;
-    const exit = setTimeout(() => (leaving = true), LINGER);
-    const gone = setTimeout(() => notices.dismiss(shown.id), LINGER + EXIT);
+    const linger = shown.kind === "autofill" ? HINT_LINGER : LINGER;
+    const exit = setTimeout(() => (leaving = true), linger);
+    const gone = setTimeout(() => notices.dismiss(shown.id), linger + EXIT);
     return () => {
       clearTimeout(exit);
       clearTimeout(gone);

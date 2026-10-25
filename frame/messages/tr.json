@@ -3089,6 +3089,7 @@
   "history_page_open": "Geçmiş'i aç",
   "notice_download_started": "İndirme başladı",
   "notice_download_finished": "İndirme tamamlandı",
+  "notice_autofill_hint": "Kayıtlı parolalarınızı kullanmak için bir alana sağ tıklayıp Otomatik Doldur'u seçin",
   "page_permission_title_camera": "Kameranız kullanılsın mı?",
   "page_permission_title_microphone": "Mikrofonunuz kullanılsın mı?",
   "page_permission_title_both": "Kameranız ve mikrofonunuz kullanılsın mı?",

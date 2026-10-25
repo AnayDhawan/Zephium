@@ -2,6 +2,7 @@
 
 mod archive;
 mod audio;
+mod autofill_hint;
 mod blocker;
 mod blocker_sites;
 mod blocker_statistics;
@@ -229,6 +230,7 @@ pub struct Shell {
     search: SearchState,
     tab_preferences: tabs::TabPreferences,
     proxy: network::ProxyPreference,
+    autofill_hint: autofill_hint::AutofillHint,
     presentation: PresentationState,
     zoom: ZoomState,
     /// Tabs gone quiet whose speaker is still held.
@@ -481,6 +483,7 @@ impl Shell {
             },
             tab_preferences: tabs::TabPreferences::load(&*store),
             proxy: network::ProxyPreference::load(&*store),
+            autofill_hint: autofill_hint::AutofillHint::load(&*store),
             presentation: PresentationState::default(),
             zoom: ZoomState::load(&*store),
             audio_quiet: std::collections::HashSet::new(),

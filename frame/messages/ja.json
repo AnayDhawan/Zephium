@@ -3089,6 +3089,7 @@
   "history_page_open": "履歴を開く",
   "notice_download_started": "ダウンロードを開始しました",
   "notice_download_finished": "ダウンロードが完了しました",
+  "notice_autofill_hint": "フィールドを右クリックして「自動入力」を選ぶと、保存したパスワードを使えます",
   "page_permission_title_camera": "カメラを使用しますか？",
   "page_permission_title_microphone": "マイクを使用しますか？",
   "page_permission_title_both": "カメラとマイクを使用しますか？",

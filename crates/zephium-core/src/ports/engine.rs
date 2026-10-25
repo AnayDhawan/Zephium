@@ -834,6 +834,14 @@ pub trait Engine {
     fn native_favicons(&self) -> bool {
         false
     }
+    /// Waits in the committed document for the person to put the caret in a
+    /// password field by clicking it or tabbing to it, and then reports
+    /// `EngineEvent::PasswordFieldFocused` once. Field values are never read.
+    /// A later call replaces the earlier watch. Engines that keep their own
+    /// password fill answer `Unsupported`.
+    fn watch_password_focus(&self, _id: ItemId) -> NativeDispatch {
+        NativeDispatch::Unsupported
+    }
     /// Asynchronously asks the exact live native-view generation and its
     /// current committed navigation whether it is safe to discard. A missing
     /// or malformed response is deliberately not a positive result. Callers
@@ -1420,6 +1428,10 @@ pub enum EngineEvent {
         page_url: String,
         complete: bool,
         candidates: Vec<crate::icon::IconCandidate>,
+    },
+    /// The person focused a password field in the page of `id`.
+    PasswordFieldFocused {
+        id: ItemId,
     },
     /// The icon the web engine itself chose for a page, as a bounded PNG. The
     /// privileged side decodes it with the same decoders as any fetched icon.

@@ -3089,6 +3089,7 @@
   "history_page_open": "Відкрити Історію",
   "notice_download_started": "Завантаження розпочато",
   "notice_download_finished": "Завантаження завершено",
+  "notice_autofill_hint": "Клацніть поле правою кнопкою й виберіть «Автозаповнення», щоб використати збережені паролі",
   "page_permission_title_camera": "Використовувати камеру?",
   "page_permission_title_microphone": "Використовувати мікрофон?",
   "page_permission_title_both": "Використовувати камеру й мікрофон?",

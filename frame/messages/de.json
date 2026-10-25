@@ -3089,6 +3089,7 @@
   "history_page_open": "Verlauf öffnen",
   "notice_download_started": "Download gestartet",
   "notice_download_finished": "Download abgeschlossen",
+  "notice_autofill_hint": "Klicke mit der rechten Maustaste auf ein Feld und wähle „Automatisch ausfüllen“, um deine gesicherten Passwörter zu verwenden",
   "page_permission_title_camera": "Kamera verwenden?",
   "page_permission_title_microphone": "Mikrofon verwenden?",
   "page_permission_title_both": "Kamera und Mikrofon verwenden?",

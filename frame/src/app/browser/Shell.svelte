@@ -250,6 +250,7 @@
       if (command.id === "focus.alert=finished") notices.show(m.focus_done_title(), "focus");
       if (command.id === "focus.alert=break") notices.show(m.focus_break_title(), "focus");
       if (command.id === "focus.alert=focus") notices.show(m.focus_back_title(), "focus");
+      if (command.id === "autofill.hint") notices.show(m.notice_autofill_hint(), "autofill");
     });
   });
   // A load started from the new tab keeps it on screen until the page

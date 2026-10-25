@@ -52,6 +52,7 @@ pub mod private_api;
 pub(crate) mod proxy;
 pub(crate) use apps::{external_app_name, open_external_app};
 mod paint;
+pub(crate) mod password_focus;
 pub(crate) use paint::{PageSnapshot, PaintCover};
 mod session_state;
 pub(crate) use session_state::{SessionCaptureRefusal, SessionState};
