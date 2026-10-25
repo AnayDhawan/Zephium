@@ -172,6 +172,8 @@ const ENGINE_WINDOWS_PROBE_MODULE: &str =
     "crates/zephium-engine/src/platform/windows/agentic_input_probe.rs";
 const ENGINE_WINDOWS_PROBE_RESOURCES: &str =
     "crates/zephium-engine/src/platform/windows/agentic_probe_resources.rs";
+const ENGINE_WINDOWS_PAGE_MEMORY: &str =
+    "crates/zephium-engine/src/platform/windows/page_memory.rs";
 const ENGINE_WINDOWS_SEMANTIC_PROBE_MODULE: &str =
     "crates/zephium-engine/src/platform/windows/agentic_semantic_probe.rs";
 const ENGINE_MACOS_PROBE_BINARY: &str =
@@ -455,6 +457,8 @@ pub(crate) fn check(repository: &Path) -> Result<(), String> {
         repository.join("crates/zephium-agentic/src/provider_transport/model_client.rs"),
     )?)?;
     validate_engine_manifest(&read(repository.join(ENGINE_MANIFEST))?)?;
+    validate_engine_process_memory_users(repository)?;
+    validate_engine_page_memory(&read(repository.join(ENGINE_WINDOWS_PAGE_MEMORY))?)?;
     validate_engine_root(&read(repository.join(ENGINE_ROOT))?)?;
     for path in ENGINE_AGENTIC_PRODUCTION_MODULES {
         let source = read(repository.join(path))?;
@@ -675,10 +679,61 @@ fn validate_engine_macos_agent_main_thread_contract(source: &str) -> Result<(), 
     Ok(())
 }
 
-fn validate_engine_manifest(source: &str) -> Result<(), String> {
-    if source.matches("\"Win32_System_ProcessStatus\"").count() != 1 {
+fn validate_engine_process_memory_users(repository: &Path) -> Result<(), String> {
+    let mut files = Vec::new();
+    collect_files(&repository.join("crates/zephium-engine/src"), &mut files)?;
+    for file in files {
+        let relative = file
+            .strip_prefix(repository)
+            .map_err(|_| format!("{} is outside the repository", file.display()))?;
+        let allowed = [ENGINE_WINDOWS_PROBE_RESOURCES, ENGINE_WINDOWS_PAGE_MEMORY]
+            .iter()
+            .any(|path| relative == Path::new(path));
+        if !allowed && read(&file)?.contains("ProcessStatus") {
+            return Err(format!(
+                "{} acquired process-memory authority outside the probe and page memory",
+                relative.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_engine_page_memory(source: &str) -> Result<(), String> {
+    let code = compact(source);
+    if code.matches("OpenProcess(").count() != 1
+        || !code.contains("OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,false,pid)")
+        || code.matches("GetProcessMemoryInfo(").count() != 1
+        || code.matches("CloseHandle(process)").count() != 1
+    {
         return Err(
-            "engine Windows probe must retain the process-memory binding feature exactly once"
+            "page memory must open each renderer once with limited query rights and close it"
+                .to_owned(),
+        );
+    }
+    for forbidden in [
+        "PROCESS_VM_READ",
+        "PROCESS_VM_WRITE",
+        "PROCESS_VM_OPERATION",
+        "PROCESS_QUERY_INFORMATION",
+        "PROCESS_ALL_ACCESS",
+        "ReadProcessMemory",
+        "DuplicateHandle",
+    ] {
+        if code.contains(forbidden) {
+            return Err(format!(
+                "page memory acquired process authority {forbidden}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_engine_manifest(source: &str) -> Result<(), String> {
+    // Once for the probe's sampler, once for the shell's page-memory query.
+    if source.matches("\"Win32_System_ProcessStatus\"").count() != 2 {
+        return Err(
+            "engine process-memory binding must be declared for the probe and page memory only"
                 .to_owned(),
         );
     }
@@ -744,21 +799,6 @@ fn validate_engine_manifest(source: &str) -> Result<(), String> {
         || process_binding_features != expected_process_binding_features
     {
         return Err("engine process-memory bindings must remain exact and probe-only".to_owned());
-    }
-    if windows_dependencies
-        .get("windows")
-        .and_then(|dependency| dependency.get("features"))
-        .and_then(toml::Value::as_array)
-        .is_some_and(|features| {
-            features
-                .iter()
-                .any(|feature| feature.as_str() == Some("Win32_System_ProcessStatus"))
-        })
-    {
-        return Err(
-            "ordinary engine Windows bindings acquired probe-only process-memory authority"
-                .to_owned(),
-        );
     }
     let production_feature = manifest
         .get("features")
@@ -13722,7 +13762,7 @@ mod tests {
             zeroize = "=1.9.0"
             image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif"], optional = true }
             [target.'cfg(target_os = "windows")'.dependencies]
-            windows = { version = "0.61", features = ["Win32_System_Threading"] }
+            windows = { version = "0.61", features = ["Win32_System_ProcessStatus", "Win32_System_Threading"] }
             windows-probe-sys = { package = "windows-sys", version = "=0.61.2", optional = true, features = [
               "Win32_Foundation",
               "Win32_System_ProcessStatus",
@@ -13761,6 +13801,31 @@ mod tests {
         assert!(validate_engine_manifest(&valid.replace(
             "\"Win32_System_ProcessStatus\"",
             "\"Win32_System_Threading\""
+        ))
+        .is_err());
+        assert!(validate_engine_manifest(&valid.replace(
+            "\"Win32_System_ProcessStatus\", \"Win32_System_Threading\"]",
+            "\"Win32_System_ProcessStatus\", \"Win32_System_ProcessStatus\"]"
+        ))
+        .is_err());
+    }
+
+    #[test]
+    fn page_memory_keeps_limited_query_rights() {
+        let source =
+            include_str!("../../crates/zephium-engine/src/platform/windows/page_memory.rs");
+        validate_engine_page_memory(source).expect("shipping page memory");
+        assert!(validate_engine_page_memory(&source.replace(
+            "PROCESS_QUERY_LIMITED_INFORMATION, false",
+            "PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, false"
+        ))
+        .is_err());
+        assert!(
+            validate_engine_page_memory(&source.replace("let _ = CloseHandle(process);", ""))
+                .is_err()
+        );
+        assert!(validate_engine_page_memory(&format!(
+            "{source}\nfn leak(p: HANDLE) {{ ReadProcessMemory(p); }}"
         ))
         .is_err());
     }

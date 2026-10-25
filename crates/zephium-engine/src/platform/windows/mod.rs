@@ -68,7 +68,9 @@ mod semantic_runtime;
 mod apps;
 mod native_paths;
 pub(crate) use apps::{external_app_name, open_external_app};
+mod page_memory;
 mod paint;
+pub(crate) use page_memory::{main_frame_id, sample_renderers};
 #[cfg(feature = "agentic-browser")]
 #[allow(dead_code)]
 mod semantic_screenshot;

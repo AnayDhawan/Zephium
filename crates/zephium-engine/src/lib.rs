@@ -2433,11 +2433,11 @@ impl Engine for WebviewEngine {
     }
 
     fn sample_page_memory(&self, ids: Vec<ItemId>) {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         self.run(move || {
             host::best_effort_with(move |host| host.sample_page_memory(ids));
         });
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         let _ = ids;
     }
 
