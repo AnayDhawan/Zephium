@@ -11,10 +11,8 @@
   import Button from "$shared/ui/Button";
 
   let { prompt }: { prompt: PagePermissionPromptEntryView } = $props();
-  let remember = $state(false);
-  let rememberInput = $state<HTMLInputElement>();
+  let dialog = $state<HTMLDivElement>();
   let denyButton = $state<HTMLButtonElement>();
-  let allowButton = $state<HTMLButtonElement>();
   let busy = $derived(permissions.busy());
   let failure = $derived(permissions.failure());
   let camera = $derived(prompt.kinds.includes("camera"));
@@ -36,15 +34,8 @@
 
   onMount(() => queueMicrotask(() => denyButton?.focus()));
 
-  function respond(allow: boolean) {
+  function respond(decision: PagePermissionPromptDecisionInput) {
     if (busy) return;
-    const decision: PagePermissionPromptDecisionInput = allow
-      ? remember
-        ? "always_allow"
-        : "allow_once"
-      : remember
-        ? "always_deny"
-        : "deny_once";
     permissions.respond(prompt, decision);
   }
 
@@ -52,32 +43,22 @@
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
-      if (!busy) respond(false);
+      // Closing the prompt decides nothing beyond this request.
+      if (!busy) respond("deny_once");
       return;
     }
     if (event.key !== "Tab") return;
     event.stopPropagation();
-    if (denyButton === undefined || allowButton === undefined) return;
-    if (!prompt.rememberable) {
-      if (event.shiftKey && document.activeElement === denyButton) {
-        event.preventDefault();
-        allowButton.focus();
-      } else if (!event.shiftKey && document.activeElement === allowButton) {
-        event.preventDefault();
-        denyButton.focus();
-      }
-      return;
-    }
-    if (rememberInput === undefined) return;
-    if (event.shiftKey && document.activeElement === rememberInput) {
+    const buttons = Array.from(dialog?.querySelectorAll("button") ?? []);
+    const first = buttons.at(0);
+    const last = buttons.at(-1);
+    if (first === undefined || last === undefined) return;
+    if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
-      allowButton.focus();
-    } else if (event.shiftKey && document.activeElement === denyButton) {
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
       event.preventDefault();
-      rememberInput.focus();
-    } else if (!event.shiftKey && document.activeElement === allowButton) {
-      event.preventDefault();
-      rememberInput.focus();
+      first.focus();
     }
   }
 </script>
@@ -86,11 +67,12 @@
 
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-canvas/80 p-4">
   <div
+    bind:this={dialog}
     role="alertdialog"
     aria-modal="true"
     aria-labelledby="page-permission-title"
     aria-describedby="page-permission-origin page-permission-detail"
-    class="w-[min(390px,calc(100vw-32px))] rounded-panel border border-border-strong bg-raised p-4 text-start shadow-[var(--shadow-overlay)]"
+    class="w-[min(360px,calc(100vw-32px))] rounded-panel border border-border-strong bg-raised p-4 text-start shadow-[var(--shadow-overlay)]"
     data-zephium-page-permission-prompt
   >
     <div class="flex items-start gap-3">
@@ -114,19 +96,7 @@
       {detail}
     </p>
 
-    {#if prompt.rememberable}
-      <label class="mt-3 flex cursor-pointer items-center gap-2 text-[11.5px] leading-4 text-muted">
-        <input
-          bind:this={rememberInput}
-          type="checkbox"
-          bind:checked={remember}
-          disabled={busy}
-          aria-busy={busy || undefined}
-          class="h-3.5 w-3.5 accent-accent"
-        />
-        {m.page_permission_remember()}
-      </label>
-    {:else}
+    {#if !prompt.rememberable}
       <p class="mt-3 rounded-row bg-fill px-2.5 py-2 text-[10.5px] leading-4 text-muted">
         {m.page_permission_ask_again()}
       </p>
@@ -140,25 +110,57 @@
       </p>
     {/if}
 
-    <div class="mt-4 flex justify-end gap-2">
-      <Button
-        bind:ref={denyButton}
-        variant="secondary"
-        disabled={busy}
-        aria-busy={busy || undefined}
-        onclick={() => respond(false)}
-      >
-        {m.page_permission_deny()}
-      </Button>
-      <Button
-        bind:ref={allowButton}
-        variant="primary"
-        disabled={busy}
-        aria-busy={busy || undefined}
-        onclick={() => respond(true)}
-      >
-        {m.page_permission_allow()}
-      </Button>
-    </div>
+    {#if prompt.rememberable}
+      <div class="mt-4 flex flex-col gap-1.5">
+        <Button
+          variant="secondary"
+          class="w-full"
+          disabled={busy}
+          aria-busy={busy || undefined}
+          onclick={() => respond("always_allow")}
+        >
+          {m.page_permission_allow_always()}
+        </Button>
+        <Button
+          variant="secondary"
+          class="w-full"
+          disabled={busy}
+          aria-busy={busy || undefined}
+          onclick={() => respond("allow_once")}
+        >
+          {m.page_permission_allow_once()}
+        </Button>
+        <Button
+          bind:ref={denyButton}
+          variant="secondary"
+          class="w-full"
+          disabled={busy}
+          aria-busy={busy || undefined}
+          onclick={() => respond("always_deny")}
+        >
+          {m.page_permission_deny_always()}
+        </Button>
+      </div>
+    {:else}
+      <div class="mt-4 flex justify-end gap-2">
+        <Button
+          bind:ref={denyButton}
+          variant="secondary"
+          disabled={busy}
+          aria-busy={busy || undefined}
+          onclick={() => respond("deny_once")}
+        >
+          {m.page_permission_deny()}
+        </Button>
+        <Button
+          variant="primary"
+          disabled={busy}
+          aria-busy={busy || undefined}
+          onclick={() => respond("allow_once")}
+        >
+          {m.page_permission_allow_once()}
+        </Button>
+      </div>
+    {/if}
   </div>
 </div>

@@ -327,10 +327,15 @@ the focused resident tab, loads no catalog at startup, serializes one browser-ow
 prompt, and has independent exact Shell, navigation, close/retirement, 25-second Shell
 and 30-second native timeout paths. Malformed origin data, unsupported capabilities,
 overflow, stale identities, callback panic, navigation, focus loss, window hide and
-shutdown all deny. Decisions are one-time only: `remember_enabled` is false, so
-nothing is written to the profile until the browser can list and revoke grants. The
-store and its atomic remembered-choice path exist behind that switch and are covered by
-tests, not by shipped behavior. macOS capture indicators observe native Active/Muted
+shutdown all deny. The prompt offers Allow while visiting the site, Allow this time
+and Never allow. Only the first and last are written, per profile and origin, to the
+profile's revision-checked page-permission catalog; the catalog is loaded on demand
+for each request and a remembered Allow reaches WebKit only after the Shell re-observes
+the exact durable rows. A remembered Never allow for either capability denies a
+combined camera-and-microphone request; a pair is allowed without asking only when both
+are remembered as allowed. Private profiles offer only the one-time choices and never
+read or write the catalog. A remembered decision still applies only to the focused
+resident tab, so background requests keep being denied. macOS capture indicators observe native Active/Muted
 state and stop the exact resident document through WebKit; provisional navigation
 does not hide ongoing capture. Windows has no equivalent verified capture-state
 projection. Packaged device-permission, stop and iframe-lifetime checks remain required. Extension pages and offscreen documents deny media
@@ -1754,10 +1759,7 @@ unknown settlement keeps the owner poisoned until recovery.
 
 The following are roadmap items or disabled backends, not current security guarantees:
 
-- remembered per-origin camera and microphone grants (the macOS broker and the
-  WebView2 prompt are one-time decisions; the catalog behind `remember_enabled` stays
-  off until the browser can list and revoke grants), and any permission beyond camera
-  and microphone;
+- any permission beyond camera and microphone;
 - Linux as a supported platform: the code stays in the tree, but the app refuses to
   start there;
 - native Windows release qualification of downloads/protection,
@@ -1810,8 +1812,8 @@ risk. The recurring engine-floor, advisory, and fork-review procedure is defined
    local storage, WebSQL where present, HTTP authentication state, and engine caches for
    persistent and incognito profiles. Inject crashes and ambiguous storage outcomes at
    every authorization, native-proof, filesystem, and journal-finalization boundary.
-4. Keep unsupported download adapters and remembered permission grants disabled until
-   their brokers are complete and adversarially tested. Qualify the macOS file broker
+4. Keep unsupported download adapters disabled until their brokers are complete and
+   adversarially tested. Qualify the macOS file broker
    on signed release artifacts. The ad blocker ships on by default with the bundled
    seed; calling its protection stable and continuously maintained additionally
    requires provisioning and exercising the production trust domain and exact

@@ -26,7 +26,6 @@ fn ready_shell(
     ItemId,
 ) {
     let (mut shell, engine, screen) = setup_with(store);
-    shell.page_permissions.remember_enabled = true;
     shell.handle(Command::Bootstrap);
     shell.handle(Command::SetWindowFocused(true));
     let item = active_id(&screen);
@@ -163,14 +162,19 @@ fn capture_does_not_disappear_while_navigation_is_provisional_or_failed() {
 #[test]
 fn os_focus_loss_cancels_consent_without_hiding_or_suspending_content() {
     let store = Arc::new(FakeStore::default());
-    let (mut shell, engine, _screen, _queue, profile, item) = ready_shell(store);
-    shell.page_permissions.remember_enabled = false;
+    store
+        .page_permission_load_outcomes
+        .lock()
+        .unwrap()
+        .push_back(PagePermissionCatalogLoadOutcome::Loaded(empty_catalog()));
+    let (mut shell, engine, _screen, queue, profile, item) = ready_shell(store);
     let first = request(101, PagePermissionRequestKind::CameraAndMicrophone);
     shell.handle(Command::Engine(EngineEvent::PermissionRequested {
         id: item,
         profile,
         request: first.clone(),
     }));
+    shell.handle(queue.recv().unwrap());
     assert!(shell.page_permissions.is_visible());
 
     shell.handle(Command::SetWindowFocused(false));
@@ -200,8 +204,7 @@ fn os_focus_loss_cancels_consent_without_hiding_or_suspending_content() {
 #[test]
 fn visible_unfocused_window_denies_requests_until_os_focus_returns() {
     let store = Arc::new(FakeStore::default());
-    let (mut shell, engine, _screen, _queue, profile, item) = ready_shell(store.clone());
-    shell.page_permissions.remember_enabled = false;
+    let (mut shell, engine, _screen, queue, profile, item) = ready_shell(store.clone());
     shell.handle(Command::SetWindowFocused(false));
     let first = request(
         102,
@@ -226,6 +229,11 @@ fn visible_unfocused_window_denies_requests_until_os_focus_returns() {
     );
 
     shell.handle(Command::SetWindowFocused(true));
+    store
+        .page_permission_load_outcomes
+        .lock()
+        .unwrap()
+        .push_back(PagePermissionCatalogLoadOutcome::Loaded(empty_catalog()));
     shell.handle(Command::Engine(EngineEvent::PermissionRequested {
         id: item,
         profile,
@@ -234,6 +242,7 @@ fn visible_unfocused_window_denies_requests_until_os_focus_returns() {
             PagePermissionRequestKind::Single(PagePermissionKind::Microphone),
         ),
     }));
+    shell.handle(queue.recv().unwrap());
     assert!(shell.page_permissions.is_visible());
 }
 
@@ -374,40 +383,39 @@ fn incognito_prompts_once_without_reading_or_writing_durable_policy() {
 }
 
 #[test]
-fn release_profiles_decide_once_without_reading_or_writing_durable_policy() {
+fn remembered_allow_settles_without_a_prompt() {
     let store = Arc::new(FakeStore::default());
-    let (mut shell, engine, _screen, _queue, profile, item) = ready_shell(store.clone());
-    shell.page_permissions.remember_enabled = false;
-    let request = request(16, PagePermissionRequestKind::CameraAndMicrophone);
+    let origin = PageOrigin::parse_exact("https://media.example").unwrap();
+    let grants = [PagePermissionKind::Camera, PagePermissionKind::Microphone]
+        .into_iter()
+        .zip(30..)
+        .map(|(kind, id)| PagePermissionGrant {
+            id: zephium_core::ids::PagePermissionGrantId::from(id),
+            revision: PagePermissionGrantRevision::INITIAL,
+            origin: origin.clone(),
+            kind,
+            decision: RememberedPagePermission::Allow,
+        })
+        .collect();
+    store
+        .page_permission_load_outcomes
+        .lock()
+        .unwrap()
+        .push_back(PagePermissionCatalogLoadOutcome::Loaded(
+            PagePermissionCatalog::new(PagePermissionCatalogRevision::new(2).unwrap(), grants)
+                .unwrap(),
+        ));
+    let (mut shell, engine, _screen, queue, profile, item) = ready_shell(store.clone());
+    let request = request(19, PagePermissionRequestKind::CameraAndMicrophone);
 
     shell.handle(Command::Engine(EngineEvent::PermissionRequested {
         id: item,
         profile,
         request: request.clone(),
     }));
+    shell.handle(queue.recv().unwrap());
 
-    assert!(store.page_permission_load_calls.lock().unwrap().is_empty());
-    assert!(shell.page_permissions.is_visible());
-    assert!(!shell.page_permissions.visible_rememberable());
-    shell.handle(Command::Operation {
-        operation_id: "forged-remember".into(),
-        command: Box::new(Command::RespondToPagePermissionPrompt {
-            profile,
-            item,
-            request: request.id,
-            decision: PagePermissionPromptDecision::AlwaysAllow,
-        }),
-    });
-    assert!(engine.page_permission_settlements().is_empty());
-    shell.handle(Command::Operation {
-        operation_id: "allow-once".into(),
-        command: Box::new(Command::RespondToPagePermissionPrompt {
-            profile,
-            item,
-            request: request.id,
-            decision: PagePermissionPromptDecision::AllowOnce,
-        }),
-    });
+    assert!(!shell.page_permissions.has_pending());
     assert!(store
         .page_permission_mutation_calls
         .lock()
@@ -422,6 +430,41 @@ fn release_profiles_decide_once_without_reading_or_writing_durable_policy() {
             PagePermissionRequestSettlement::Allow,
         )]
     );
+}
+
+#[test]
+fn a_remembered_allow_for_one_capability_still_asks_for_the_pair() {
+    let store = Arc::new(FakeStore::default());
+    store
+        .page_permission_load_outcomes
+        .lock()
+        .unwrap()
+        .push_back(PagePermissionCatalogLoadOutcome::Loaded(
+            PagePermissionCatalog::new(
+                PagePermissionCatalogRevision::new(2).unwrap(),
+                vec![PagePermissionGrant {
+                    id: zephium_core::ids::PagePermissionGrantId::from(40),
+                    revision: PagePermissionGrantRevision::INITIAL,
+                    origin: PageOrigin::parse_exact("https://media.example").unwrap(),
+                    kind: PagePermissionKind::Camera,
+                    decision: RememberedPagePermission::Allow,
+                }],
+            )
+            .unwrap(),
+        ));
+    let (mut shell, engine, _screen, queue, profile, item) = ready_shell(store);
+    let request = request(20, PagePermissionRequestKind::CameraAndMicrophone);
+
+    shell.handle(Command::Engine(EngineEvent::PermissionRequested {
+        id: item,
+        profile,
+        request: request.clone(),
+    }));
+    shell.handle(queue.recv().unwrap());
+
+    assert!(shell.page_permissions.is_visible());
+    assert!(shell.page_permissions.visible_rememberable());
+    assert!(engine.page_permission_settlements().is_empty());
 }
 
 #[test]

@@ -179,8 +179,11 @@ fn a_permission_prompt_takes_fullscreen_away() {
         PageOrigin, PagePermissionRequest, PagePermissionRequestId, PagePermissionRequestKind,
     };
     let (mut shell, engine, _screen, host, page) = ready(true);
-    shell.page_permissions.remember_enabled = false;
     let profile = shell.windows.focused().unwrap().profile;
+    // A private profile asks at once, without reading saved decisions.
+    let mut private = shell.profiles.remove(profile).unwrap();
+    private.kind = ProfileKind::Incognito;
+    assert!(shell.profiles.insert(private));
     fullscreen(&mut shell, page, true);
     shell.handle(Command::Engine(EngineEvent::PermissionRequested {
         id: page,
