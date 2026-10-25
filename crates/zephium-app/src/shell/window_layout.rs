@@ -264,7 +264,7 @@ impl Shell {
     fn present(&self, tree: &Pane) -> bool {
         tree.tabs()
             .iter()
-            .any(|id| self.items.tab(*id).is_some_and(TabState::has_view))
+            .any(|id| self.items.tab(*id).is_some_and(TabState::shows_page))
     }
 
     // The split group persists across tab switches (Arc model): members show
@@ -281,14 +281,16 @@ impl Shell {
                 && tree
                     .tabs()
                     .into_iter()
-                    .all(|id| self.items.tab(id).is_some_and(TabState::has_view))
+                    .all(|id| self.items.tab(id).is_some_and(TabState::shows_page))
             {
                 return Some(tree);
             }
         }
+        // A view a failure covers keeps its history but stays off the
+        // stage, where chrome explains the failure instead.
         self.items
             .tab(active)
-            .is_some_and(TabState::has_view)
+            .is_some_and(TabState::shows_page)
             .then_some(Pane::Leaf(active))
     }
 

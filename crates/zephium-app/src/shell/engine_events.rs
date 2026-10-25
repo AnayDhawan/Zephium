@@ -491,19 +491,44 @@ impl Shell {
                     self.project_tab(id);
                 }
             }
-            EngineEvent::NavigationFailureReported { id, reason, url } => {
-                // Only a certificate refusal names its own address, which
-                // is where the way past it, if any, leads.
-                let refused = url
-                    .filter(|_| {
-                        matches!(
-                            reason,
-                            zephium_core::ports::engine::NavigationFailureReason::Certificate(_)
-                        )
-                    })
+            EngineEvent::NavigationFailureReported {
+                id,
+                reason,
+                url,
+                replaced_page,
+            } => {
+                // A certificate refusal names its own address, which is where
+                // the way past it, if any, leads; so does a failure whose
+                // error document replaced the page.
+                let certificate = matches!(
+                    reason,
+                    zephium_core::ports::engine::NavigationFailureReason::Certificate(_)
+                );
+                let failed = url
                     .and_then(|url| url::Url::parse(&url).ok())
-                    .filter(|url| url.scheme() == "https");
-                if self.items.record_navigation_failure(id, reason, refused) {
+                    .filter(|url| {
+                        if certificate {
+                            url.scheme() == "https"
+                        } else {
+                            replaced_page && navigation::is_browser_target(url)
+                        }
+                    });
+                let covered = self
+                    .items
+                    .tab(id)
+                    .is_some_and(TabState::failure_covers_page);
+                if self
+                    .items
+                    .record_navigation_failure(id, reason, failed, replaced_page)
+                {
+                    if covered
+                        || self
+                            .items
+                            .tab(id)
+                            .is_some_and(TabState::failure_covers_page)
+                    {
+                        let _ = self.relayout();
+                    }
                     self.project_tab(id);
                 }
             }
@@ -601,6 +626,10 @@ impl Shell {
                     return;
                 }
                 let first_committed_url = self.items.tab(id).is_some_and(|tab| tab.url.is_none());
+                let uncovered = self
+                    .items
+                    .tab(id)
+                    .is_some_and(TabState::failure_covers_page);
                 let replace_stale_title = self
                     .items
                     .tab(id)
@@ -609,6 +638,11 @@ impl Shell {
                 if !self.items.set_committed_url(id, committed_url.clone()) {
                     crate::diagnostic!("engine: rejected invalid or unknown committed URL event");
                     return;
+                }
+                if uncovered {
+                    // The view holds a real document again; lay it out before
+                    // its presentation is acknowledged.
+                    let _ = self.relayout();
                 }
                 if replace_stale_title {
                     // Browser chrome may be projected before the new document

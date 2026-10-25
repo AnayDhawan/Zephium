@@ -241,4 +241,6 @@ On Windows the same handler is fed from `NavigationCompleted`'s
 `WebErrorStatus` (cancellation and download conversion stay silent). The
 `ContentLoading` of WebView2's built-in error page is hidden like a commit but
 not reported as one, so the failure lands on the document the person asked for
-and the host can show its own explanation.
+and the host can show its own explanation. The handler's `FailedDocument` says
+when that error document replaced the shown page, with the address from Wry's
+in-flight navigation record; macOS always reports `Kept`.

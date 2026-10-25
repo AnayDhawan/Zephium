@@ -154,6 +154,10 @@ pub enum PageRequest {
 pub struct NavigationFailure {
     pub url: Url,
     pub reason: crate::ports::engine::NavigationFailureReason,
+    /// The engine replaced the page with an empty error document. The view
+    /// stays out of the layout, history intact, until another document
+    /// commits in it.
+    pub covers_page: bool,
 }
 
 impl TabState {
@@ -194,6 +198,18 @@ impl TabState {
 
     pub fn has_view(&self) -> bool {
         self.view
+    }
+
+    /// Whether the native view is laid out: it lives and no failure covers
+    /// it.
+    pub fn shows_page(&self) -> bool {
+        self.view && !self.failure_covers_page()
+    }
+
+    pub fn failure_covers_page(&self) -> bool {
+        self.failure
+            .as_ref()
+            .is_some_and(|failure| failure.covers_page)
     }
 }
 

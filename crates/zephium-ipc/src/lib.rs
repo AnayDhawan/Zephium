@@ -143,6 +143,10 @@ pub struct TabFailure {
     /// they may continue past it. Never true for a public name.
     #[serde(default)]
     pub can_continue: bool,
+    /// The page that was showing is gone; the failure stands in its place
+    /// until another page opens, even while one loads.
+    #[serde(default)]
+    pub covers_page: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]

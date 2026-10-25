@@ -1357,14 +1357,19 @@ pub enum EngineEvent {
         request: NavigationRequestId,
     },
     /// Why the view's current main-frame navigation failed, reported before
-    /// its failure settles, only where the engine can tell (macOS; WebView2
-    /// shows its own error pages).
+    /// its failure settles.
     NavigationFailureReported {
         id: ItemId,
         reason: NavigationFailureReason,
-        /// The main-frame address the engine refused, for a certificate
-        /// failure; it may differ from the one asked for after redirects.
+        /// The main-frame address that failed, from the engine's own
+        /// navigation record: for a refused certificate, and whenever
+        /// `replaced_page` is set. It may differ from the one asked for after
+        /// redirects.
         url: Option<String>,
+        /// The engine put an empty error document in place of the page that
+        /// was showing (WebView2). The view and its history stay; chrome
+        /// shows the failure over it until another document commits.
+        replaced_page: bool,
     },
     /// The exact native zoom invocation settled. `applied_scale` is the
     /// adapter's last successfully applied scale for this view generation, so

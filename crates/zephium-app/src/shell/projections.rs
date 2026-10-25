@@ -492,6 +492,7 @@ impl Shell {
                 reason: zephium_ipc::TabFailureReason::Crashed,
                 certificate: None,
                 can_continue: false,
+                covers_page: false,
             });
         }
         view.certificate_exception = self.under_certificate_exception(id, tab);
@@ -732,6 +733,7 @@ fn tab_view(
                 can_continue: certificate.is_some()
                     && zephium_core::certificates::may_continue(&failure.url),
                 certificate,
+                covers_page: failure.covers_page,
             }
         }),
         certificate_exception: false,

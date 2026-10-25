@@ -436,7 +436,10 @@ impl Items {
             self.pending_navigations.remove(&id);
             return Vec::new();
         };
-        tab.failure = None;
+        // An error document still fills the view until the next one commits.
+        if !tab.failure_covers_page() {
+            tab.failure = None;
+        }
         if tab.view {
             vec![Effect::Navigate {
                 id,
@@ -572,6 +575,10 @@ impl Items {
         tab.audio.silence();
         tab.loading = false;
         tab.lifecycle = Lifecycle::Hibernated;
+        // The error document went with the view.
+        if tab.failure_covers_page() {
+            tab.failure = None;
+        }
         true
     }
 
@@ -609,6 +616,7 @@ impl Items {
                     tab.failure = Some(Box::new(crate::item::NavigationFailure {
                         url,
                         reason: crate::ports::engine::NavigationFailureReason::Other,
+                        covers_page: false,
                     }));
                 }
             }
@@ -716,27 +724,37 @@ impl Items {
 
     /// Remembers why the address the person asked for, or the one a view was
     /// opened for, did not load, so chrome can say so and offer it again. A
-    /// page's own navigation away from a shown document is left alone.
-    /// `refused` is the address the engine itself refused, when it names one.
+    /// page's own navigation away from a shown document is left alone, unless
+    /// the engine replaced that document (`replaced_page`): then the failure
+    /// covers the view whoever started the navigation. `failed` is the
+    /// address the engine itself names, when it names one.
     pub fn record_navigation_failure(
         &mut self,
         id: ItemId,
         reason: crate::ports::engine::NavigationFailureReason,
-        refused: Option<Url>,
+        failed: Option<Url>,
+        replaced_page: bool,
     ) -> bool {
-        let Some(url) = self
+        let asked = self
             .pending_navigations
             .get(&id)
             .and_then(|pending| pending.url.clone())
-            .or_else(|| self.opening.get(&id).cloned())
-        else {
+            .or_else(|| self.opening.get(&id).cloned());
+        let covers_page = replaced_page && self.tab(id).is_some_and(TabState::has_view);
+        if asked.is_none() && !covers_page {
+            return false;
+        }
+        let Some(url) = failed.or(asked) else {
             return false;
         };
-        let url = refused.unwrap_or(url);
         let Some(tab) = self.tab_mut(id) else {
             return false;
         };
-        tab.failure = Some(Box::new(crate::item::NavigationFailure { url, reason }));
+        tab.failure = Some(Box::new(crate::item::NavigationFailure {
+            url,
+            reason,
+            covers_page,
+        }));
         true
     }
 
@@ -949,7 +967,7 @@ mod tests {
         assert!(items.insert_unloaded_tab(id(1), today(), url.clone(), "Dev app"));
         assert_eq!(items.ensure_view(id(1)).len(), 1);
 
-        assert!(items.record_navigation_failure(id(1), Reason::Unreachable, None));
+        assert!(items.record_navigation_failure(id(1), Reason::Unreachable, None, false));
         items.view_creation_failed(id(1));
 
         let tab = items.tab(id(1)).unwrap();
@@ -968,8 +986,65 @@ mod tests {
         items.navigate(id(1), "example.com");
         assert!(items.set_committed_url_str(id(1), "https://example.com/"));
 
-        assert!(!items.record_navigation_failure(id(1), Reason::Offline, None));
+        assert!(!items.record_navigation_failure(id(1), Reason::Offline, None, false));
         assert!(items.tab(id(1)).unwrap().failure.is_none());
+    }
+
+    #[test]
+    fn a_replaced_page_is_covered_by_its_failure_until_a_document_commits() {
+        use crate::ports::engine::NavigationFailureReason as Reason;
+        let mut items = Items::default();
+        assert!(items.insert_tab(id(1), today()));
+        items.navigate(id(1), "example.com");
+        assert!(items.set_committed_url_str(id(1), "https://example.com/"));
+        let failed = Url::parse("https://example.com/down").unwrap();
+
+        // A link the page followed: no address was asked for, yet the page
+        // it left is gone.
+        assert!(items.record_navigation_failure(
+            id(1),
+            Reason::Unreachable,
+            Some(failed.clone()),
+            true
+        ));
+        let tab = items.tab(id(1)).unwrap();
+        let failure = tab.failure.as_deref().unwrap();
+        assert_eq!((&failure.url, failure.covers_page), (&failed, true));
+        assert!(tab.has_view() && !tab.shows_page());
+        assert_eq!(tab.url.as_ref().unwrap().as_str(), "https://example.com/");
+
+        // Retrying keeps the error document covered while it loads.
+        assert_eq!(items.navigate(id(1), failed.as_str()).len(), 1);
+        assert!(!items.tab(id(1)).unwrap().shows_page());
+
+        assert!(items.set_committed_url(id(1), failed.clone()));
+        let tab = items.tab(id(1)).unwrap();
+        assert!(tab.failure.is_none() && tab.shows_page());
+    }
+
+    #[test]
+    fn a_covering_failure_needs_a_view_and_goes_with_it() {
+        use crate::ports::engine::NavigationFailureReason as Reason;
+        let failed = Url::parse("https://example.com/down").unwrap();
+        let mut items = Items::default();
+        assert!(items.insert_tab(id(1), today()));
+        assert!(!items.record_navigation_failure(
+            id(1),
+            Reason::Offline,
+            Some(failed.clone()),
+            true
+        ));
+
+        items.navigate(id(1), "example.com");
+        assert!(items.set_committed_url_str(id(1), "https://example.com/"));
+        assert!(items.record_navigation_failure(id(1), Reason::Offline, Some(failed), true));
+        assert!(items.mark_view_discarded(id(1)));
+        let tab = items.tab(id(1)).unwrap();
+        assert!(
+            tab.failure.is_none(),
+            "the error document went with the view"
+        );
+        assert!(!tab.shows_page());
     }
 
     #[test]

@@ -3082,6 +3082,11 @@ export type TabFailure = {
 	 *  they may continue past it. Never true for a public name.
 	 */
 	can_continue?: boolean,
+	/**
+	 *  The page that was showing is gone; the failure stands in its place
+	 *  until another page opens, even while one loads.
+	 */
+	covers_page?: boolean,
 };
 
 export type TabFailureReason = "offline" | "host_not_found" | "unreachable" | "timed_out" | "insecure" |

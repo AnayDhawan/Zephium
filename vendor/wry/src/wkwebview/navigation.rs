@@ -743,6 +743,7 @@ pub(crate) fn did_fail_navigation(
       handler(
         NavigationId::from_raw(navigation_key(navigation) as u64),
         failure,
+        crate::FailedDocument::Kept,
       );
     }
   }

@@ -349,6 +349,7 @@ fn web_error_failure(status: COREWEBVIEW2_WEB_ERROR_STATUS) -> Option<crate::Nav
 struct InFlightNavigationUrls {
   urls: HashMap<u64, String>,
   committed: HashSet<u64>,
+  error_documents: HashSet<u64>,
 }
 
 impl InFlightNavigationUrls {
@@ -367,9 +368,20 @@ impl InFlightNavigationUrls {
     self.urls.get(&id).cloned()
   }
 
-  fn finish(&mut self, id: u64) -> Option<String> {
+  /// WebView2 committed its error document for this navigation, in place
+  /// of the one shown. False for a navigation that is not tracked.
+  fn error_document(&mut self, id: u64) -> bool {
+    self.urls.contains_key(&id) && {
+      self.error_documents.insert(id);
+      true
+    }
+  }
+
+  /// The address and whether an error document replaced the shown one.
+  fn finish(&mut self, id: u64) -> Option<(String, bool)> {
     self.committed.remove(&id);
-    self.urls.remove(&id)
+    let replaced = self.error_documents.remove(&id);
+    self.urls.remove(&id).map(|url| (url, replaced))
   }
 }
 
@@ -1836,8 +1848,7 @@ impl InnerWebView {
             let tracked = committed_urls
               .lock()
               .unwrap_or_else(|poisoned| poisoned.into_inner())
-              .urls
-              .contains_key(&navigation_id);
+              .error_document(navigation_id);
             if tracked {
               if let Some(guard) = navigation_presentation_guard.as_ref() {
                 guard();
@@ -1892,12 +1903,17 @@ impl InnerWebView {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .finish(navigation_id);
-          if let Some(url) = url {
+          if let Some((url, replaced)) = url {
             if !succeeded.as_bool() {
               if let (Some(report), Some(failure)) =
                 (failure_handler.as_ref(), web_error_failure(status))
               {
-                report(NavigationId::from_raw(navigation_id), failure);
+                let document = if replaced {
+                  crate::FailedDocument::Replaced { url: url.clone() }
+                } else {
+                  crate::FailedDocument::Kept
+                };
+                report(NavigationId::from_raw(navigation_id), failure, document);
               }
             }
             completed_handler(NavigationEvent {
@@ -3665,11 +3681,31 @@ mod tests {
       None,
       "one navigation gates presentation once"
     );
-    assert_eq!(urls.finish(0).as_deref(), Some("https://redirect.example/"));
+    assert_eq!(
+      urls.finish(0),
+      Some(("https://redirect.example/".into(), false))
+    );
     assert!(urls.admit(
       IN_FLIGHT_NAVIGATION_LIMIT as u64,
       "https://reused.example/".into()
     ));
+  }
+
+  #[test]
+  fn an_error_document_is_reported_only_for_its_own_tracked_navigation() {
+    let mut urls = InFlightNavigationUrls::default();
+    assert!(!urls.error_document(7), "an untracked navigation");
+    assert!(urls.admit(7, "https://down.example/".into()));
+    assert!(urls.admit(8, "https://up.example/".into()));
+    assert!(urls.error_document(7));
+    assert_eq!(urls.finish(7), Some(("https://down.example/".into(), true)));
+    assert_eq!(urls.finish(8), Some(("https://up.example/".into(), false)));
+    assert!(urls.admit(7, "https://down.example/".into()));
+    assert_eq!(
+      urls.finish(7),
+      Some(("https://down.example/".into(), false)),
+      "a reused identity starts clean"
+    );
   }
 
   #[test]

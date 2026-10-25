@@ -36,8 +36,8 @@ use crate::{
       AppleNavigationEventState,
     },
   },
-  AppleNavigationAction, NavigationEvent, NavigationFailure, NavigationId, PageLoadEvent,
-  WryWebView,
+  AppleNavigationAction, FailedDocument, NavigationEvent, NavigationFailure, NavigationId,
+  PageLoadEvent, WryWebView,
 };
 
 use super::wry_download_delegate::WryDownloadDelegate;
@@ -91,7 +91,8 @@ pub struct WryNavigationDelegateIvars {
   pub download_delegate: Option<Retained<WryDownloadDelegate>>,
   pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent)>>,
   pub navigation_event_handler: Option<Box<dyn Fn(NavigationEvent)>>,
-  pub navigation_failure_handler: Option<Box<dyn Fn(NavigationId, NavigationFailure)>>,
+  pub navigation_failure_handler:
+    Option<Box<dyn Fn(NavigationId, NavigationFailure, FailedDocument)>>,
   pub navigation_presentation_guard: Option<Box<dyn Fn()>>,
   // `AppleNavigationEventState` intentionally uses a non-wrapping `u128`
   // record token, which gives it 16-byte alignment on Apple 64-bit targets.
@@ -368,7 +369,9 @@ impl WryNavigationDelegate {
     download_delegate: Option<Retained<WryDownloadDelegate>>,
     on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
     navigation_event_handler: Option<Box<dyn Fn(NavigationEvent)>>,
-    navigation_failure_handler: Option<Box<dyn Fn(NavigationId, NavigationFailure)>>,
+    navigation_failure_handler: Option<
+      Box<dyn Fn(NavigationId, NavigationFailure, FailedDocument)>,
+    >,
     navigation_presentation_guard: Option<Box<dyn Fn()>>,
     on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
     mtm: MainThreadMarker,

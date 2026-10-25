@@ -270,9 +270,12 @@
     });
   });
   // A tab with nothing to show (a first load that failed, a restored page
-  // that did not load, a crash it could not recover from) says why in its pane.
+  // that did not load, a crash it could not recover from, a page the engine
+  // replaced with an empty error document) says why in its pane.
   function failedPane(tab: TabView): boolean {
-    return !!tab.failure && !tab.loading && (!tab.url || tab.availability?.state === "sleeping");
+    if (!tab.failure) return false;
+    if (tab.failure.covers_page) return true;
+    return !tab.loading && (!tab.url || tab.availability?.state === "sleeping");
   }
   // A load that failed over a page still showing leaves that page in place;
   // a notice says the new address did not open.

@@ -257,7 +257,7 @@ pub(super) fn queue_navigation_failure(
     navigation: &NavigationEpochTracker,
     failed: NavigationEpoch,
     restored: Option<NavigationEpoch>,
-    cancelled: bool,
+    ending: super::navigation::FailedNavigationEnd,
 ) {
     if permit.active_token().is_none() {
         return;
@@ -271,7 +271,7 @@ pub(super) fn queue_navigation_failure(
             &queued_navigation,
             failed,
             restored,
-            cancelled,
+            ending,
         );
     });
 }

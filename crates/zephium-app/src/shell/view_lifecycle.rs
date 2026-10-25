@@ -410,9 +410,23 @@ impl Shell {
             .retain(|id, _| self.items.tab(*id).is_some_and(|tab| !tab.has_view()));
         self.retry_capacity_requests();
         let shown: std::collections::HashSet<ItemId> = if self.window_visible {
-            self.visible_tree()
+            let mut shown: std::collections::HashSet<ItemId> = self
+                .visible_tree()
                 .map(|t| t.tabs().into_iter().collect())
-                .unwrap_or_default()
+                .unwrap_or_default();
+            // A failure in front of the page is what the person is looking
+            // at; its view must not go to sleep under it.
+            shown.extend(
+                self.windows
+                    .focused()
+                    .and_then(|window| window.active)
+                    .filter(|id| {
+                        self.items
+                            .tab(*id)
+                            .is_some_and(|tab| tab.has_view() && tab.failure_covers_page())
+                    }),
+            );
+            shown
         } else {
             std::collections::HashSet::new()
         };

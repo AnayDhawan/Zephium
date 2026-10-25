@@ -1618,26 +1618,39 @@ impl EngineHost {
         // The engine says why a navigation failed just before its Failed
         // event; chrome uses it to explain a failed address the person asked
         // for, in place of WebKit's blank or WebView2's own error page.
+        // WebView2 can put its error document in place of the shown page;
+        // the failure handler names that navigation for its Failed event.
+        let replaced_navigation = Rc::new(Cell::new(None::<wry::NavigationId>));
         #[cfg(any(target_os = "macos", target_os = "windows"))]
         {
             let failure_permit = load_permit.clone();
             let failure_sink = on_load.clone();
             let failure_id = load_id.clone();
             let failure_certificates = Rc::downgrade(&certificates);
-            builder = builder.with_navigation_failure_handler(move |_navigation, reason| {
-                let reason = failure_reason(reason);
-                let url = matches!(reason, NavigationFailureReason::Certificate(_))
-                    .then(|| failure_certificates.upgrade()?.refused_url())
-                    .flatten();
-                failure_permit.emit(
-                    &failure_sink,
-                    EngineEvent::NavigationFailureReported {
-                        id: failure_id.get(),
-                        reason,
-                        url,
-                    },
-                );
-            });
+            let failure_replaced = replaced_navigation.clone();
+            builder =
+                builder.with_navigation_failure_handler(move |navigation, reason, document| {
+                    let reason = failure_reason(reason);
+                    let replaced = match document {
+                        wry::FailedDocument::Replaced { url } => Some(url),
+                        wry::FailedDocument::Kept => None,
+                    };
+                    failure_replaced.set(replaced.is_some().then_some(navigation));
+                    let replaced_page = replaced.is_some();
+                    let url = matches!(reason, NavigationFailureReason::Certificate(_))
+                        .then(|| failure_certificates.upgrade()?.refused_url())
+                        .flatten()
+                        .or(replaced);
+                    failure_permit.emit(
+                        &failure_sink,
+                        EngineEvent::NavigationFailureReported {
+                            id: failure_id.get(),
+                            reason,
+                            url,
+                            replaced_page,
+                        },
+                    );
+                });
         }
         builder = builder.with_navigation_event_handler(move |event| {
             #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -1752,13 +1765,21 @@ impl EngineHost {
                     if let Some(request) = request {
                         load_permit.emit(&on_load, EngineEvent::NavigationFailed { id, request });
                     }
+                    let replaced = replaced_navigation.take() == Some(event.id);
+                    let ending = if event.phase == wry::NavigationEventPhase::Cancelled {
+                        super::navigation::FailedNavigationEnd::Cancelled
+                    } else if replaced {
+                        super::navigation::FailedNavigationEnd::PageReplaced
+                    } else {
+                        super::navigation::FailedNavigationEnd::Failed
+                    };
                     queue_navigation_failure(
                         id,
                         &load_permit,
                         &load_navigation,
                         failed,
                         restored,
-                        event.phase == wry::NavigationEventPhase::Cancelled,
+                        ending,
                     );
                 }
             }
@@ -2049,10 +2070,13 @@ impl EngineHost {
             // ContextMenuRequested filter and the SaveAsUIShowing denial hook.
             // Tabs a person reads also get WebView2's own page dialogs, which
             // name the origin that asks; agent views keep them denied.
+            // A failed load shows Zephium's explanation, never Edge's page:
+            // with the built-in one off, WebView2 commits a blank document.
             if unsafe { view.webview().Settings() }
                 .and_then(|settings| unsafe {
                     settings.SetAreDefaultContextMenusEnabled(true)?;
-                    settings.SetAreDefaultScriptDialogsEnabled(true)
+                    settings.SetAreDefaultScriptDialogsEnabled(true)?;
+                    settings.SetIsBuiltInErrorPageEnabled(false)
                 })
                 .is_err()
             {

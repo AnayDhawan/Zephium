@@ -164,6 +164,7 @@ fn a_failed_address_is_explained_until_the_next_attempt() {
         id,
         reason: NavigationFailureReason::Offline,
         url: None,
+        replaced_page: false,
     }));
     assert_eq!(failure(&screen), None, "a page's own load names no address");
 
@@ -175,6 +176,7 @@ fn a_failed_address_is_explained_until_the_next_attempt() {
         id,
         reason: NavigationFailureReason::HostNotFound,
         url: None,
+        replaced_page: false,
     }));
     let shown = failure(&screen).expect("the failed address is explained");
     assert_eq!(shown.url, "https://unreachable.example/");
@@ -189,6 +191,92 @@ fn a_failed_address_is_explained_until_the_next_attempt() {
         None,
         "a new attempt clears the explanation"
     );
+}
+
+#[test]
+fn a_page_replaced_by_an_error_document_is_covered_until_a_page_commits() {
+    use zephium_core::ports::engine::NavigationFailureReason;
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    shell.handle(Command::Navigate {
+        id,
+        input: "example.com".into(),
+    });
+    commit_url(&mut shell, id, "https://example.com/");
+    present_committed(&mut shell, id, "https://example.com/");
+    assert_eq!(engine.last_layout(), [id.to_string()]);
+    let tab = |screen: &Screen| {
+        last(screen)
+            .tabs
+            .into_iter()
+            .find(|tab| tab.id == id.to_string())
+            .unwrap()
+    };
+
+    // A link the page followed failed, and the engine replaced the page.
+    shell.handle(Command::Engine(EngineEvent::NavigationFailureReported {
+        id,
+        reason: NavigationFailureReason::Unreachable,
+        url: Some("https://example.com/down".into()),
+        replaced_page: true,
+    }));
+    let failure = tab(&screen)
+        .failure
+        .expect("the failure stands in for the page");
+    assert!(failure.covers_page);
+    assert_eq!(failure.url, "https://example.com/down");
+    assert!(
+        engine.last_layout().is_empty(),
+        "the view keeps its history off the stage"
+    );
+
+    // Retrying keeps it covered while the address loads.
+    shell.handle(Command::Navigate {
+        id,
+        input: "https://example.com/down".into(),
+    });
+    assert!(tab(&screen)
+        .failure
+        .is_some_and(|failure| failure.covers_page));
+    assert!(engine.last_layout().is_empty());
+
+    // Back, or any other document, commits: the view returns.
+    commit_url(&mut shell, id, "https://example.com/");
+    assert_eq!(tab(&screen).failure, None);
+    assert_eq!(engine.last_layout(), [id.to_string()]);
+}
+
+#[test]
+fn a_page_kept_in_place_after_a_failure_is_never_covered() {
+    use zephium_core::ports::engine::NavigationFailureReason;
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    shell.handle(Command::Navigate {
+        id,
+        input: "example.com".into(),
+    });
+    commit_url(&mut shell, id, "https://example.com/");
+    present_committed(&mut shell, id, "https://example.com/");
+    shell.handle(Command::Navigate {
+        id,
+        input: "unreachable.example".into(),
+    });
+    shell.handle(Command::Engine(EngineEvent::NavigationFailureReported {
+        id,
+        reason: NavigationFailureReason::HostNotFound,
+        url: None,
+        replaced_page: false,
+    }));
+    let failure = last(&screen)
+        .tabs
+        .into_iter()
+        .find(|tab| tab.id == id.to_string())
+        .and_then(|tab| tab.failure)
+        .unwrap();
+    assert!(!failure.covers_page);
+    assert_eq!(engine.last_layout(), [id.to_string()]);
 }
 
 #[test]
@@ -523,6 +611,7 @@ fn only_a_local_hosts_refused_certificate_has_a_way_past() {
             id,
             reason: NavigationFailureReason::Certificate(CertificateProblem::Untrusted),
             url: Some(refused.into()),
+            replaced_page: false,
         }));
     };
 

@@ -911,7 +911,8 @@ struct WebViewAttributes<'a> {
   pub navigation_event_handler: Option<Box<dyn Fn(NavigationEvent)>>,
 
   /// Why a main-frame navigation failed, reported before its `Failed` event.
-  pub navigation_failure_handler: Option<Box<dyn Fn(NavigationId, NavigationFailure)>>,
+  pub navigation_failure_handler:
+    Option<Box<dyn Fn(NavigationId, NavigationFailure, FailedDocument)>>,
 
   /// Hide the native presentation surface synchronously at each main-frame
   /// commit, before delivering its identity event. Hardened embedders can
@@ -1768,10 +1769,11 @@ impl<'a> WebViewBuilder<'a> {
   /// native error text.
   ///
   /// Supported on macOS and Windows. On Windows, WebView2's own error page
-  /// is hidden and never reported as a commit. Other platforms ignore it.
+  /// is hidden and never reported as a commit; [`FailedDocument`] says when
+  /// it took the place of the shown document. Other platforms ignore it.
   pub fn with_navigation_failure_handler(
     mut self,
-    handler: impl Fn(NavigationId, NavigationFailure) + 'static,
+    handler: impl Fn(NavigationId, NavigationFailure, FailedDocument) + 'static,
   ) -> Self {
     self.attrs.navigation_failure_handler = Some(Box::new(handler));
     self
@@ -3409,6 +3411,17 @@ pub enum NavigationFailure {
   Certificate(CertificateProblem),
   /// Any other failure.
   Other,
+}
+
+/// What a failed main-frame navigation left in the view.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FailedDocument {
+  /// The document shown before the navigation is still there.
+  Kept,
+  /// Windows: WebView2 committed its error document in place of the shown
+  /// one (blank when its built-in error page is off). `url` is the address
+  /// the navigation was for, from Wry's own in-flight navigation record.
+  Replaced { url: String },
 }
 
 /// Why a server certificate was refused, as a category; never native text.
