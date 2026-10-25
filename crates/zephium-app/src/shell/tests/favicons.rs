@@ -1484,3 +1484,30 @@ fn a_path_too_long_to_key_falls_back_to_its_origin_alone() {
     );
     assert!(shell.favicons.settled.is_empty());
 }
+
+#[test]
+fn only_the_apex_and_www_of_one_host_stand_in_for_each_other() {
+    let (mut shell, _engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    open_page(&mut shell, id, "https://example.com/", &raster(3));
+
+    shell.favicons.page_checks.clear();
+    navigate_and_commit(&mut shell, id, "https://www.example.com/");
+    assert_eq!(
+        tab_icon(&screen, id).map(|icon| icon.origin),
+        Some("https://example.com".to_owned())
+    );
+
+    // Every other subdomain of a site wears its own mark or none, never a
+    // sibling's: Gemini is not Gmail.
+    open_page(&mut shell, id, "https://mail.google.com/", &raster(4));
+    for host in ["gemini.google.com", "www.google.com", "google.com"] {
+        shell.favicons.page_checks.clear();
+        navigate_and_commit(&mut shell, id, &format!("https://{host}/"));
+        assert!(
+            tab_icon(&screen, id).is_none(),
+            "{host} borrowed a sibling's icon"
+        );
+    }
+}

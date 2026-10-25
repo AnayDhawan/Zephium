@@ -520,21 +520,11 @@ impl Shell {
         let url = tab.url.as_ref()?;
         let origin = origin_of(url)?;
         let profile = profile?;
-        if let Some(icon) = self.icon_ref_for_page(surface, profile, url) {
-            return Some(icon);
-        }
-        let sibling = super::favicons::same_site_icon_origin(
-            &origin,
-            self.favicons
-                .icon_cache_order
-                .iter()
-                .rev()
-                .filter(|(owner, candidate)| {
-                    *owner == profile && !zephium_core::icon::names_page(candidate)
-                })
-                .map(|(_, candidate)| candidate.as_str()),
-        )?;
-        self.icon_ref_for(surface, profile, sibling)
+        self.icon_ref_for_page(surface, profile, url).or_else(|| {
+            // The other spelling of the host stands in until this one has its
+            // own; no other subdomain does.
+            self.icon_ref_for(surface, profile, &super::favicons::apex_pair(&origin)?)
+        })
     }
 
     /// The icon a page wears: its own when it has one, else its origin's.

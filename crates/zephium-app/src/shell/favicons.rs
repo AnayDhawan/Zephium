@@ -989,17 +989,25 @@ fn site_of_origin(origin: &str) -> Option<String> {
     )
 }
 
-/// Another origin of the same site that already has an icon, newest first
-/// in `recent`. Used when a page has none of its own yet, so a redirect or
-/// login page keeps the site's icon instead of the generic globe.
-pub(super) fn same_site_icon_origin<'a>(
-    origin: &str,
-    recent: impl Iterator<Item = &'a str>,
-) -> Option<&'a str> {
-    let site = site_of_origin(origin)?;
-    recent
-        .filter(|candidate| *candidate != origin)
-        .find(|candidate| site_of_origin(candidate).as_deref() == Some(site.as_str()))
+/// The other spelling of the same host: `www.example.com` for `example.com`
+/// and the reverse, under the same scheme and port. These two are one site by
+/// every convention, so one's icon stands in for the other's until it has its
+/// own. No other subdomain does: `mail.google.com` and `gemini.google.com` are
+/// different products.
+pub(super) fn apex_pair(origin: &str) -> Option<String> {
+    let mut url = url::Url::parse(origin).ok()?;
+    let host = url.host_str()?.to_ascii_lowercase();
+    if host.parse::<std::net::IpAddr>().is_ok() || host.starts_with('[') {
+        return None;
+    }
+    let other = match host.strip_prefix("www.") {
+        Some(bare) if bare.contains('.') => bare.to_owned(),
+        Some(_) => return None,
+        None if host.contains('.') => format!("www.{host}"),
+        None => return None,
+    };
+    url.set_host(Some(&other)).ok()?;
+    Some(url.origin().ascii_serialization())
 }
 
 pub(super) fn origin_of(url: &url::Url) -> Option<String> {
@@ -1013,40 +1021,37 @@ pub(super) fn origin_of(url: &url::Url) -> Option<String> {
 }
 
 #[cfg(test)]
-mod same_site_tests {
-    use super::same_site_icon_origin;
+mod pair_tests {
+    use super::*;
 
     #[test]
-    fn a_page_borrows_the_newest_icon_of_its_own_site_only() {
-        let recent = [
-            "https://example.org",
-            "https://slack.com",
-            "https://app.slack.com",
-        ];
+    fn only_the_apex_and_its_www_are_one_host() {
         assert_eq!(
-            same_site_icon_origin("https://zephiumdev.slack.com", recent.into_iter()),
-            Some("https://slack.com")
+            apex_pair("https://example.com").as_deref(),
+            Some("https://www.example.com")
         );
         assert_eq!(
-            same_site_icon_origin("https://notslack.com", recent.into_iter()),
-            None
+            apex_pair("https://www.example.com").as_deref(),
+            Some("https://example.com")
         );
         assert_eq!(
-            same_site_icon_origin("https://slack.com", ["https://slack.com"].into_iter()),
-            None
+            apex_pair("http://www.example.co.uk:8080").as_deref(),
+            Some("http://example.co.uk:8080")
         );
-    }
-
-    #[test]
-    fn hosts_without_a_registrable_domain_match_only_themselves() {
-        let recent = ["http://127.0.0.2:3000", "http://localhost:8080"];
+        // Every other subdomain is a different product.
         assert_eq!(
-            same_site_icon_origin("http://127.0.0.1:3000", recent.into_iter()),
-            None
+            apex_pair("https://mail.google.com").as_deref(),
+            Some("https://www.mail.google.com")
         );
         assert_eq!(
-            same_site_icon_origin("http://localhost:3000", recent.into_iter()),
-            Some("http://localhost:8080")
+            apex_pair("https://www.www.example.com").as_deref(),
+            Some("https://www.example.com")
         );
+        // Hosts that are not names.
+        assert_eq!(apex_pair("https://localhost"), None);
+        assert_eq!(apex_pair("http://127.0.0.1:3000"), None);
+        assert_eq!(apex_pair("http://[::1]:3000"), None);
+        assert_eq!(apex_pair("https://www.localhost"), None);
+        assert_eq!(apex_pair("not an origin"), None);
     }
 }
