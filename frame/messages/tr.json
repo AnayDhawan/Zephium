@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "İleri (alternatif)",
   "command_tab_next_alternate": "Sonraki sekme (alternatif)",
   "command_tab_previous_alternate": "Önceki sekme (alternatif)",
-  "command_settings_clear_data": "Tarama verilerini temizle…"
+  "command_settings_clear_data": "Tarama verilerini temizle…",
+  "account_vault_fault_mac": "Zephium oturum bilgilerinizi Anahtar Zinciri içinden okuyamıyor; bu yüzden Zephium AI ve hesap bilgilerinize ulaşılamıyor. Düzeltmek için yeniden oturum açın.",
+  "account_vault_fault_windows": "Zephium oturum bilgilerinizi Windows Kimlik Bilgileri Yöneticisi içinden okuyamıyor; bu yüzden Zephium AI ve hesap bilgilerinize ulaşılamıyor. Düzeltmek için yeniden oturum açın.",
+  "account_sign_in_again": "Yeniden oturum aç"
 }

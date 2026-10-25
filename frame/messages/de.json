@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "Vor (Alternative)",
   "command_tab_next_alternate": "Nächster Tab (Alternative)",
   "command_tab_previous_alternate": "Vorheriger Tab (Alternative)",
-  "command_settings_clear_data": "Browserdaten löschen…"
+  "command_settings_clear_data": "Browserdaten löschen…",
+  "account_vault_fault_mac": "Zephium kann Ihre Anmeldung nicht aus dem Schlüsselbund lesen, daher sind Zephium AI und Ihre Kontodaten nicht erreichbar. Melden Sie sich erneut an, um das zu beheben.",
+  "account_vault_fault_windows": "Zephium kann Ihre Anmeldung nicht aus der Windows-Anmeldeinformationsverwaltung lesen, daher sind Zephium AI und Ihre Kontodaten nicht erreichbar. Melden Sie sich erneut an, um das zu beheben.",
+  "account_sign_in_again": "Erneut anmelden"
 }

@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "Suivant (alternative)",
   "command_tab_next_alternate": "Onglet suivant (alternative)",
   "command_tab_previous_alternate": "Onglet précédent (alternative)",
-  "command_settings_clear_data": "Effacer les données de navigation…"
+  "command_settings_clear_data": "Effacer les données de navigation…",
+  "account_vault_fault_mac": "Zephium ne peut pas lire votre connexion depuis le Trousseau, donc Zephium AI et les informations de votre compte sont inaccessibles. Reconnectez-vous pour corriger cela.",
+  "account_vault_fault_windows": "Zephium ne peut pas lire votre connexion depuis le Gestionnaire d’identification Windows, donc Zephium AI et les informations de votre compte sont inaccessibles. Reconnectez-vous pour corriger cela.",
+  "account_sign_in_again": "Se reconnecter"
 }

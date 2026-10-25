@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "Вперед (альтернатива)",
   "command_tab_next_alternate": "Следующая вкладка (альтернатива)",
   "command_tab_previous_alternate": "Предыдущая вкладка (альтернатива)",
-  "command_settings_clear_data": "Очистить данные просмотров…"
+  "command_settings_clear_data": "Очистить данные просмотров…",
+  "account_vault_fault_mac": "Zephium не может прочитать ваш вход из раздела «Связка ключей», поэтому Zephium AI и данные учётной записи недоступны. Войдите снова, чтобы это исправить.",
+  "account_vault_fault_windows": "Zephium не может прочитать ваш вход из раздела «Диспетчер учётных данных Windows», поэтому Zephium AI и данные учётной записи недоступны. Войдите снова, чтобы это исправить.",
+  "account_sign_in_again": "Войти снова"
 }

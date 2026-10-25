@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "Вперед (альтернатива)",
   "command_tab_next_alternate": "Наступна вкладка (альтернатива)",
   "command_tab_previous_alternate": "Попередня вкладка (альтернатива)",
-  "command_settings_clear_data": "Очистити дані веб-перегляду…"
+  "command_settings_clear_data": "Очистити дані веб-перегляду…",
+  "account_vault_fault_mac": "Zephium не може прочитати ваш вхід із розділу «Зв’язка ключів», тому Zephium AI і дані облікового запису недоступні. Увійдіть знову, щоб це виправити.",
+  "account_vault_fault_windows": "Zephium не може прочитати ваш вхід із розділу «Диспетчер облікових даних Windows», тому Zephium AI і дані облікового запису недоступні. Увійдіть знову, щоб це виправити.",
+  "account_sign_in_again": "Увійти знову"
 }

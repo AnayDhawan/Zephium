@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "前進 (備用)",
   "command_tab_next_alternate": "下一個分頁 (備用)",
   "command_tab_previous_alternate": "上一個分頁 (備用)",
-  "command_settings_clear_data": "清除瀏覽資料…"
+  "command_settings_clear_data": "清除瀏覽資料…",
+  "account_vault_fault_mac": "Zephium 無法從鑰匙圈讀取你的登入資訊，因此無法使用 Zephium AI 和帳號資訊。重新登入即可解決。",
+  "account_vault_fault_windows": "Zephium 無法從Windows 認證管理員讀取你的登入資訊，因此無法使用 Zephium AI 和帳號資訊。重新登入即可解決。",
+  "account_sign_in_again": "重新登入"
 }

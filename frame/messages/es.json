@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "Adelante (alternativa)",
   "command_tab_next_alternate": "Pestaña siguiente (alternativa)",
   "command_tab_previous_alternate": "Pestaña anterior (alternativa)",
-  "command_settings_clear_data": "Borrar datos de navegación…"
+  "command_settings_clear_data": "Borrar datos de navegación…",
+  "account_vault_fault_mac": "Zephium no puede leer tu inicio de sesión desde el Llavero, así que Zephium AI y los datos de tu cuenta no están disponibles. Inicia sesión de nuevo para solucionarlo.",
+  "account_vault_fault_windows": "Zephium no puede leer tu inicio de sesión desde el Administrador de credenciales de Windows, así que Zephium AI y los datos de tu cuenta no están disponibles. Inicia sesión de nuevo para solucionarlo.",
+  "account_sign_in_again": "Iniciar sesión de nuevo"
 }

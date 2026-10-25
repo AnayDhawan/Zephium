@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "Avanti (alternativa)",
   "command_tab_next_alternate": "Scheda successiva (alternativa)",
   "command_tab_previous_alternate": "Scheda precedente (alternativa)",
-  "command_settings_clear_data": "Cancella dati di navigazione…"
+  "command_settings_clear_data": "Cancella dati di navigazione…",
+  "account_vault_fault_mac": "Zephium non riesce a leggere il tuo accesso da il Portachiavi, quindi Zephium AI e i dati del tuo account non sono raggiungibili. Accedi di nuovo per risolvere.",
+  "account_vault_fault_windows": "Zephium non riesce a leggere il tuo accesso da Gestione credenziali di Windows, quindi Zephium AI e i dati del tuo account non sono raggiungibili. Accedi di nuovo per risolvere.",
+  "account_sign_in_again": "Accedi di nuovo"
 }

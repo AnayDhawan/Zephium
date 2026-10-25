@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "前进 (备用)",
   "command_tab_next_alternate": "下一个标签页 (备用)",
   "command_tab_previous_alternate": "上一个标签页 (备用)",
-  "command_settings_clear_data": "清除浏览数据…"
+  "command_settings_clear_data": "清除浏览数据…",
+  "account_vault_fault_mac": "Zephium 无法从钥匙串读取你的登录信息，因此无法使用 Zephium AI 和账户信息。重新登录即可解决。",
+  "account_vault_fault_windows": "Zephium 无法从Windows 凭据管理器读取你的登录信息，因此无法使用 Zephium AI 和账户信息。重新登录即可解决。",
+  "account_sign_in_again": "重新登录"
 }

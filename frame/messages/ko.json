@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "앞으로 (대체)",
   "command_tab_next_alternate": "다음 탭 (대체)",
   "command_tab_previous_alternate": "이전 탭 (대체)",
-  "command_settings_clear_data": "인터넷 사용 기록 삭제…"
+  "command_settings_clear_data": "인터넷 사용 기록 삭제…",
+  "account_vault_fault_mac": "Zephium이 키체인에서 로그인 정보를 읽을 수 없어 Zephium AI와 계정 정보를 사용할 수 없습니다. 다시 로그인하면 해결됩니다.",
+  "account_vault_fault_windows": "Zephium이 Windows 자격 증명 관리자에서 로그인 정보를 읽을 수 없어 Zephium AI와 계정 정보를 사용할 수 없습니다. 다시 로그인하면 해결됩니다.",
+  "account_sign_in_again": "다시 로그인"
 }

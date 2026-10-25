@@ -903,6 +903,11 @@ export type AccountV1 = {
 	/**  The server asks for a newer Zephium than this one. */
 	update_required: boolean,
 	signed_in: boolean,
+	/**
+	 *  Signed in, but the Keychain or Credential Manager will not give up the
+	 *  session, so hosted calls cannot run until the person signs in again.
+	 */
+	vault_fault: boolean,
 	/**  The address a sign-in code was sent to, while waiting for it. */
 	pending_email: string | null,
 	resend_in: number | null,

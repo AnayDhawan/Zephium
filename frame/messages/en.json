@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "Forward (alternate)",
   "command_tab_next_alternate": "Next tab (alternate)",
   "command_tab_previous_alternate": "Previous tab (alternate)",
-  "command_settings_clear_data": "Clear browsing data…"
+  "command_settings_clear_data": "Clear browsing data…",
+  "account_vault_fault_mac": "Zephium can’t read your sign-in from the Keychain, so Zephium AI and your account details can’t be reached. Sign in again to fix it.",
+  "account_vault_fault_windows": "Zephium can’t read your sign-in from Windows Credential Manager, so Zephium AI and your account details can’t be reached. Sign in again to fix it.",
+  "account_sign_in_again": "Sign in again"
 }

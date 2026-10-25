@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "Avançar (alternativa)",
   "command_tab_next_alternate": "Próxima aba (alternativa)",
   "command_tab_previous_alternate": "Aba anterior (alternativa)",
-  "command_settings_clear_data": "Limpar dados de navegação…"
+  "command_settings_clear_data": "Limpar dados de navegação…",
+  "account_vault_fault_mac": "O Zephium não consegue ler seu login em Acesso às Chaves, então o Zephium AI e os dados da sua conta ficam inacessíveis. Entre novamente para corrigir.",
+  "account_vault_fault_windows": "O Zephium não consegue ler seu login em Gerenciador de Credenciais do Windows, então o Zephium AI e os dados da sua conta ficam inacessíveis. Entre novamente para corrigir.",
+  "account_sign_in_again": "Entrar novamente"
 }

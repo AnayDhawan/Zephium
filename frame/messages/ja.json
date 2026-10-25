@@ -3677,5 +3677,8 @@
   "command_nav_forward_alternate": "進む (代替)",
   "command_tab_next_alternate": "次のタブ (代替)",
   "command_tab_previous_alternate": "前のタブ (代替)",
-  "command_settings_clear_data": "閲覧データを消去…"
+  "command_settings_clear_data": "閲覧データを消去…",
+  "account_vault_fault_mac": "Zephium はキーチェーンからサインイン情報を読み取れないため、Zephium AI とアカウント情報を利用できません。もう一度サインインすると解決します。",
+  "account_vault_fault_windows": "Zephium はWindows 資格情報マネージャーからサインイン情報を読み取れないため、Zephium AI とアカウント情報を利用できません。もう一度サインインすると解決します。",
+  "account_sign_in_again": "もう一度サインイン"
 }
