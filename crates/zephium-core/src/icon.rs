@@ -10,6 +10,9 @@
 
 use base64::Engine as _;
 
+mod candidates;
+pub use candidates::*;
+
 pub const ICON_SIDE: usize = 32;
 pub const RGBA32_BYTES: usize = ICON_SIDE * ICON_SIDE * 4;
 pub const RGBA32_MIME: &str = "application/x-zephium-rgba32";
