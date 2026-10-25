@@ -52,6 +52,58 @@ fn restart_preserves_ids_actives_and_splits() {
 }
 
 #[test]
+fn starting_with_pages_opens_the_list_in_front_and_loads_no_restored_tab() {
+    let store = Arc::new(FakeStore::default());
+    let (mut shell, _engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let first = active_id(&screen);
+    navigate_and_commit(&mut shell, first, "example.com");
+    store.settings.lock().unwrap().extend([
+        ("tabs.startup".to_owned(), "pages".to_owned()),
+        (
+            "tabs.startup-pages".to_owned(),
+            "docs.example.org\nnot a page\nhttps://news.example.net/a".to_owned(),
+        ),
+    ]);
+
+    let (mut shell2, engine2, screen2) = setup_with(store);
+    shell2.handle(Command::Bootstrap);
+    let after = last(&screen2);
+    assert!(after.tabs.iter().any(|tab| tab.id == first.to_string()));
+    assert_eq!(after.tabs.len(), 3);
+    let front = active_id(&screen2);
+    assert_ne!(front, first);
+    let calls = engine2.calls();
+    let created: Vec<_> = calls
+        .iter()
+        .filter(|call| call.starts_with("create "))
+        .collect();
+    assert_eq!(created.len(), 2, "{calls:?}");
+    assert!(created[0].ends_with("https://docs.example.org/ [default]"));
+    assert!(created[0].contains(&front.to_string()));
+    assert!(created[1].ends_with("https://news.example.net/a [default]"));
+    assert!(calls.iter().all(|call| !call.contains(&first.to_string())));
+}
+
+#[test]
+fn an_empty_list_of_startup_pages_starts_where_the_person_left_off() {
+    let store = Arc::new(FakeStore::default());
+    let (mut shell, _engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let first = active_id(&screen);
+    navigate_and_commit(&mut shell, first, "example.com");
+    store
+        .settings
+        .lock()
+        .unwrap()
+        .insert("tabs.startup".to_owned(), "pages".to_owned());
+
+    let (mut shell2, _engine2, screen2) = setup_with(store);
+    shell2.handle(Command::Bootstrap);
+    assert_eq!(active_id(&screen2), first);
+}
+
+#[test]
 fn starting_with_a_new_tab_keeps_every_tab_and_loads_none_of_them() {
     let store = Arc::new(FakeStore::default());
     let (mut shell, _engine, screen) = setup_with(store.clone());

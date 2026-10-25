@@ -3680,5 +3680,13 @@
   "command_settings_clear_data": "Cancella dati di navigazione…",
   "account_vault_fault_mac": "Zephium non riesce a leggere il tuo accesso da il Portachiavi, quindi Zephium AI e i dati del tuo account non sono raggiungibili. Accedi di nuovo per risolvere.",
   "account_vault_fault_windows": "Zephium non riesce a leggere il tuo accesso da Gestione credenziali di Windows, quindi Zephium AI e i dati del tuo account non sono raggiungibili. Accedi di nuovo per risolvere.",
-  "account_sign_in_again": "Accedi di nuovo"
+  "account_sign_in_again": "Accedi di nuovo",
+  "pref_general_startup_option_2": "Apri pagine specifiche",
+  "pref_general_startup_pages": "Pagine di avvio",
+  "pref_general_startup_pages_help": "Si aprono in ordine a ogni avvio di Zephium, fino a 10. Se non ne aggiungi, Zephium riprende da dove avevi lasciato.",
+  "general_startup_pages_current": "Usa le schede attuali",
+  "pref_general_home": "Pagina iniziale",
+  "pref_general_home_help": "Dove porta il comando Pagina iniziale. Lascia vuoto per aprire una nuova scheda.",
+  "command_nav_home": "Pagina iniziale",
+  "native_home_page": "Pagina iniziale"
 }

@@ -9,6 +9,9 @@
   import DownloadPreferences from "../DownloadPreferences.svelte";
   import LoginItemRow from "../LoginItemRow.svelte";
   import LanguageRow from "../LanguageRow.svelte";
+  import StartupPages from "../StartupPages.svelte";
+  import HomePageRow from "../HomePageRow.svelte";
+  import { preferences } from "$domain/preferences";
   import SettingsGroup from "$shared/ui/SettingsGroup";
   import Checkbox from "$shared/ui/Checkbox";
   import Select from "$shared/ui/Select";
@@ -61,6 +64,7 @@
   ><LoginItemRow /><PreferenceSelect
     id="general.startup"
     preference="tabs.startup"
+  />{#if preferences.value("tabs.startup") === "pages"}<StartupPages />{/if}<HomePageRow
   /></SettingsGroup
 >
 <SettingsGroup title={m.section_languages()}><LanguageRow /></SettingsGroup>

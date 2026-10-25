@@ -5408,6 +5408,7 @@ fn build_menu(
     let history = SubmenuBuilder::new(handle, menu_text::label("History"))
         .item(&item("nav.back")?)
         .item(&item("nav.forward")?)
+        .item(&item("nav.home")?)
         .separator()
         .item(&item("tab.reopen")?)
         .item(&recently_closed::build_menu_section(handle)?)

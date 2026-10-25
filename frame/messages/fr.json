@@ -3680,5 +3680,13 @@
   "command_settings_clear_data": "Effacer les données de navigation…",
   "account_vault_fault_mac": "Zephium ne peut pas lire votre connexion depuis le Trousseau, donc Zephium AI et les informations de votre compte sont inaccessibles. Reconnectez-vous pour corriger cela.",
   "account_vault_fault_windows": "Zephium ne peut pas lire votre connexion depuis le Gestionnaire d’identification Windows, donc Zephium AI et les informations de votre compte sont inaccessibles. Reconnectez-vous pour corriger cela.",
-  "account_sign_in_again": "Se reconnecter"
+  "account_sign_in_again": "Se reconnecter",
+  "pref_general_startup_option_2": "Ouvrir des pages précises",
+  "pref_general_startup_pages": "Pages de démarrage",
+  "pref_general_startup_pages_help": "Ouvertes dans l’ordre à chaque démarrage de Zephium, 10 au maximum. Sans page, Zephium reprend là où vous vous étiez arrêté.",
+  "general_startup_pages_current": "Utiliser les onglets actuels",
+  "pref_general_home": "Page d’accueil",
+  "pref_general_home_help": "Où mène la commande Accueil. Laissez vide pour ouvrir un nouvel onglet.",
+  "command_nav_home": "Page d’accueil",
+  "native_home_page": "Page d’accueil"
 }

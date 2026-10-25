@@ -3680,5 +3680,13 @@
   "command_settings_clear_data": "清除浏览数据…",
   "account_vault_fault_mac": "Zephium 无法从钥匙串读取你的登录信息，因此无法使用 Zephium AI 和账户信息。重新登录即可解决。",
   "account_vault_fault_windows": "Zephium 无法从Windows 凭据管理器读取你的登录信息，因此无法使用 Zephium AI 和账户信息。重新登录即可解决。",
-  "account_sign_in_again": "重新登录"
+  "account_sign_in_again": "重新登录",
+  "pref_general_startup_option_2": "打开特定网页",
+  "pref_general_startup_pages": "启动网页",
+  "pref_general_startup_pages_help": "每次启动 Zephium 时按顺序打开,最多 10 个。未添加时,Zephium 会从上次离开的地方继续。",
+  "general_startup_pages_current": "使用当前标签页",
+  "pref_general_home": "主页",
+  "pref_general_home_help": "“主页”命令前往的网页。留空则改为打开新标签页。",
+  "command_nav_home": "主页",
+  "native_home_page": "主页"
 }

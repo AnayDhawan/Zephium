@@ -3680,5 +3680,13 @@
   "command_settings_clear_data": "Очистити дані веб-перегляду…",
   "account_vault_fault_mac": "Zephium не може прочитати ваш вхід із розділу «Зв’язка ключів», тому Zephium AI і дані облікового запису недоступні. Увійдіть знову, щоб це виправити.",
   "account_vault_fault_windows": "Zephium не може прочитати ваш вхід із розділу «Диспетчер облікових даних Windows», тому Zephium AI і дані облікового запису недоступні. Увійдіть знову, щоб це виправити.",
-  "account_sign_in_again": "Увійти знову"
+  "account_sign_in_again": "Увійти знову",
+  "pref_general_startup_option_2": "Відкрити певні сторінки",
+  "pref_general_startup_pages": "Сторінки під час запуску",
+  "pref_general_startup_pages_help": "Відкриваються по черзі під час кожного запуску Zephium, не більше 10. Якщо список порожній, Zephium продовжує з того місця, де ви зупинилися.",
+  "general_startup_pages_current": "Використати поточні вкладки",
+  "pref_general_home": "Домашня сторінка",
+  "pref_general_home_help": "Куди веде команда «Домашня сторінка». Залиште порожнім, щоб відкривалася нова вкладка.",
+  "command_nav_home": "Домашня сторінка",
+  "native_home_page": "Домашня сторінка"
 }

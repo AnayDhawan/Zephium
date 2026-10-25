@@ -3680,5 +3680,13 @@
   "command_settings_clear_data": "Borrar datos de navegación…",
   "account_vault_fault_mac": "Zephium no puede leer tu inicio de sesión desde el Llavero, así que Zephium AI y los datos de tu cuenta no están disponibles. Inicia sesión de nuevo para solucionarlo.",
   "account_vault_fault_windows": "Zephium no puede leer tu inicio de sesión desde el Administrador de credenciales de Windows, así que Zephium AI y los datos de tu cuenta no están disponibles. Inicia sesión de nuevo para solucionarlo.",
-  "account_sign_in_again": "Iniciar sesión de nuevo"
+  "account_sign_in_again": "Iniciar sesión de nuevo",
+  "pref_general_startup_option_2": "Abrir páginas específicas",
+  "pref_general_startup_pages": "Páginas de inicio",
+  "pref_general_startup_pages_help": "Se abren en orden cada vez que Zephium se inicia, hasta 10. Sin ninguna, Zephium continúa donde lo dejaste.",
+  "general_startup_pages_current": "Usar las pestañas actuales",
+  "pref_general_home": "Página de inicio",
+  "pref_general_home_help": "A dónde lleva el comando Inicio. Déjalo vacío para abrir una pestaña nueva.",
+  "command_nav_home": "Página de inicio",
+  "native_home_page": "Página de inicio"
 }

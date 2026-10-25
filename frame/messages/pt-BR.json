@@ -3680,5 +3680,13 @@
   "command_settings_clear_data": "Limpar dados de navegação…",
   "account_vault_fault_mac": "O Zephium não consegue ler seu login em Acesso às Chaves, então o Zephium AI e os dados da sua conta ficam inacessíveis. Entre novamente para corrigir.",
   "account_vault_fault_windows": "O Zephium não consegue ler seu login em Gerenciador de Credenciais do Windows, então o Zephium AI e os dados da sua conta ficam inacessíveis. Entre novamente para corrigir.",
-  "account_sign_in_again": "Entrar novamente"
+  "account_sign_in_again": "Entrar novamente",
+  "pref_general_startup_option_2": "Abrir páginas específicas",
+  "pref_general_startup_pages": "Páginas de inicialização",
+  "pref_general_startup_pages_help": "Abertas em ordem sempre que o Zephium inicia, até 10. Sem nenhuma, o Zephium continua de onde você parou.",
+  "general_startup_pages_current": "Usar as abas atuais",
+  "pref_general_home": "Página inicial",
+  "pref_general_home_help": "Para onde o comando Página inicial leva. Deixe vazio para abrir uma nova aba.",
+  "command_nav_home": "Página inicial",
+  "native_home_page": "Página Inicial"
 }

@@ -41,7 +41,7 @@ impl ArchiveAfter {
 }
 
 /// The person's choices about how tabs open and close.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct TabPreferences {
     pub(super) new_position: NewTabPosition,
     /// Where a link handed over by another application opens; none
@@ -54,6 +54,11 @@ pub(super) struct TabPreferences {
     pub(super) automatic_pip: bool,
     /// Launch puts a new tab in front instead of the one left there.
     pub(super) start_with_new_tab: bool,
+    /// Launch opens these pages instead, when there are any.
+    pub(super) start_with_pages: bool,
+    pub(super) startup_pages: Vec<String>,
+    /// Where the Home command goes.
+    pub(super) home: Option<String>,
 }
 
 impl Default for TabPreferences {
@@ -66,11 +71,19 @@ impl Default for TabPreferences {
             switch_to_open: true,
             automatic_pip: true,
             start_with_new_tab: false,
+            start_with_pages: false,
+            startup_pages: Vec::new(),
+            home: None,
         }
     }
 }
 
 impl TabPreferences {
+    /// Whether launch opens a list of pages: chosen, and with something in it.
+    pub(super) fn opens_pages(&self) -> bool {
+        self.start_with_pages && !self.startup_pages.is_empty()
+    }
+
     pub(super) fn load(store: &dyn zephium_core::ports::store::Store) -> Self {
         let mut preferences = Self::default();
         for key in [
@@ -79,6 +92,8 @@ impl TabPreferences {
             "tabs.switch-to-open",
             "tabs.automatic-pip",
             "tabs.startup",
+            "tabs.startup-pages",
+            "tabs.home",
             "tabs.external-position",
             "tabs.archive",
         ] {
@@ -101,7 +116,14 @@ impl TabPreferences {
             ("tabs.after-close", "recent") => self.after_close = AfterClose::Recent,
             ("tabs.switch-to-open", value) => self.switch_to_open = value == "true",
             ("tabs.automatic-pip", value) => self.automatic_pip = value == "true",
-            ("tabs.startup", value) => self.start_with_new_tab = value == "new-tab",
+            ("tabs.startup", value) => {
+                self.start_with_new_tab = value == "new-tab";
+                self.start_with_pages = value == "pages";
+            }
+            ("tabs.startup-pages", value) => {
+                self.startup_pages = zephium_core::preferences::startup_pages(value)
+            }
+            ("tabs.home", value) => self.home = zephium_core::preferences::home_page(value),
             ("tabs.external-position", "new-tab") => self.external_position = None,
             ("tabs.external-position", "end") => self.external_position = Some(NewTabPosition::End),
             ("tabs.external-position", "after-current") => {

@@ -296,6 +296,12 @@ pub const REGISTRY: &[CommandSpec] = &[
         Keys::same("CmdOrCtrl+]"),
         Group::History,
     ),
+    command(
+        "nav.home",
+        "Home Page",
+        split("CmdOrCtrl+Shift+H", "Alt+Home"),
+        Group::History,
+    ),
     // Alt+Arrow is text editing on macOS, where Command+[ and ] go back.
     alternate(
         "nav.back.alt",
@@ -875,6 +881,7 @@ mod tests {
             ("Ctrl+Shift+I", "page.devtools"),
             ("Alt+Left", "nav.back.alt"),
             ("Alt+Right", "nav.forward.alt"),
+            ("Alt+Home", "nav.home"),
             ("Ctrl+PageUp", "tab.previous.alt"),
             ("Ctrl+PageDown", "tab.next.alt"),
             ("Ctrl+Shift+Delete", "settings.clearData"),
@@ -893,6 +900,7 @@ mod tests {
     fn macos_adds_only_the_keys_it_does_not_already_hold() {
         let keys = bound_to(Platform::Mac);
         assert_eq!(keys.get("Cmd+Shift+R").copied(), Some("nav.hardReload"));
+        assert_eq!(keys.get("Cmd+Shift+H").copied(), Some("nav.home"));
         assert_eq!(keys.get("Cmd+Shift+]").copied(), Some("tab.next.alt"));
         assert_eq!(keys.get("Cmd+Shift+[").copied(), Some("tab.previous.alt"));
         assert_eq!(
@@ -948,7 +956,7 @@ mod tests {
         assert!(bind("nav.back.alt", "Alt+Up").is_err());
         assert_eq!(
             bind("nav.back.alt", "Alt+Home"),
-            Ok(Some("Alt+Home".into()))
+            Err(KeymapError::Conflict("nav.home"))
         );
         let mut overrides = HashMap::new();
         overrides.insert("nav.back.alt".into(), "".into());

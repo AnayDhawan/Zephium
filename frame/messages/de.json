@@ -3680,5 +3680,13 @@
   "command_settings_clear_data": "Browserdaten löschen…",
   "account_vault_fault_mac": "Zephium kann Ihre Anmeldung nicht aus dem Schlüsselbund lesen, daher sind Zephium AI und Ihre Kontodaten nicht erreichbar. Melden Sie sich erneut an, um das zu beheben.",
   "account_vault_fault_windows": "Zephium kann Ihre Anmeldung nicht aus der Windows-Anmeldeinformationsverwaltung lesen, daher sind Zephium AI und Ihre Kontodaten nicht erreichbar. Melden Sie sich erneut an, um das zu beheben.",
-  "account_sign_in_again": "Erneut anmelden"
+  "account_sign_in_again": "Erneut anmelden",
+  "pref_general_startup_option_2": "Bestimmte Seiten öffnen",
+  "pref_general_startup_pages": "Startseiten",
+  "pref_general_startup_pages_help": "Werden bei jedem Start von Zephium der Reihe nach geöffnet, höchstens 10. Ohne Einträge macht Zephium dort weiter, wo Sie aufgehört haben.",
+  "general_startup_pages_current": "Aktuelle Tabs verwenden",
+  "pref_general_home": "Startseite",
+  "pref_general_home_help": "Dorthin führt der Befehl „Startseite“. Leer lassen, um stattdessen einen neuen Tab zu öffnen.",
+  "command_nav_home": "Startseite",
+  "native_home_page": "Startseite"
 }

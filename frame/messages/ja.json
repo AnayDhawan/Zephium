@@ -3680,5 +3680,13 @@
   "command_settings_clear_data": "閲覧データを消去…",
   "account_vault_fault_mac": "Zephium はキーチェーンからサインイン情報を読み取れないため、Zephium AI とアカウント情報を利用できません。もう一度サインインすると解決します。",
   "account_vault_fault_windows": "Zephium はWindows 資格情報マネージャーからサインイン情報を読み取れないため、Zephium AI とアカウント情報を利用できません。もう一度サインインすると解決します。",
-  "account_sign_in_again": "もう一度サインイン"
+  "account_sign_in_again": "もう一度サインイン",
+  "pref_general_startup_option_2": "特定のページを開く",
+  "pref_general_startup_pages": "起動時のページ",
+  "pref_general_startup_pages_help": "Zephium の起動のたびに順番に開きます(最大 10 件)。追加しない場合は、前回の続きから始まります。",
+  "general_startup_pages_current": "現在のタブを使う",
+  "pref_general_home": "ホームページ",
+  "pref_general_home_help": "「ホームページ」コマンドで開くページです。空のままにすると、代わりに新しいタブを開きます。",
+  "command_nav_home": "ホームページ",
+  "native_home_page": "ホームページ"
 }

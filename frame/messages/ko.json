@@ -3680,5 +3680,13 @@
   "command_settings_clear_data": "인터넷 사용 기록 삭제…",
   "account_vault_fault_mac": "Zephium이 키체인에서 로그인 정보를 읽을 수 없어 Zephium AI와 계정 정보를 사용할 수 없습니다. 다시 로그인하면 해결됩니다.",
   "account_vault_fault_windows": "Zephium이 Windows 자격 증명 관리자에서 로그인 정보를 읽을 수 없어 Zephium AI와 계정 정보를 사용할 수 없습니다. 다시 로그인하면 해결됩니다.",
-  "account_sign_in_again": "다시 로그인"
+  "account_sign_in_again": "다시 로그인",
+  "pref_general_startup_option_2": "특정 페이지 열기",
+  "pref_general_startup_pages": "시작 페이지",
+  "pref_general_startup_pages_help": "Zephium을 시작할 때마다 순서대로 열립니다(최대 10개). 추가하지 않으면 마지막으로 보던 곳에서 이어서 시작합니다.",
+  "general_startup_pages_current": "현재 탭 사용",
+  "pref_general_home": "홈 페이지",
+  "pref_general_home_help": "홈 페이지 명령이 이동하는 곳입니다. 비워 두면 새 탭이 열립니다.",
+  "command_nav_home": "홈 페이지",
+  "native_home_page": "홈 페이지"
 }

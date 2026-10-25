@@ -39,6 +39,7 @@ const TITLES: Record<string, () => string> = {
   "zoom.in": m.command_zoom_in,
   "zoom.out": m.command_zoom_out,
   "zoom.reset": m.command_zoom_reset,
+  "nav.home": m.command_nav_home,
   "nav.back": m.command_nav_back,
   "nav.forward": m.command_nav_forward,
   "tab.reopen": m.command_tab_reopen,

@@ -434,6 +434,37 @@ impl Shell {
         }
     }
 
+    /// Opens the startup list. The tab launch put in front is the first
+    /// page's, the rest follow it, and the first stays in front.
+    pub(super) fn open_startup_pages(&mut self) {
+        let mut pages = self.tab_preferences.startup_pages.clone().into_iter();
+        let blank = self
+            .windows
+            .focused()
+            .and_then(|window| window.active)
+            .filter(|id| self.items.tab(*id).is_some_and(|tab| tab.url.is_none()));
+        let Some(first) = pages.next() else {
+            return;
+        };
+        let front = match blank {
+            Some(id) => {
+                let effects = self.items.navigate(id, &first);
+                let _ = self.commit(effects);
+                Some(id)
+            }
+            None => {
+                let _ = self.open_url_in_new_tab_at(first, tabs::NewTabPosition::End);
+                self.windows.focused().and_then(|window| window.active)
+            }
+        };
+        for page in pages {
+            let _ = self.open_url_in_new_tab_at(page, tabs::NewTabPosition::End);
+        }
+        if let Some(front) = front {
+            let _ = self.operation_activate(front);
+        }
+    }
+
     pub(super) fn operation_open_url_background(&mut self, input: String) -> OperationDisposition {
         let Some(input) = self
             .search
@@ -969,6 +1000,14 @@ impl Shell {
                 || operation_result(OperationOutcome::NoOp, OperationReason::NoFocusedWindow),
                 |id| self.operation_reload_with(id, true),
             ),
+            "nav.home" => match (active, self.tab_preferences.home.clone()) {
+                (Some(id), Some(home)) => self.operation_navigate(id, home),
+                (None, Some(home)) => {
+                    let position = self.tab_preferences.new_position;
+                    self.open_url_in_new_tab_at(home, position)
+                }
+                (_, None) => self.operation_open(),
+            },
             "nav.stop" => active.map_or_else(
                 || operation_result(OperationOutcome::NoOp, OperationReason::NoFocusedWindow),
                 |id| {

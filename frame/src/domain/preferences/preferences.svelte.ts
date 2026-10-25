@@ -30,6 +30,8 @@ const defaults = {
   "tabs.switch-to-open": "true",
   "tabs.automatic-pip": "true",
   "tabs.startup": "continue",
+  "tabs.startup-pages": "",
+  "tabs.home": "",
   "time.track": "true",
   "time.retention": "90",
   "focus.minutes": "25",

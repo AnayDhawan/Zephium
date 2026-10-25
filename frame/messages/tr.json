@@ -3680,5 +3680,13 @@
   "command_settings_clear_data": "Tarama verilerini temizle…",
   "account_vault_fault_mac": "Zephium oturum bilgilerinizi Anahtar Zinciri içinden okuyamıyor; bu yüzden Zephium AI ve hesap bilgilerinize ulaşılamıyor. Düzeltmek için yeniden oturum açın.",
   "account_vault_fault_windows": "Zephium oturum bilgilerinizi Windows Kimlik Bilgileri Yöneticisi içinden okuyamıyor; bu yüzden Zephium AI ve hesap bilgilerinize ulaşılamıyor. Düzeltmek için yeniden oturum açın.",
-  "account_sign_in_again": "Yeniden oturum aç"
+  "account_sign_in_again": "Yeniden oturum aç",
+  "pref_general_startup_option_2": "Belirli sayfaları aç",
+  "pref_general_startup_pages": "Başlangıç sayfaları",
+  "pref_general_startup_pages_help": "Zephium her başladığında sırayla açılır, en fazla 10. Hiç eklenmezse Zephium kaldığınız yerden devam eder.",
+  "general_startup_pages_current": "Geçerli sekmeleri kullan",
+  "pref_general_home": "Ana sayfa",
+  "pref_general_home_help": "Ana sayfa komutunun gittiği yer. Boş bırakırsanız yeni bir sekme açılır.",
+  "command_nav_home": "Ana sayfa",
+  "native_home_page": "Ana Sayfa"
 }

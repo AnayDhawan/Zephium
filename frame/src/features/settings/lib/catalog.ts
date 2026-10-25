@@ -142,7 +142,20 @@ export const fields = {
     options: [
       { value: "continue", label: m.pref_general_startup_option_0 },
       { value: "new-tab", label: m.pref_general_startup_option_1 },
+      { value: "pages", label: m.pref_general_startup_option_2 },
     ],
+  },
+  "general.startup-pages": {
+    section: "general",
+    label: m.pref_general_startup_pages,
+    description: m.pref_general_startup_pages_help,
+    initial: "",
+  },
+  "general.home": {
+    section: "general",
+    label: m.pref_general_home,
+    description: m.pref_general_home_help,
+    initial: "",
   },
   "general.import": {
     section: "general",

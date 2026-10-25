@@ -28,6 +28,8 @@ pub const KEYS: &[&str] = &[
     "tabs.switch-to-open",
     "tabs.automatic-pip",
     "tabs.startup",
+    "tabs.startup-pages",
+    "tabs.home",
     "time.track",
     "time.retention",
     "focus.minutes",
@@ -57,6 +59,32 @@ pub const KEYS: &[&str] = &[
     "work.favourite-models",
     "zoom.default",
 ];
+
+/// Pages "Open specific pages" may hold.
+pub const MAX_STARTUP_PAGES: usize = 10;
+
+/// The addresses of a stored startup list, as web pages and without
+/// repeats. Text that is not an address is dropped, so a hand-edited store
+/// can only shorten the list.
+pub fn startup_pages(value: &str) -> Vec<String> {
+    let mut pages = Vec::new();
+    for line in value.lines() {
+        let Some(page) = crate::navigation::web_address(line) else {
+            continue;
+        };
+        let page = page.to_string();
+        if !pages.contains(&page) {
+            pages.push(page);
+        }
+    }
+    pages.truncate(MAX_STARTUP_PAGES);
+    pages
+}
+
+/// The home page a stored value names, if it is a web address.
+pub fn home_page(value: &str) -> Option<String> {
+    crate::navigation::web_address(value).map(|page| page.to_string())
+}
 
 /// Interface languages a person may choose, by BCP 47 tag. One without a
 /// translation yet shows English; a translation lands by adding its locale to
@@ -180,7 +208,21 @@ pub fn value_allowed(key: &str, value: &str) -> bool {
         "tabs.close-button" => matches!(value, "hover" | "always"),
         "tabs.after-close" => matches!(value, "next" | "previous" | "recent"),
         // A new tab in front at launch; everything restored stays in the sidebar.
-        "tabs.startup" => matches!(value, "continue" | "new-tab"),
+        "tabs.startup" => matches!(value, "continue" | "new-tab" | "pages"),
+        // One web address per line, at most ten, none repeated.
+        "tabs.startup-pages" => {
+            let lines: Vec<&str> = value.lines().collect();
+            lines.len() <= MAX_STARTUP_PAGES
+                && !value.ends_with('\n')
+                && lines.iter().enumerate().all(|(index, line)| {
+                    crate::navigation::web_address(line).is_some_and(|page| {
+                        !lines[..index].iter().any(|earlier| {
+                            crate::navigation::web_address(earlier).as_ref() == Some(&page)
+                        })
+                    })
+                })
+        }
+        "tabs.home" => value.is_empty() || home_page(value).is_some(),
         // Native writes `pending` on a fresh install; chrome only ever
         // finishes it, or asks for it again to replay.
         "onboarding" => matches!(value, "pending" | "done"),
@@ -354,7 +396,8 @@ mod tests {
         assert!(value_allowed("ui.language", "en"));
         assert!(value_allowed("tabs.after-close", "recent"));
         assert!(value_allowed("tabs.startup", "new-tab"));
-        assert!(!value_allowed("tabs.startup", "pages"));
+        assert!(value_allowed("tabs.startup", "pages"));
+        assert!(!value_allowed("tabs.startup", "pagez"));
         assert!(value_allowed("ui.text-size", "large"));
         assert!(value_allowed("ui.tab-layout", "horizontal"));
         assert!(value_allowed("onboarding", "done"));
@@ -555,5 +598,67 @@ mod tests {
             }
         }
         assert!(carried(&[("work.enabled", "false"), ("ai.enabled", "false")]).is_empty());
+    }
+
+    #[test]
+    fn startup_pages_are_a_short_list_of_distinct_web_addresses() {
+        assert!(value_allowed("tabs.startup-pages", ""));
+        assert!(value_allowed(
+            "tabs.startup-pages",
+            "example.com\nhttps://docs.example.org/a?b=1"
+        ));
+        let full: Vec<String> = (0..MAX_STARTUP_PAGES)
+            .map(|n| format!("https://example.com/{n}"))
+            .collect();
+        assert!(value_allowed("tabs.startup-pages", &full.join("\n")));
+        let over = [full.as_slice(), &["https://example.com/x".to_owned()]].concat();
+        assert!(!value_allowed("tabs.startup-pages", &over.join("\n")));
+        for refused in [
+            "two words",
+            "javascript:alert(1)",
+            "file:///etc/passwd",
+            "/Users/me/page.html",
+            "https://user:pass@example.com",
+            "https://example.com\n\nhttps://example.org",
+            "https://example.com\n",
+            "example.com\nhttps://example.com/",
+            "about:blank",
+        ] {
+            assert!(!value_allowed("tabs.startup-pages", refused), "{refused:?}");
+        }
+    }
+
+    #[test]
+    fn a_stored_startup_list_yields_only_pages_it_can_open() {
+        assert_eq!(
+            startup_pages("example.com\nnot a page\nhttps://example.com/\nfile:///x"),
+            ["https://example.com/"]
+        );
+        let many = (0..30)
+            .map(|n| format!("https://example.com/{n}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(startup_pages(&many).len(), MAX_STARTUP_PAGES);
+        assert!(startup_pages("").is_empty());
+    }
+
+    #[test]
+    fn the_home_page_is_empty_or_a_web_address() {
+        assert!(value_allowed("tabs.home", ""));
+        assert!(value_allowed("tabs.home", "example.com"));
+        assert!(value_allowed("tabs.home", "https://example.com/start"));
+        for refused in [
+            "two words",
+            "javascript:alert(1)",
+            "file:///etc/hosts",
+            "about:blank",
+        ] {
+            assert!(!value_allowed("tabs.home", refused), "{refused:?}");
+        }
+        assert_eq!(
+            home_page("example.com").as_deref(),
+            Some("https://example.com/")
+        );
+        assert_eq!(home_page(""), None);
     }
 }
