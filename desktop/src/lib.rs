@@ -2116,10 +2116,15 @@ pub(crate) fn apply_chrome_presentation(
     for (const candidate of document.querySelectorAll("[data-zephium-tab-id]")) {{
       if (candidate.dataset.zephiumTabId === tab.id) {{ row = candidate; break; }}
     }}
-    if (!row || row.dataset.zephiumTabUrl !== (tab.url ?? "") ||
-        row.dataset.zephiumProjectionRevision !== tab.projection_revision) return rejected;
-    const label = row.querySelector("[data-zephium-tab-label]");
-    if (!label || label.textContent !== tab.title) return rejected;
+    // A background tab may have no row on screen (a closed folder, another
+    // space); its content is not shown, so only a row that exists must agree.
+    if (!row && active === tab.id) return rejected;
+    if (row) {{
+      if (row.dataset.zephiumTabUrl !== (tab.url ?? "") ||
+          row.dataset.zephiumProjectionRevision !== tab.projection_revision) return rejected;
+      const label = row.querySelector("[data-zephium-tab-label]");
+      if (!label || label.textContent !== tab.title) return rejected;
+    }}
     const shell = document.querySelector("[data-zephium-active-tab]");
     if (!shell) return rejected;
     if (shell.dataset.zephiumActiveTab !== (active ?? "")) return rejected;
