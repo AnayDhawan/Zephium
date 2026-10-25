@@ -3748,6 +3748,20 @@ fn execute_tab_menu_action(
             rejected_operation()
         };
     }
+    if action == "clearSiteData" {
+        // The confirmation is privileged chrome: it names the site, and the
+        // frame asks native to clear only after the person agrees.
+        return if try_emit_to_privileged(
+            app,
+            MAIN_LABEL,
+            EVENT_UI,
+            &TAB_MENU_CLEAR_SITE_DATA_COMMAND,
+        ) {
+            accepted_ui_operation()
+        } else {
+            rejected_operation()
+        };
+    }
     let Some(shell) = app.try_state::<Handle>() else {
         return rejected_operation();
     };
@@ -5581,6 +5595,7 @@ fn build_add_menu(
 /// Delivered to privileged chrome, which holds the authoritative URL for the
 /// armed tab. Native code never handles page-derived text for the clipboard.
 const TAB_MENU_COPY_LINK_COMMAND: &str = "tab.copyLink";
+const TAB_MENU_CLEAR_SITE_DATA_COMMAND: &str = "tab.clearSiteData";
 
 /// Registry command delivered to the frame, which owns sidebar presentation.
 const SIDEBAR_COMPACT_COMMAND: &str = "sidebar.toggleCompact";
@@ -5609,7 +5624,7 @@ const BOOKMARK_MENU_ACTION_IDS: [&str; 6] = [
     "bookmarkmenu.removeFolder",
 ];
 
-const TAB_MENU_ACTION_IDS: [&str; 13] = [
+const TAB_MENU_ACTION_IDS: [&str; 14] = [
     "tabmenu.reload",
     "tabmenu.duplicate",
     "tabmenu.copyLink",
@@ -5623,6 +5638,7 @@ const TAB_MENU_ACTION_IDS: [&str; 13] = [
     "tabmenu.mute",
     "tabmenu.unmute",
     "tabmenu.stopCapture",
+    "tabmenu.clearSiteData",
 ];
 
 /// What the tab menu can offer for the tab it opens on, as the sidebar sees
@@ -5793,6 +5809,7 @@ fn build_tab_menu(
     let duplicate = item(1, "Duplicate Tab", context.page)?;
     let copy_link = item(2, "Copy Link", context.page)?;
     let bookmark = item(3, "Bookmark Tab", context.page)?;
+    let clear_site_data = item(10, "Clear Data for This Site…", context.page)?;
     let first = PredefinedMenuItem::separator(handle)?;
     let keep = if context.essential {
         item(5, "Remove from Essentials", true)?
@@ -5830,7 +5847,14 @@ fn build_tab_menu(
         spaces::tab_menu_section(handle, &format!("tabmenu.{}", spaces::TAB_MENU_MOVE))?
     };
     let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = vec![
-        &reload, &duplicate, &copy_link, &bookmark, &first, &keep, &split,
+        &reload,
+        &duplicate,
+        &copy_link,
+        &bookmark,
+        &clear_site_data,
+        &first,
+        &keep,
+        &split,
     ];
     if let Some(move_to) = &move_to {
         items.push(move_to);
@@ -7592,7 +7616,8 @@ mod tests {
                 "tabmenu.closeBelow",
                 "tabmenu.mute",
                 "tabmenu.unmute",
-                "tabmenu.stopCapture"
+                "tabmenu.stopCapture",
+                "tabmenu.clearSiteData"
             ]
         );
         // Context-menu actions carry their own target and must never collide

@@ -3730,5 +3730,10 @@
   "privacy_sites_remove_failed": "Не вдалося видалити дані {site}. Спробуйте ще раз.",
   "privacy_sites_remove_all": "Видалити все",
   "privacy_sites_remove_all_confirm": "Видалити файли cookie й дані всіх сайтів? Ви вийдете з облікових записів на більшості з них.",
-  "privacy_sites_remove_all_apply": "Видалити всі дані"
+  "privacy_sites_remove_all_apply": "Видалити всі дані",
+  "site_data_clear_title": "Очистити дані {site}?",
+  "site_data_clear_description": "Вилучає файли cookie й дані, які {site} зберіг у цьому профілі. Ви вийдете з облікового запису на ньому. Відкриті вкладки продовжать працювати.",
+  "site_data_cleared": "Дані {site} очищено",
+  "site_data_clear_failed": "Не вдалося очистити дані {site}",
+  "native_clear_data_for_this_site_more": "Очистити дані цього сайту…"
 }

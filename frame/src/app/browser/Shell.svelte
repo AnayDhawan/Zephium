@@ -12,7 +12,7 @@
   import LazyView from "$shared/ui/LazyView";
   import type { TabView } from "$shared/ipc/bindings";
   import RenderBoundary from "$shared/ui/RenderBoundary";
-  import { loadSettings } from "$features/settings";
+  import { loadClearSiteData, loadSettings } from "$features/settings";
   import { EssentialTile } from "$features/essentials";
   import { AddressField, findInPage } from "$features/address";
   import { Dock } from "$features/dock";
@@ -31,7 +31,8 @@
   import { requestTab } from "$session/work-tab.svelte";
   import { expanded as sidebarWidth } from "$session/sidebar-mode.svelte";
   import { uiCommands as ui } from "$domain/ui-commands";
-  import { untrack } from "svelte";
+  import { untrack, type Component } from "svelte";
+  import { clearRequest } from "$domain/site-data";
   import { blocker } from "$domain/blocker";
   import { BlockerShield, HidingBar, hideElements, toggleSiteProtection } from "$features/blocker";
 
@@ -212,6 +213,14 @@
     if (copied) notices.show(m.notice_link_copied());
   }
 
+  // Loaded when a command first asks to clear a site's data, then kept: the
+  // dialog closes itself, and a native modal must never be removed while open.
+  let ClearSiteData = $state.raw<Component | null>(null);
+  $effect(() => {
+    if (clearRequest.pending() && !untrack(() => ClearSiteData))
+      void loadClearSiteData().then((module) => (ClearSiteData = module.default));
+  });
+
   let protectionMenuActivated = $state(0);
   let handledCommand = 0;
   $effect(() => {
@@ -222,6 +231,7 @@
       if (command.id === "split.choose") splitting = true;
       if (command.id === "tab.copyLink") void tabs.copyMenuTargetLink().then(linkCopied);
       if (command.id === "page.copyLink") void tabs.copyActiveLink().then(linkCopied);
+      if (command.id === "tab.clearSiteData") clearRequest.ask(tabs.takeMenuTargetUrl());
       if (command.id === "find.show") findInPage.show(tabs.activeId());
       if (command.id === "find.next") findInPage.step(true, tabs.activeId());
       if (command.id === "find.previous") findInPage.step(false, tabs.activeId());
@@ -605,6 +615,7 @@
     {/if}
   </div>
 </div>
+{#if ClearSiteData}<ClearSiteData />{/if}
 
 <style>
   .stage-column {

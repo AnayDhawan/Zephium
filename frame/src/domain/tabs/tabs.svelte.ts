@@ -204,6 +204,13 @@ export function copyMenuTargetLink(): Promise<boolean> {
   return copyLink(state.tabs.find((tab) => tab.id === id)?.url);
 }
 
+/** The address of the tab the menu was opened on, taken once. */
+export function takeMenuTargetUrl(): string | null {
+  const id = menuTarget;
+  menuTarget = null;
+  return id === null ? null : (state.tabs.find((tab) => tab.id === id)?.url ?? null);
+}
+
 /** Copies the address of the page in front, for the Copy Link command. */
 export function copyActiveLink(): Promise<boolean> {
   return copyLink(activeTab()?.url);
