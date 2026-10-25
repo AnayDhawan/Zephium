@@ -407,6 +407,12 @@ export const fields = {
     description: m.pref_privacy_clear_help,
     initial: "",
   },
+  "privacy.site-data": {
+    section: "privacy",
+    label: m.privacy_sites,
+    description: m.privacy_sites_help,
+    initial: "",
+  },
   "downloads.path": {
     section: "general",
     label: m.pref_downloads_path,

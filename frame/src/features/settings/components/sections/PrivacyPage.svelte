@@ -7,6 +7,7 @@
   import PreviewSelect from "../PreviewSelect.svelte";
   import PreviewToggle from "../PreviewToggle.svelte";
   import ClearBrowsingData from "../ClearBrowsingData.svelte";
+  import SiteData from "../SiteData.svelte";
   import SiteExceptions from "../SiteExceptions.svelte";
   import PasskeysGroup from "../PasskeysGroup.svelte";
 </script>
@@ -30,4 +31,5 @@
 <SettingsGroup title={m.settings_browsing_data()}>
   {#if showPreviews}<PreviewToggle id="privacy.cleanup" />{/if}
   <ClearBrowsingData />
+  <SiteData />
 </SettingsGroup>

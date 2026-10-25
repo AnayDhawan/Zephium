@@ -241,10 +241,11 @@ pub(crate) fn forget_site(
 }
 
 fn clear_origins(core: ICoreWebView2, mut origins: Vec<String>, done: EngineDataCompletion) {
-    let Some(origin) = origins.pop() else {
+    if origins.is_empty() {
         done.finish(EngineDataReply::Cleared);
         return;
-    };
+    }
+    let origin = origins.remove(0);
     let parameters = HSTRING::from(
         serde_json::json!({ "origin": origin, "storageTypes": ORIGIN_STORAGE }).to_string(),
     );
