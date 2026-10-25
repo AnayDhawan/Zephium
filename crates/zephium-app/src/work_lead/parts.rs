@@ -331,6 +331,18 @@ fn blocks(need: &WorkPartNeedV1) -> bool {
     )
 }
 
+// Models fill every optional property of a non-strict schema, often with "".
+fn without_blank_words(arguments: &Value) -> Value {
+    let mut arguments = arguments.clone();
+    if let Some(fields) = arguments.as_object_mut() {
+        fields.retain(|key, value| {
+            !matches!(key.as_str(), "draft" | "text")
+                || value.as_str().is_none_or(|words| !words.trim().is_empty())
+        });
+    }
+    arguments
+}
+
 /// A goal about what anyone sees on a service's site (its pricing, plans,
 /// features or docs), not the person's own workspace there: it reads the
 /// public site, and the person's connection is no way in to it.
@@ -446,6 +458,7 @@ where
     /// A browse that names a canvas draft carries its words, as the person
     /// last left them, as the exact text the page types.
     async fn with_draft(&self, name: &str, arguments: &Value) -> Result<Value, String> {
+        let arguments = &without_blank_words(arguments);
         let Some(id) = arguments
             .get("draft")
             .and_then(Value::as_str)
@@ -2800,6 +2813,27 @@ mod tests {
         ));
         assert!(!person_wrote("Hi Ana, the release is ready.", [request]));
         assert!(!person_wrote("  ", [request]));
+    }
+
+    #[test]
+    fn blank_draft_and_text_are_not_given() {
+        let browse = serde_json::json!({
+            "start": "https://outlook.office.com/mail/",
+            "goal": "List unread messages",
+            "draft": "",
+            "text": " \n",
+            "mine": true
+        });
+        assert_eq!(
+            without_blank_words(&browse),
+            serde_json::json!({
+                "start": "https://outlook.office.com/mail/",
+                "goal": "List unread messages",
+                "mine": true
+            })
+        );
+        let given = serde_json::json!({"start": "outlook.com", "goal": "Send it", "draft": "d1", "text": "Hi"});
+        assert_eq!(without_blank_words(&given), given);
     }
 
     #[test]
