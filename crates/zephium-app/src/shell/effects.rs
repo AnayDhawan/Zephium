@@ -144,12 +144,11 @@ impl Shell {
                 Effect::CreateView { id, url } => {
                     let profile = self.profile_of_item(id);
                     if profile.is_some_and(|profile| extension_surfaces.failed(profile)) {
-                        crate::diagnostic!("view-create: extension surface publication unsettled");
-                        self.zoom.pending.remove(&id);
-                        self.items.view_creation_failed(id);
-                        rejected_creates.insert(id);
-                        native.rejected = true;
-                        continue;
+                        // Extensions lose sight of this tab until the next
+                        // publication; the page itself must still open.
+                        crate::diagnostic!(
+                            "view-create: extension surface unsettled; opening without it"
+                        );
                     }
                     if logical_residents >= LIVE_VIEW_ABSOLUTE_LIMIT {
                         crate::diagnostic!(
