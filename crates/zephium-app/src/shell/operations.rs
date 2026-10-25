@@ -515,6 +515,9 @@ impl Shell {
         if !self.item_in_focused_scope(id) {
             return operation_result(OperationOutcome::Rejected, OperationReason::InvalidScope);
         }
+        if self.is_lone_new_tab(id) {
+            return operation_result(OperationOutcome::NoOp, OperationReason::StateUnchanged);
+        }
         if !self.browser_return_ready
             && self
                 .windows

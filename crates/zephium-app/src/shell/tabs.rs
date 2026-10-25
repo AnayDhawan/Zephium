@@ -217,7 +217,7 @@ impl Shell {
     }
 
     pub(super) fn close(&mut self, id: ItemId) -> NativeWork {
-        if !self.item_in_focused_scope(id) {
+        if !self.item_in_focused_scope(id) || self.is_lone_new_tab(id) {
             return NativeWork::default();
         }
         self.forget_removed_tab_state(id);
@@ -278,8 +278,10 @@ impl Shell {
         if was_active {
             win.active = None;
         }
-        let tabs_before = self.keyboard_tabs(profile, space);
-        let pos = tabs_before.iter().position(|x| *x == id);
+        let pos = self
+            .successor_pool(profile, space)
+            .iter()
+            .position(|x| *x == id);
         let mut fx = self.items.remove(id);
         if let Some(closed) = closed {
             if self.recently_closed.len() == zephium_core::session::MAX_RECENTLY_CLOSED_TABS {
@@ -288,9 +290,7 @@ impl Shell {
             self.recently_closed.push(closed);
         }
         if was_active {
-            if let Some(next) = self.successor(profile, space, pos) {
-                fx.extend(self.focus_tab(next));
-            }
+            fx.extend(self.take_over(profile, space, pos));
         }
         // Put back after the successor is chosen, so closing never refocuses
         // and reloads the Essential it just ended.
@@ -342,19 +342,31 @@ impl Shell {
         }
     }
 
+    /// The tabs a closed active one may hand the window to: the space's open
+    /// tabs only, so closing never wakes an Essential or a pinned page. The
+    /// private window has no such sections and keeps walking every tab.
+    pub(super) fn successor_pool(&self, profile: ProfileId, space: SpaceId) -> Vec<ItemId> {
+        if self.incognito_profile(profile) {
+            self.keyboard_tabs(profile, space)
+        } else {
+            self.regular_tabs(space)
+        }
+    }
+
     /// Which tab takes over from a closed active one, by the person's choice.
-    /// `at` is where the closed tab stood in the sidebar's order.
+    /// `at` is where the closed tab stood in `successor_pool`; a tab outside
+    /// it stood above every open tab.
     pub(super) fn successor(
         &self,
         profile: ProfileId,
         space: SpaceId,
         at: Option<usize>,
     ) -> Option<ItemId> {
-        let tabs = self.keyboard_tabs(profile, space);
+        let tabs = self.successor_pool(profile, space);
         if tabs.is_empty() {
             return None;
         }
-        let at = at.unwrap_or(tabs.len());
+        let at = at.unwrap_or(0);
         match self.tab_preferences.after_close {
             AfterClose::Next => Some(tabs[at.min(tabs.len() - 1)]),
             AfterClose::Previous => Some(tabs[at.saturating_sub(1).min(tabs.len() - 1)]),
@@ -363,6 +375,43 @@ impl Shell {
                 .copied()
                 .max_by_key(|id| (self.residency.last_focus.get(id).copied(), *id)),
         }
+    }
+
+    /// Fronts the successor of an active tab that left `space`; a space with
+    /// none left gets a New Tab, so it is never shown empty. The private
+    /// window instead ends with its last tab.
+    pub(super) fn take_over(
+        &mut self,
+        profile: ProfileId,
+        space: SpaceId,
+        at: Option<usize>,
+    ) -> Vec<Effect> {
+        if let Some(next) = self.successor(profile, space, at) {
+            return self.focus_tab(next);
+        }
+        if self.incognito_profile(profile) {
+            return Vec::new();
+        }
+        self.open_tab_with_id()
+            .map(|(_, effects)| effects)
+            .unwrap_or_default()
+    }
+
+    /// A New Tab page nothing has been loaded or typed into.
+    pub(super) fn is_untouched_new_tab(&self, id: ItemId) -> bool {
+        self.items.tab(id).is_some_and(|tab| {
+            tab.url.is_none() && !tab.loading && tab.content == zephium_core::item::TabContent::Web
+        }) && self.items.pending_navigation_request(id).is_none()
+    }
+
+    /// The front tab is the only open tab of its space and an untouched New
+    /// Tab: closing it would only swap it for an identical one.
+    pub(super) fn is_lone_new_tab(&self, id: ItemId) -> bool {
+        self.windows.focused().is_some_and(|window| {
+            window.active == Some(id)
+                && !self.incognito_profile(window.profile)
+                && self.regular_tabs(window.space) == [id]
+        }) && self.is_untouched_new_tab(id)
     }
 
     /// The tab in this space already showing exactly `url`, if any.
