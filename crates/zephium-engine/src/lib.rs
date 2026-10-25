@@ -9,6 +9,8 @@ pub use agent_context_port::{
     any(target_os = "macos", target_os = "windows")
 ))]
 pub use agent_context_port::{work_browser_monotonic_deadline, work_browser_monotonic_now};
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
+mod data_kinds;
 #[cfg(all(target_os = "macos", feature = "native-agentic-work-resource-probe"))]
 mod diagnostics;
 mod erasure;
@@ -2218,6 +2220,36 @@ impl Engine for WebviewEngine {
         let _ = self.run(move || {
             let _ = host::try_with(move |host| host.set_page_style(profile, site, css));
         });
+    }
+    fn browsing_data_call(
+        &self,
+        partition: Partition,
+        call: zephium_core::browsing_data::EngineDataCall,
+        completion: zephium_core::browsing_data::EngineDataCompletion,
+    ) {
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        {
+            if !lock_retirement_gate(&self.retirement).profile_is_active(partition.profile()) {
+                completion.finish(zephium_core::browsing_data::EngineDataReply::Failed(
+                    zephium_core::browsing_data::EngineDataFailure::Unavailable,
+                ));
+                return;
+            }
+            // A refused or torn-down dispatch drops the completion, which
+            // answers `Unavailable` instead of leaving the caller waiting.
+            let _ = self.run(move || {
+                let _ = host::try_with(move |host| {
+                    host.browsing_data_call(partition, call, completion)
+                });
+            });
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        {
+            let _ = (partition, call);
+            completion.finish(zephium_core::browsing_data::EngineDataReply::Failed(
+                zephium_core::browsing_data::EngineDataFailure::Unsupported,
+            ));
+        }
     }
     fn download_call(
         &self,

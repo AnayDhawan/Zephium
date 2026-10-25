@@ -843,8 +843,15 @@ fn run_with(
                     next: None,
                     removed: Some(store.forget_history_urls(profile, &urls)),
                 },
-                zephium_ipc::HistoryCall::Clear { range } => {
-                    let since = range.window_seconds().map(|window| now_secs() - window);
+                call @ (zephium_ipc::HistoryCall::Clear { .. }
+                | zephium_ipc::HistoryCall::ClearSince { .. }) => {
+                    let since = match call {
+                        zephium_ipc::HistoryCall::ClearSince { since } => Some(since),
+                        zephium_ipc::HistoryCall::Clear { range } => {
+                            range.window_seconds().map(|window| now_secs() - window)
+                        }
+                        _ => unreachable!(),
+                    };
                     store.clear_chats(profile, since);
                     match store.clear_history_checked(profile, since) {
                         Some(removed) => StoreReadResult::HistorySurface {
@@ -980,16 +987,28 @@ mod tests {
     fn clearing_history_also_clears_conversations_from_the_same_instant() {
         let store = Arc::new(crate::shell::tests::FakeStore::default());
         let profile = ProfileId::from(1);
-        for (range, window) in [
-            (zephium_ipc::HistoryRange::Hour, Some(3600)),
-            (zephium_ipc::HistoryRange::Everything, None),
+        for (call, window) in [
+            (
+                zephium_ipc::HistoryCall::Clear {
+                    range: zephium_ipc::HistoryRange::Hour,
+                },
+                Some(3600),
+            ),
+            (
+                zephium_ipc::HistoryCall::Clear {
+                    range: zephium_ipc::HistoryRange::Everything,
+                },
+                None,
+            ),
+            (
+                zephium_ipc::HistoryCall::ClearSince {
+                    since: now_secs() - 28 * 24 * 3600,
+                },
+                Some(28 * 24 * 3600),
+            ),
         ] {
             let queue = StoreReadQueue::new();
-            assert!(queue.request_history_call(
-                7,
-                profile,
-                zephium_ipc::HistoryCall::Clear { range }
-            ));
+            assert!(queue.request_history_call(7, profile, call));
             let before = now_secs();
             let mut result = None;
             let stop = queue.clone();

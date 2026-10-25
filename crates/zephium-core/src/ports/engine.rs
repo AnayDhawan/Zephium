@@ -700,6 +700,20 @@ pub trait Engine {
     /// `profile`; an empty sheet removes it. The CSS must come from the
     /// page-assist validator, never from a page or a model directly.
     fn set_page_style(&self, _profile: ProfileId, _site: String, _css: Arc<str>) {}
+    /// Clears or lists the website data of one persistent profile's engine
+    /// store. Only trusted Shell admission supplies the partition; a private
+    /// partition, another profile's or Work's own store is never reachable
+    /// from here. The completion answers once, after the engine has finished.
+    fn browsing_data_call(
+        &self,
+        _partition: Partition,
+        _call: crate::browsing_data::EngineDataCall,
+        completion: crate::browsing_data::EngineDataCompletion,
+    ) {
+        completion.finish(crate::browsing_data::EngineDataReply::Failed(
+            crate::browsing_data::EngineDataFailure::Unsupported,
+        ));
+    }
     /// Browser-owned file actions. Only trusted Shell admission supplies the
     /// profile partition; the caller supplies IDs, never filesystem paths.
     fn download_call(

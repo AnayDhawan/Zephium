@@ -511,6 +511,12 @@ export const commands = {
 	noteCall: (expectedProfile: string, call: NoteCall) => __TAURI_INVOKE<NoteReply>("note_call", { expectedProfile, call }),
 	historyCall: (expectedProfile: string, call: HistoryCall) => __TAURI_INVOKE<HistoryResponse>("history_call", { expectedProfile, call }),
 	/**
+	 *  Clears what the focused profile's pages stored, or lists and removes it
+	 *  site by site. Clearing can take a while on a large cache, so the wait is
+	 *  longer than a history read's.
+	 */
+	browsingDataCall: (expectedProfile: string, call: BrowsingDataCall) => __TAURI_INVOKE<BrowsingDataResponse>("browsing_data_call", { expectedProfile, call }),
+	/**
 	 *  Asks for the site icons of origins chrome shows outside a tab. Held icons
 	 *  arrive on the ordinary favicon event; missing ones are probed anonymously.
 	 *  Returns whether the request was queued.
@@ -1165,6 +1171,42 @@ export type BrowserCredentialCapabilityView = {
 };
 
 export type BrowserPasskeyAuthorizationView = "authorized" | "denied" | "not_determined" | "entitlement_required" | "unknown" | "unavailable" | "unsupported";
+
+/**
+ *  One request from the browsing data surfaces: clearing what a profile's
+ *  pages stored, and the sites it stored it for.
+ */
+export type BrowsingDataCall =
+/**
+ *  Removes the chosen kinds from `range` back. `cookies` is cookies and
+ *  site data; `downloads` is the download list, never the files.
+ */
+{ kind: "clear"; range: BrowsingDataRange; history: boolean; cookies: boolean; cache: boolean; downloads: boolean } |
+/**  The sites the profile holds cookies and site data for. */
+{ kind: "sites" } |
+/**  Everything stored for one site, named as `Sites` names it. */
+{ kind: "forget_site"; site: string } |
+/**
+ *  Everything stored for the site of one page, named by its origin
+ *  (`https://host[:port]`), for a command on the page in front.
+ */
+{ kind: "forget_page"; origin: string };
+
+export type BrowsingDataError = "invalid" | "unavailable" | "capacity" |
+/**  The engine took the request and did not complete it. */
+"failed" |
+/**  A private window keeps nothing to clear. */
+"private";
+
+/**  How far back a browsing data clear reaches. */
+export type BrowsingDataRange = "hour" | "day" | "week" | "four_weeks" | "everything";
+
+export type BrowsingDataResponse = { kind: "cleared" } | { kind: "sites"; sites: SiteDataView[];
+/**
+ *  The engine can only name sites by some of what it holds: sites
+ *  with only storage and no cookies are missing from the list.
+ */
+partial: boolean } | { kind: "error"; error: BrowsingDataError };
 
 export type CaptureDeviceStateView = "none" | "active" | "muted";
 
@@ -2881,6 +2923,13 @@ export type SidebarSectionView = "favorites" | "pinned" | "today";
 export type SignInCredentials = {
 	username: string,
 	password: string,
+};
+
+/**  A site the profile holds data for. */
+export type SiteDataView = {
+	site: string,
+	cookies: boolean,
+	storage: boolean,
 };
 
 export type SiteTimeView = {

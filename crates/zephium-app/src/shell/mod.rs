@@ -7,6 +7,7 @@ mod blocker_sites;
 mod blocker_statistics;
 mod bookmarks;
 mod bootstrap;
+mod browsing_data;
 mod certificates;
 mod effects;
 mod engine_events;
@@ -965,6 +966,11 @@ impl Shell {
                 call,
                 done,
             } => self.history_call(expected_profile, *call, done),
+            Command::BrowsingDataCall {
+                expected_profile,
+                call,
+                done,
+            } => self.browsing_data_call(expected_profile, *call, done),
             Command::BookmarkCall {
                 expected_profile,
                 call,

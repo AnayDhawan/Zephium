@@ -218,17 +218,38 @@ impl DownloadPreferences {
 pub enum DownloadCall {
     Updates,
     RetryCleanup,
-    List { before: Option<String>, limit: u32 },
-    Cancel { id: String },
-    Resume { id: String },
-    Open { id: String },
-    Reveal { id: String },
-    Forget { id: String },
+    List {
+        before: Option<String>,
+        limit: u32,
+    },
+    Cancel {
+        id: String,
+    },
+    Resume {
+        id: String,
+    },
+    Open {
+        id: String,
+    },
+    Reveal {
+        id: String,
+    },
+    Forget {
+        id: String,
+    },
     // Forgets every finished download; files on disk are untouched.
     Clear,
+    // Forgets the finished downloads started at or after `since` (unix
+    // seconds). Only the shell sends it; a frame cannot.
+    #[serde(skip)]
+    ClearSince {
+        since: i64,
+    },
     Preferences,
     ChooseDirectory,
-    SetAskDestination { enabled: bool },
+    SetAskDestination {
+        enabled: bool,
+    },
 }
 impl DownloadCall {
     pub fn validate(&self) -> bool {
@@ -243,6 +264,7 @@ impl DownloadCall {
             | Self::Open { id }
             | Self::Reveal { id }
             | Self::Forget { id } => canonical_id(id),
+            Self::ClearSince { since } => *since > 0,
             _ => true,
         }
     }
@@ -347,6 +369,8 @@ pub enum DownloadStoreCall {
     Forget(DownloadId),
     /// Deletes every terminal record. Transfers still writing keep theirs.
     Clear,
+    /// Deletes the terminal records created at or after the unix second.
+    ClearSince(i64),
     ClearStaging {
         id: DownloadId,
         expected: FileIdentity,

@@ -4163,6 +4163,57 @@ fn clearing_downloads_forgets_finished_records_and_keeps_live_ones() {
 }
 
 #[test]
+fn clearing_downloads_since_keeps_older_and_live_records() {
+    use zephium_core::downloads::*;
+    use zephium_core::ids::DownloadId;
+    let mut hub = Hub::in_memory().unwrap();
+    hub.save(&sample()).unwrap();
+    let profile = ProfileId::from(1);
+    let session = DownloadId::generate();
+    let record = |created_at, state| DownloadRecord {
+        id: DownloadId::generate(),
+        session,
+        revision: 1,
+        created_at,
+        filename: "fixture.txt".into(),
+        source: "https://example.com".into(),
+        source_is_context: false,
+        state,
+        received: 0,
+        total: None,
+        error: None,
+        destination: None,
+        staging: None,
+        staging_identity: None,
+        identity: None,
+        writer: None,
+        writer_released: false,
+    };
+    let old = record(100, DownloadState::Cancelled);
+    let recent = record(200, DownloadState::Cancelled);
+    let live = record(300, DownloadState::Pending);
+    for value in [&old, &recent, &live] {
+        assert!(matches!(
+            hub.download_call(profile, DownloadStoreCall::Save(Box::new(value.clone()))),
+            DownloadStoreReply::Saved
+        ));
+    }
+    assert!(matches!(
+        hub.download_call(profile, DownloadStoreCall::ClearSince(200)),
+        DownloadStoreReply::Saved
+    ));
+    let held = |hub: &mut Hub, id| {
+        matches!(
+            hub.download_call(profile, DownloadStoreCall::Get(id)),
+            DownloadStoreReply::Record(Some(_))
+        )
+    };
+    assert!(held(&mut hub, old.id));
+    assert!(!held(&mut hub, recent.id));
+    assert!(held(&mut hub, live.id));
+}
+
+#[test]
 fn download_preferences_are_validated_and_persist_only_in_registered_profiles() {
     use zephium_core::downloads::*;
     let mut hub = Hub::in_memory().unwrap();

@@ -37,7 +37,7 @@ impl EngineHost {
             .any(|(id, partition)| partition.profile() == profile && self.views.contains_key(id))
     }
 
-    fn close_idle_spare(&mut self, profile: ProfileId) {
+    pub(super) fn close_idle_spare(&mut self, profile: ProfileId) {
         if self.has_live_profile_view(profile) {
             return;
         }

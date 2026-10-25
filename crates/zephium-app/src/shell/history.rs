@@ -75,10 +75,16 @@ impl Shell {
             });
             return;
         }
-        if let HistoryCall::Clear { range } = &call {
-            let since = range
-                .window_seconds()
-                .map(|window| chrono::Utc::now().timestamp() - window);
+        let clearing = match &call {
+            HistoryCall::Clear { range } => Some(
+                range
+                    .window_seconds()
+                    .map(|window| chrono::Utc::now().timestamp() - window),
+            ),
+            HistoryCall::ClearSince { since } => Some(Some(*since)),
+            _ => None,
+        };
+        if let Some(since) = clearing {
             if !self.clear_time(expected_profile, since) {
                 done.finish(HistoryResponse::Error {
                     error: HistoryError::Unavailable,
@@ -87,6 +93,7 @@ impl Shell {
             }
             self.reset_blocker_statistics(expected_profile);
             self.clear_zoom_levels(expected_profile, since);
+            self.forget_recently_closed(expected_profile, since);
         }
         let Some(reads) = &self.store_reads else {
             done.finish(HistoryResponse::Error {
@@ -98,7 +105,7 @@ impl Shell {
         let token = self.history.next_token;
         let forget_native_state = matches!(
             &call,
-            HistoryCall::Forget { .. } | HistoryCall::Clear { .. }
+            HistoryCall::Forget { .. } | HistoryCall::Clear { .. } | HistoryCall::ClearSince { .. }
         );
         if !reads.request_history_call(token, expected_profile, call) {
             done.finish(HistoryResponse::Error {
@@ -113,6 +120,22 @@ impl Shell {
         // The native hook also invalidates an in-flight state capture.
         if forget_native_state {
             self.engine.forget_discarded_state(expected_profile, None);
+        }
+    }
+
+    /// Closed tabs are history too: a clear takes the profile's closed after
+    /// `since` (unix seconds), or all of them, out of Recently Closed. A tab
+    /// closed by an older release carries no time and goes only with all.
+    fn forget_recently_closed(&mut self, profile: ProfileId, since: Option<i64>) {
+        let floor = since.map(|since| u64::try_from(since).unwrap_or(0).saturating_mul(1000));
+        let before = self.recently_closed.len();
+        self.recently_closed.retain(|entry| {
+            entry.profile != profile
+                || floor.is_some_and(|floor| entry.closed_at_ms.is_some_and(|at| at < floor))
+        });
+        if self.recently_closed.len() != before {
+            self.project_recently_closed_if_changed();
+            self.schedule_persist();
         }
     }
 

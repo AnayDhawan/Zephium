@@ -285,6 +285,11 @@ pub enum Command {
         call: Box<zephium_ipc::HistoryCall>,
         done: HistoryCompletion,
     },
+    BrowsingDataCall {
+        expected_profile: ProfileId,
+        call: Box<zephium_ipc::BrowsingDataCall>,
+        done: BrowsingDataCompletion,
+    },
     BookmarkCall {
         expected_profile: ProfileId,
         call: Box<zephium_ipc::BookmarkCall>,
@@ -922,6 +927,23 @@ impl HistoryCompletion {
     }
 }
 #[derive(Clone)]
+pub struct BrowsingDataCompletion(Completion<zephium_ipc::BrowsingDataResponse>);
+impl BrowsingDataCompletion {
+    pub fn new(done: impl FnOnce(zephium_ipc::BrowsingDataResponse) + Send + 'static) -> Self {
+        Self(Arc::new(Mutex::new(Some(Box::new(done)))))
+    }
+    pub fn finish(self, response: zephium_ipc::BrowsingDataResponse) {
+        let done = self
+            .0
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take();
+        if let Some(done) = done {
+            done(response);
+        }
+    }
+}
+#[derive(Clone)]
 pub struct TimeCompletion(Completion<zephium_ipc::TimeResponse>);
 impl TimeCompletion {
     pub fn new(done: impl FnOnce(zephium_ipc::TimeResponse) + Send + 'static) -> Self {
@@ -1007,6 +1029,11 @@ impl fmt::Debug for ImportCompletion {
 impl fmt::Debug for BookmarkCompletion {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("BookmarkCompletion")
+    }
+}
+impl fmt::Debug for BrowsingDataCompletion {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("BrowsingDataCompletion")
     }
 }
 impl fmt::Debug for HistoryCompletion {

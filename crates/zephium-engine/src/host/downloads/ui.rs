@@ -195,6 +195,13 @@ impl Downloads {
                     self.ui_store(token, partition, DownloadStoreCall::Clear);
                 }
             }
+            DownloadCall::ClearSince { since } => {
+                if private {
+                    self.ui_reply(token, DownloadStoreReply::Saved);
+                } else {
+                    self.ui_store(token, partition, DownloadStoreCall::ClearSince(since));
+                }
+            }
             DownloadCall::Cancel { .. }
             | DownloadCall::Resume { .. }
             | DownloadCall::Updates
@@ -348,10 +355,19 @@ impl Downloads {
                 (self.notify)(partition.profile());
                 done.finish(DownloadResponse::Applied);
             }
-            (DownloadCall::Clear, DownloadStoreReply::Saved) => {
+            (
+                call @ (DownloadCall::Clear | DownloadCall::ClearSince { .. }),
+                DownloadStoreReply::Saved,
+            ) => {
+                let since = match call {
+                    DownloadCall::ClearSince { since } => since,
+                    _ => i64::MIN,
+                };
                 let mut cleared = Vec::new();
                 self.recent.borrow_mut().retain(|(owner, record)| {
-                    let keep = owner.profile() != partition.profile() || !record.state.terminal();
+                    let keep = owner.profile() != partition.profile()
+                        || !record.state.terminal()
+                        || record.created_at < since;
                     if !keep {
                         cleared.push(record.id);
                     }

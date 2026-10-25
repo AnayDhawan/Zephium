@@ -346,6 +346,9 @@ pub(crate) struct FakeEngine {
     fills_window_for_fullscreen: std::sync::atomic::AtomicBool,
     fullscreen_exits: Mutex<Vec<ItemId>>,
     layout_regions: Mutex<Vec<Option<Rect>>>,
+    data_calls: Mutex<Vec<(Partition, zephium_core::browsing_data::EngineDataCall)>>,
+    data_reply: Mutex<Option<zephium_core::browsing_data::EngineDataReply>>,
+    download_calls: Mutex<Vec<(Partition, zephium_core::downloads::DownloadCall)>>,
 }
 
 impl FakeEngine {
@@ -468,6 +471,31 @@ impl FakeEngine {
 }
 
 impl Engine for FakeEngine {
+    fn browsing_data_call(
+        &self,
+        partition: Partition,
+        call: zephium_core::browsing_data::EngineDataCall,
+        completion: zephium_core::browsing_data::EngineDataCompletion,
+    ) {
+        self.data_calls.lock().unwrap().push((partition, call));
+        let reply = self
+            .data_reply
+            .lock()
+            .unwrap()
+            .clone()
+            .unwrap_or(zephium_core::browsing_data::EngineDataReply::Cleared);
+        completion.finish(reply);
+    }
+    fn download_call(
+        &self,
+        partition: Partition,
+        call: zephium_core::downloads::DownloadCall,
+        done: zephium_core::downloads::DownloadCompletion,
+    ) -> bool {
+        self.download_calls.lock().unwrap().push((partition, call));
+        done.finish(zephium_core::downloads::DownloadResponse::Applied);
+        true
+    }
     fn automatic_pip(&self, id: ItemId, background: bool) -> NativeDispatch {
         self.automatic_pip
             .lock()
@@ -2121,6 +2149,7 @@ mod actor_integration;
 mod audio;
 mod blocker;
 mod bootstrap;
+mod browsing_data;
 mod engine_events;
 mod extension_actions;
 mod extension_browser_requests;

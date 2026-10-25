@@ -5,6 +5,7 @@ pub mod accelerator;
 pub mod audio;
 pub mod blocker;
 pub mod bookmarks;
+pub mod browsing_data;
 pub mod certificates;
 pub mod commands;
 pub mod downloads;

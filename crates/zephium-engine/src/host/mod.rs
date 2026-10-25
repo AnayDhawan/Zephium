@@ -7,6 +7,7 @@ mod automatic_pip;
 mod blocker_statistics;
 #[cfg(all(test, target_os = "windows"))]
 mod browser_windows_qualification;
+mod browsing_data;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod certificates;
 mod construction;

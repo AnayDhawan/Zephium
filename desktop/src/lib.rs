@@ -1812,6 +1812,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             resource_call,
             notes::note_call,
             history_call,
+            browsing_data_call,
             favicon_probe,
             download_call,
             download_open_access_settings,
@@ -4391,6 +4392,52 @@ async fn history_call(
     match tokio::time::timeout(std::time::Duration::from_secs(8), receive).await {
         Ok(Ok(response)) => response,
         _ => failed(HistoryError::Unavailable),
+    }
+}
+
+/// Clears what the focused profile's pages stored, or lists and removes it
+/// site by site. Clearing can take a while on a large cache, so the wait is
+/// longer than a history read's.
+#[tauri::command]
+#[specta::specta]
+async fn browsing_data_call(
+    caller: WebviewWindow,
+    app: tauri::AppHandle,
+    expected_profile: String,
+    call: zephium_ipc::BrowsingDataCall,
+) -> zephium_ipc::BrowsingDataResponse {
+    use zephium_ipc::{BrowsingDataError, BrowsingDataResponse};
+    let failed = |error| BrowsingDataResponse::Error { error };
+    if !authorize(&caller, CallerPolicy::Main, "browsing_data_call") || shutdown_started(&app) {
+        return failed(BrowsingDataError::Unavailable);
+    }
+    if !call.validate() {
+        return failed(BrowsingDataError::Invalid);
+    }
+    let Some(expected_profile) =
+        ProfileId::parse(&expected_profile).filter(|id| id.to_string() == expected_profile)
+    else {
+        return failed(BrowsingDataError::Invalid);
+    };
+    static ADMISSION: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(2);
+    let Ok(permit) = ADMISSION.try_acquire() else {
+        return failed(BrowsingDataError::Capacity);
+    };
+    let (send, receive) = tokio::sync::oneshot::channel();
+    let shell = app.state::<Handle>().inner().clone();
+    if !shell.dispatch(Command::BrowsingDataCall {
+        expected_profile,
+        call: Box::new(call),
+        done: zephium_app::BrowsingDataCompletion::new(move |response| {
+            let _permit = permit;
+            let _ = send.send(response);
+        }),
+    }) {
+        return failed(BrowsingDataError::Unavailable);
+    }
+    match tokio::time::timeout(std::time::Duration::from_secs(45), receive).await {
+        Ok(Ok(response)) => response,
+        _ => failed(BrowsingDataError::Unavailable),
     }
 }
 

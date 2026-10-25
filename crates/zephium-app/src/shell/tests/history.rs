@@ -39,7 +39,7 @@ fn scoped(query: &str, limit: u16, range: HistoryRange) -> HistoryCall {
 }
 
 /// Drives the reader thread the way the actor does and hands its reply back.
-fn drain_reads(
+pub(super) fn drain_reads(
     shell: &mut Shell,
     store: Arc<FakeStore>,
     queue: crate::store_reads::StoreReadQueue,
@@ -60,14 +60,16 @@ fn drain_reads(
 
 /// Visits are deduplicated per tab within a second, so each address gets its
 /// own tab rather than racing that rule.
-fn visit(shell: &mut Shell, screen: &Screen, host: &str) -> ItemId {
+pub(super) fn visit(shell: &mut Shell, screen: &Screen, host: &str) -> ItemId {
     shell.handle(Command::Open);
     let id = active_id(screen);
     navigate_and_commit(shell, id, host);
     id
 }
 
-fn browsed(store: Arc<FakeStore>) -> (Shell, Screen, crate::store_reads::StoreReadQueue) {
+pub(super) fn browsed(
+    store: Arc<FakeStore>,
+) -> (Shell, Screen, crate::store_reads::StoreReadQueue) {
     let (mut shell, _engine, screen) = setup_with(store);
     shell.handle(Command::Bootstrap);
     let queue = crate::store_reads::StoreReadQueue::new();

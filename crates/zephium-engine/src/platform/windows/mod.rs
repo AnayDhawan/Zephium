@@ -22,6 +22,7 @@ mod agentic_input_probe;
 mod agentic_probe_resources;
 #[cfg(feature = "native-agentic-semantic-probe")]
 mod agentic_semantic_probe;
+pub(crate) mod browsing_data;
 #[cfg(any(test, feature = "windows-cdp-spike"))]
 #[allow(dead_code)]
 mod cdp;

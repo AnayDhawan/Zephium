@@ -644,6 +644,12 @@ pub enum HistoryCall {
     Clear {
         range: HistoryRange,
     },
+    /// Clears the visits at or after `since` (unix seconds). Only the shell
+    /// sends it, for a range the history surfaces do not offer.
+    #[serde(skip)]
+    ClearSince {
+        since: i64,
+    },
     /// The tabs most recently closed in this profile, newest first.
     ClosedTabs,
     /// Reopens one of them, named by the id `ClosedTabs` gave.
@@ -701,6 +707,7 @@ impl HistoryCall {
                         .all(|url| zephium_core::navigation::is_allowed_str(url))
             }
             Self::Clear { .. } | Self::ClosedTabs => true,
+            Self::ClearSince { since } => *since > 0,
             Self::ReopenClosed { id } => zephium_core::ids::ClosedSessionId::parse(id)
                 .is_some_and(|parsed| parsed.to_string() == *id),
         }
@@ -753,6 +760,106 @@ pub enum HistoryError {
     Invalid,
     Unavailable,
     Capacity,
+}
+
+/// How far back a browsing data clear reaches.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum BrowsingDataRange {
+    Hour,
+    Day,
+    Week,
+    FourWeeks,
+    Everything,
+}
+
+impl BrowsingDataRange {
+    /// Seconds the range covers, or None for all of time.
+    pub fn window_seconds(self) -> Option<i64> {
+        match self {
+            Self::Hour => Some(3600),
+            Self::Day => Some(24 * 3600),
+            Self::Week => Some(7 * 24 * 3600),
+            Self::FourWeeks => Some(28 * 24 * 3600),
+            Self::Everything => None,
+        }
+    }
+}
+
+/// One request from the browsing data surfaces: clearing what a profile's
+/// pages stored, and the sites it stored it for.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum BrowsingDataCall {
+    /// Removes the chosen kinds from `range` back. `cookies` is cookies and
+    /// site data; `downloads` is the download list, never the files.
+    Clear {
+        range: BrowsingDataRange,
+        history: bool,
+        cookies: bool,
+        cache: bool,
+        downloads: bool,
+    },
+    /// The sites the profile holds cookies and site data for.
+    Sites,
+    /// Everything stored for one site, named as `Sites` names it.
+    ForgetSite { site: String },
+    /// Everything stored for the site of one page, named by its origin
+    /// (`https://host[:port]`), for a command on the page in front.
+    ForgetPage { origin: String },
+}
+
+impl BrowsingDataCall {
+    pub fn validate(&self) -> bool {
+        match self {
+            Self::Clear {
+                history,
+                cookies,
+                cache,
+                downloads,
+                ..
+            } => *history || *cookies || *cache || *downloads,
+            Self::Sites => true,
+            Self::ForgetSite { site } => zephium_core::browsing_data::is_site_name(site),
+            Self::ForgetPage { origin } => zephium_core::browsing_data::page_origin_host(origin)
+                .is_some_and(|host| zephium_core::browsing_data::is_site_name(&host)),
+        }
+    }
+}
+
+/// A site the profile holds data for.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct SiteDataView {
+    pub site: String,
+    pub cookies: bool,
+    pub storage: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum BrowsingDataResponse {
+    Cleared,
+    Sites {
+        sites: Vec<SiteDataView>,
+        /// The engine can only name sites by some of what it holds: sites
+        /// with only storage and no cookies are missing from the list.
+        partial: bool,
+    },
+    Error {
+        error: BrowsingDataError,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum BrowsingDataError {
+    Invalid,
+    Unavailable,
+    Capacity,
+    /// The engine took the request and did not complete it.
+    Failed,
+    /// A private window keeps nothing to clear.
+    Private,
 }
 
 /// Where a find in the page in front landed.
@@ -1509,6 +1616,103 @@ mod blocker_status_tests {
         assert!(!status.source_repair_retry_pending);
         assert!(!status.retryable);
         assert_eq!(status.retries_remaining, 0);
+    }
+}
+
+#[cfg(test)]
+mod browsing_data_tests {
+    use super::*;
+
+    #[test]
+    fn ranges_cover_the_windows_a_person_picks_and_all_time_has_none() {
+        let hour = 3600;
+        assert_eq!(BrowsingDataRange::Hour.window_seconds(), Some(hour));
+        assert_eq!(BrowsingDataRange::Day.window_seconds(), Some(24 * hour));
+        assert_eq!(
+            BrowsingDataRange::Week.window_seconds(),
+            Some(7 * 24 * hour)
+        );
+        assert_eq!(
+            BrowsingDataRange::FourWeeks.window_seconds(),
+            Some(28 * 24 * hour)
+        );
+        assert_eq!(BrowsingDataRange::Everything.window_seconds(), None);
+    }
+
+    #[test]
+    fn a_clear_needs_a_kind_and_a_forget_needs_one_bare_site() {
+        let clear = |history, cookies, cache, downloads| BrowsingDataCall::Clear {
+            range: BrowsingDataRange::Hour,
+            history,
+            cookies,
+            cache,
+            downloads,
+        };
+        assert!(!clear(false, false, false, false).validate());
+        for call in [
+            clear(true, false, false, false),
+            clear(false, true, false, false),
+            clear(false, false, true, false),
+            clear(false, false, false, true),
+            BrowsingDataCall::Sites,
+            BrowsingDataCall::ForgetSite {
+                site: "example.com".into(),
+            },
+            BrowsingDataCall::ForgetPage {
+                origin: "https://www.example.com:8443".into(),
+            },
+        ] {
+            assert!(call.validate(), "{call:?}");
+        }
+        for site in [
+            "",
+            "https://example.com",
+            "example.com/a",
+            "*.example.com",
+            " ",
+        ] {
+            assert!(
+                !BrowsingDataCall::ForgetSite { site: site.into() }.validate(),
+                "{site:?}"
+            );
+        }
+        for origin in [
+            "",
+            "example.com",
+            "https://example.com/a",
+            "file:///tmp",
+            "about:blank",
+        ] {
+            assert!(
+                !BrowsingDataCall::ForgetPage {
+                    origin: origin.into()
+                }
+                .validate(),
+                "{origin:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_frame_cannot_send_a_dated_history_or_download_clear() {
+        assert!(
+            serde_json::from_str::<HistoryCall>(r#"{"kind":"clear_since","since":1}"#).is_err()
+        );
+        assert!(serde_json::from_str::<HistoryCall>(r#"{"kind":"clear","range":"hour"}"#).is_ok());
+        assert!(serde_json::from_str::<BrowsingDataCall>(
+            r#"{"kind":"clear","range":"four_weeks","history":true,"cookies":false,"cache":false,"downloads":false}"#
+        )
+        .is_ok());
+        assert!(serde_json::from_str::<BrowsingDataCall>(
+            r#"{"kind":"clear","range":"forever","history":true,"cookies":false,"cache":false,"downloads":false}"#
+        )
+        .is_err());
+        assert!(
+            serde_json::from_str::<zephium_core::downloads::DownloadCall>(
+                r#"{"kind":"clear_since","since":1}"#
+            )
+            .is_err()
+        );
     }
 }
 
