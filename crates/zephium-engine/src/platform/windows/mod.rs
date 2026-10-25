@@ -2091,6 +2091,74 @@ pub fn reload_ignoring_cache(view: &wry::WebView) -> bool {
     .is_ok()
 }
 
+/// The browser's own list around the current entry, as (title, address) in
+/// order with the index of the current one. The answer is asynchronous; a
+/// refused call is reported by the return value and never calls `done`.
+pub fn history_session(
+    view: &wry::WebView,
+    done: impl FnOnce(Option<(Vec<(String, String)>, usize)>) + 'static,
+) -> bool {
+    let handler =
+        CallDevToolsProtocolMethodCompletedHandler::create(Box::new(move |result, response| {
+            done(
+                result
+                    .is_ok()
+                    .then(|| crate::history_list::parse(&response))
+                    .flatten()
+                    .map(|history| history.window()),
+            );
+            Ok(())
+        }));
+    // SAFETY: exact STA-owned core and immutable argument buffers.
+    unsafe {
+        view.webview().CallDevToolsProtocolMethod(
+            &HSTRING::from("Page.getNavigationHistory"),
+            &HSTRING::from("{}"),
+            &handler,
+        )
+    }
+    .is_ok()
+}
+
+/// Goes to the entry `offset` steps from the current one when it is still at
+/// `url`. The list is read again first, so the entry id comes from the
+/// browser's list as it is now and not from one shown earlier.
+pub fn go_to_history_entry(view: &wry::WebView, offset: i32, url: &str) -> bool {
+    let core = view.webview();
+    let url = url.to_owned();
+    let navigate = core.clone();
+    let handler =
+        CallDevToolsProtocolMethodCompletedHandler::create(Box::new(move |result, response| {
+            let entry = result
+                .is_ok()
+                .then(|| crate::history_list::parse(&response))
+                .flatten()
+                .and_then(|history| history.entry_at(offset, &url));
+            if let Some(id) = entry {
+                let settled =
+                    CallDevToolsProtocolMethodCompletedHandler::create(Box::new(|_, _| Ok(())));
+                // SAFETY: exact STA-owned core and immutable argument buffers.
+                let _ = unsafe {
+                    navigate.CallDevToolsProtocolMethod(
+                        &HSTRING::from("Page.navigateToHistoryEntry"),
+                        &HSTRING::from(format!(r#"{{"entryId":{id}}}"#)),
+                        &settled,
+                    )
+                };
+            }
+            Ok(())
+        }));
+    // SAFETY: exact STA-owned core and immutable argument buffers.
+    unsafe {
+        core.CallDevToolsProtocolMethod(
+            &HSTRING::from("Page.getNavigationHistory"),
+            &HSTRING::from("{}"),
+            &handler,
+        )
+    }
+    .is_ok()
+}
+
 pub fn stop_loading(view: &wry::WebView) {
     let controller = view.controller();
     if let Ok(core) = unsafe { controller.CoreWebView2() } {

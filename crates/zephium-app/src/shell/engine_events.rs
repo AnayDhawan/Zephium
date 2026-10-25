@@ -565,6 +565,11 @@ impl Shell {
             EngineEvent::Crashed { id } => self.on_crashed(id),
             EngineEvent::Captured { .. } => {}
             EngineEvent::HtmlExtracted { .. } => {}
+            EngineEvent::HistoryEntries {
+                id,
+                request,
+                entries,
+            } => self.on_history_entries(id, request, entries),
             EngineEvent::FindResult {
                 id,
                 query,
@@ -765,6 +770,7 @@ impl Shell {
             | EngineEvent::Crashed { id }
             | EngineEvent::Captured { id, .. }
             | EngineEvent::HtmlExtracted { id, .. }
+            | EngineEvent::HistoryEntries { id, .. }
             | EngineEvent::FindResult { id, .. } => self.profile_of_item(*id),
             EngineEvent::MediaCaptureChanged { id, .. }
             | EngineEvent::AudioChanged { id, .. }

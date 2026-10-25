@@ -367,6 +367,75 @@ pub fn stop_loading(view: &wry::WebView) {
     unsafe { webkit(view).stopLoading() };
 }
 
+/// WebKit's back/forward list around the current entry, as (title, address)
+/// in order, with the index of the current one. Only the nearest entries
+/// each way are copied out of the list.
+pub fn history_session(
+    view: &wry::WebView,
+    done: impl FnOnce(Option<(Vec<(String, String)>, usize)>),
+) -> bool {
+    use zephium_core::ports::engine::MAX_HISTORY_SIDE;
+    let page = webkit(view);
+    // SAFETY: public WebKit reads on the main thread.
+    let list = unsafe { page.backForwardList() };
+    let entry = |item: &objc2_web_kit::WKBackForwardListItem| {
+        let address = unsafe { item.URL() }
+            .absoluteString()
+            .map(|url| url.to_string())
+            .filter(|url| url.len() <= 8 * 1024)
+            .unwrap_or_default();
+        let title = unsafe { item.title() }
+            .map(|title| title.to_string())
+            .filter(|title| title.len() <= 8 * 1024)
+            .unwrap_or_default();
+        (title, address)
+    };
+    let Some(current) = (unsafe { list.currentItem() }) else {
+        done(None);
+        return true;
+    };
+    let behind: Vec<_> = unsafe { list.backList() }.iter().collect();
+    let back: Vec<_> = behind
+        .iter()
+        .rev()
+        .take(MAX_HISTORY_SIDE)
+        .map(|item| entry(item))
+        .collect();
+    let forward: Vec<_> = unsafe { list.forwardList() }
+        .iter()
+        .take(MAX_HISTORY_SIDE)
+        .map(|item| entry(&item))
+        .collect();
+    let current_at = back.len();
+    let session = back
+        .into_iter()
+        .rev()
+        .chain(std::iter::once(entry(&current)))
+        .chain(forward)
+        .collect();
+    done(Some((session, current_at)));
+    true
+}
+
+/// Goes to the entry `offset` steps from the current one when it is still at
+/// `url`. WebKit counts the offset itself, so a list read earlier cannot send
+/// the view to a different entry than the one shown.
+pub fn go_to_history_entry(view: &wry::WebView, offset: i32, url: &str) -> bool {
+    if offset == 0 {
+        return false;
+    }
+    let page = webkit(view);
+    // SAFETY: public WebKit access on the main thread.
+    let list = unsafe { page.backForwardList() };
+    let Some(item) = (unsafe { list.itemAtIndex(offset as isize) }) else {
+        return false;
+    };
+    let at = unsafe { item.URL() }
+        .absoluteString()
+        .map(|at| at.to_string());
+    at.as_deref() == Some(url) && unsafe { page.goToBackForwardListItem(&item) }.is_some()
+}
+
 /// Suspension also refuses the page's own attempts to play until it is
 /// lifted, so a covered page cannot start sound behind the focus surface.
 pub fn set_media_suspended(view: &wry::WebView, suspended: bool) {

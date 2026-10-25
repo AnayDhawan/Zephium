@@ -778,6 +778,17 @@ pub trait Engine {
     fn stop(&self, id: ItemId) -> NativeDispatch;
     fn go_back(&self, id: ItemId) -> NativeDispatch;
     fn go_forward(&self, id: ItemId) -> NativeDispatch;
+    /// Asks for the entries the view can go back and forward to. The answer
+    /// arrives as `EngineEvent::HistoryEntries` carrying `request`.
+    fn history_entries(&self, _id: ItemId, _request: HistoryRequestId) -> NativeDispatch {
+        NativeDispatch::Unsupported
+    }
+    /// Goes to the entry `offset` steps from the current one, negative for
+    /// back. The engine goes only if that entry is still at `url`, so a page
+    /// that navigated since the list was read is never sent somewhere else.
+    fn go_to_history_entry(&self, _id: ItemId, _offset: i32, _url: &str) -> NativeDispatch {
+        NativeDispatch::Unsupported
+    }
     fn close(&self, id: ItemId) -> NativeDispatch;
     /// Lay the split `tree` into `region` of `window`, or hide that window's
     /// content when `region` is `None`. The engine owns pane geometry so
@@ -1117,6 +1128,70 @@ pub struct NavigationRequestId(pub u64);
 /// late result from a replaced view from mutating the replacement tab.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ZoomRequestId(pub u64);
+
+/// Process-local correlation identity for one request of a view's history
+/// list. A list read before the page navigated again is told apart by it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct HistoryRequestId(pub u64);
+
+/// Entries kept on each side of the current one.
+pub const MAX_HISTORY_SIDE: usize = 50;
+pub const MAX_HISTORY_TITLE_CHARS: usize = 200;
+
+/// One place a view can go back or forward to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HistoryEntry {
+    /// Steps from the current entry: negative is back, positive forward.
+    pub offset: i32,
+    pub title: String,
+    pub url: String,
+}
+
+/// The entries on each side of the current one, nearest first, so
+/// `back[0]` is one step back and `forward[0]` one step ahead.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct HistoryEntries {
+    pub back: Vec<HistoryEntry>,
+    pub forward: Vec<HistoryEntry>,
+}
+
+impl HistoryEntries {
+    /// Builds the list from every entry of a view in order and the index of the
+    /// current one. Entries that are not an address the browser would load,
+    /// such as the blank page a warm view starts on, are left out; the
+    /// offsets keep counting through them, because they are still steps.
+    pub fn from_session(entries: &[(String, String)], current: usize) -> Self {
+        if current >= entries.len() {
+            return Self::default();
+        }
+        let entry = |at: usize, offset: i32| {
+            let (title, url) = entries.get(at)?;
+            let web = url::Url::parse(url).is_ok_and(|url| {
+                matches!(url.scheme(), "http" | "https") && crate::navigation::is_allowed(&url)
+            });
+            web.then(|| HistoryEntry {
+                offset,
+                title: crate::item::sanitize_page_title(title)
+                    .chars()
+                    .take(MAX_HISTORY_TITLE_CHARS)
+                    .collect(),
+                url: url.clone(),
+            })
+        };
+        let step = |at: usize| i32::try_from(at).unwrap_or(i32::MAX);
+        Self {
+            back: (0..current)
+                .rev()
+                .take(MAX_HISTORY_SIDE)
+                .filter_map(|at| entry(at, -step(current - at)))
+                .collect(),
+            forward: (current.saturating_add(1)..entries.len())
+                .take(MAX_HISTORY_SIDE)
+                .filter_map(|at| entry(at, step(at - current)))
+                .collect(),
+        }
+    }
+}
 
 /// Process-local correlation identity for one renderer-state discard probe.
 /// It is never persisted or accepted from page content.
@@ -1496,6 +1571,12 @@ pub enum EngineEvent {
         can_go_back: bool,
         can_go_forward: bool,
     },
+    /// The answer to `Engine::history_entries`.
+    HistoryEntries {
+        id: ItemId,
+        request: HistoryRequestId,
+        entries: HistoryEntries,
+    },
     /// The engine already owns this fully configured native child. Shell must
     /// adopt the exact id or reject the lease; it must never replay the URL.
     NativeTabOpened {
@@ -1807,5 +1888,109 @@ mod native_tab_adoption_tests {
         drop(retained);
         assert!(receive.recv().unwrap());
         assert!(receive.try_recv().is_err());
+    }
+}
+
+#[cfg(test)]
+mod history_entries_tests {
+    use super::*;
+
+    fn session(urls: &[&str]) -> Vec<(String, String)> {
+        urls.iter()
+            .map(|url| (format!("Title of {url}"), (*url).to_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn entries_are_counted_in_steps_from_the_current_one_nearest_first() {
+        let list = HistoryEntries::from_session(
+            &session(&[
+                "https://a.example/",
+                "https://b.example/",
+                "https://c.example/",
+                "https://d.example/",
+                "https://e.example/",
+            ]),
+            2,
+        );
+        fn steps(entries: &[HistoryEntry]) -> Vec<(i32, &str)> {
+            entries
+                .iter()
+                .map(|entry| (entry.offset, entry.url.as_str()))
+                .collect()
+        }
+        assert_eq!(
+            steps(&list.back),
+            [(-1, "https://b.example/"), (-2, "https://a.example/")]
+        );
+        assert_eq!(
+            steps(&list.forward),
+            [(1, "https://d.example/"), (2, "https://e.example/")]
+        );
+        assert_eq!(list.back[0].title, "Title of https://b.example/");
+    }
+
+    #[test]
+    fn each_side_is_bounded_to_the_nearest_entries() {
+        let urls: Vec<String> = (0..300)
+            .map(|at| format!("https://e{at}.example/"))
+            .collect();
+        let urls: Vec<&str> = urls.iter().map(String::as_str).collect();
+        let list = HistoryEntries::from_session(&session(&urls), 150);
+        assert_eq!(list.back.len(), MAX_HISTORY_SIDE);
+        assert_eq!(list.forward.len(), MAX_HISTORY_SIDE);
+        assert_eq!(list.back[0].offset, -1);
+        assert_eq!(list.back.last().unwrap().offset, -(MAX_HISTORY_SIDE as i32));
+        assert_eq!(list.forward.last().unwrap().offset, MAX_HISTORY_SIDE as i32);
+        assert_eq!(list.back[0].url, "https://e149.example/");
+    }
+
+    #[test]
+    fn a_blank_start_page_and_unloadable_entries_are_hidden_but_still_count_as_steps() {
+        let list = HistoryEntries::from_session(
+            &session(&[
+                "about:blank",
+                "https://a.example/",
+                "javascript:alert(1)",
+                "https://current.example/",
+                "file:///etc/hosts",
+                "https://z.example/",
+            ]),
+            3,
+        );
+        assert_eq!(
+            list.back
+                .iter()
+                .map(|entry| entry.offset)
+                .collect::<Vec<_>>(),
+            [-2]
+        );
+        assert_eq!(
+            list.forward
+                .iter()
+                .map(|entry| entry.offset)
+                .collect::<Vec<_>>(),
+            [2]
+        );
+    }
+
+    #[test]
+    fn titles_are_cleaned_and_bounded_and_a_bad_index_yields_an_empty_list() {
+        let list = HistoryEntries::from_session(
+            &[
+                (
+                    "a\u{7}\nb".to_owned() + &"x".repeat(500),
+                    "https://a.example/".into(),
+                ),
+                ("now".into(), "https://b.example/".into()),
+            ],
+            1,
+        );
+        assert!(list.back[0].title.starts_with("abxx"));
+        assert!(list.back[0].title.chars().count() <= MAX_HISTORY_TITLE_CHARS);
+        assert_eq!(
+            HistoryEntries::from_session(&session(&["https://a.example/"]), 9),
+            HistoryEntries::default()
+        );
     }
 }

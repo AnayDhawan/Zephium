@@ -14,7 +14,8 @@ use zephium_core::ports::blocker::{
     BlockerShutdownOutcome,
 };
 use zephium_core::ports::engine::{
-    ContentScope, NavigationRequestId, UserContent, UserContentGeneration, ZoomRequestId,
+    ContentScope, HistoryRequestId, NavigationRequestId, UserContent, UserContentGeneration,
+    ZoomRequestId,
 };
 use zephium_core::ports::store::{BlockerConfigLoadOutcome, BlockerConfigUpdateOutcome};
 use zephium_core::ports::store::{
@@ -752,6 +753,14 @@ impl Engine for FakeEngine {
     }
     fn go_forward(&self, id: ItemId) -> NativeDispatch {
         self.log(format!("forward {id}"));
+        self.native_admission()
+    }
+    fn history_entries(&self, id: ItemId, request: HistoryRequestId) -> NativeDispatch {
+        self.log(format!("history-list {id} {}", request.0));
+        self.native_admission()
+    }
+    fn go_to_history_entry(&self, id: ItemId, offset: i32, url: &str) -> NativeDispatch {
+        self.log(format!("history-go {id} {offset} {url}"));
         self.native_admission()
     }
     fn close(&self, id: ItemId) -> NativeDispatch {
@@ -2246,6 +2255,7 @@ mod extension_browser_surface;
 mod favicons;
 mod fullscreen;
 mod history;
+mod history_list;
 mod lookup;
 #[path = "navigation.rs"]
 mod navigation_tests;

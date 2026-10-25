@@ -295,6 +295,16 @@ pub enum Command {
         call: Box<zephium_ipc::BookmarkCall>,
         done: BookmarkCompletion,
     },
+    /// What the Back and Forward buttons of a tab can reach, for their menu.
+    HistoryList {
+        id: ItemId,
+        done: HistoryListCompletion,
+    },
+    GoToHistoryEntry {
+        id: ItemId,
+        offset: i32,
+        url: String,
+    },
     /// The focused profile's bookmarks or history as the text of a file.
     Export {
         kind: zephium_core::export::ExportKind,
@@ -1031,6 +1041,30 @@ impl BookmarkCompletion {
         if let Some(done) = done {
             done(response);
         }
+    }
+}
+#[derive(Clone)]
+pub struct HistoryListCompletion(Completion<zephium_core::ports::engine::HistoryEntries>);
+impl HistoryListCompletion {
+    pub fn new(
+        done: impl FnOnce(zephium_core::ports::engine::HistoryEntries) + Send + 'static,
+    ) -> Self {
+        Self(Arc::new(Mutex::new(Some(Box::new(done)))))
+    }
+    pub fn finish(self, entries: zephium_core::ports::engine::HistoryEntries) {
+        let done = self
+            .0
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take();
+        if let Some(done) = done {
+            done(entries);
+        }
+    }
+}
+impl fmt::Debug for HistoryListCompletion {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("HistoryListCompletion")
     }
 }
 #[derive(Clone)]

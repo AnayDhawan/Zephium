@@ -17,6 +17,8 @@ mod erasure;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod fullscreen;
 mod haptics;
+#[cfg(any(target_os = "windows", test))]
+mod history_list;
 mod host;
 mod layout_queue;
 #[cfg(any(target_os = "windows", test))]
@@ -568,9 +570,9 @@ use zephium_core::geometry::Rect;
 use zephium_core::ids::{ItemId, ProfileId, WindowId};
 use zephium_core::permissions::{PagePermissionRequestId, PagePermissionRequestSettlement};
 use zephium_core::ports::engine::{
-    ContentScope, DiscardProbeId, Engine, EngineEvent, NativeDispatch, NavigationPresentationId,
-    NavigationRequestId, Partition, ProfileDataErasureOutcome, Shortcut, StageMotion, UserContent,
-    UserContentGeneration, ZoomRequestId,
+    ContentScope, DiscardProbeId, Engine, EngineEvent, HistoryRequestId, NativeDispatch,
+    NavigationPresentationId, NavigationRequestId, Partition, ProfileDataErasureOutcome, Shortcut,
+    StageMotion, UserContent, UserContentGeneration, ZoomRequestId,
 };
 use zephium_core::runtime_security::RuntimeSecurityAdvisories;
 use zephium_core::split::Pane;
@@ -1141,6 +1143,7 @@ impl RetirementGate {
             | event @ EngineEvent::PasswordFieldFocused { id }
             | event @ EngineEvent::DiscardSafety { id, .. }
             | event @ EngineEvent::NavState { id, .. }
+            | event @ EngineEvent::HistoryEntries { id, .. }
             | event @ EngineEvent::NativeTabCloseRequested { id }
             | event @ EngineEvent::PageOpenBlocked { id, .. }
             | event @ EngineEvent::ExternalAppRequested { id, .. }
@@ -2887,6 +2890,15 @@ impl Engine for WebviewEngine {
 
     fn go_forward(&self, id: ItemId) -> NativeDispatch {
         self.run_for_active_item(id, move |h| h.go_forward(id))
+    }
+
+    fn history_entries(&self, id: ItemId, request: HistoryRequestId) -> NativeDispatch {
+        self.run_for_active_item(id, move |h| h.history_entries(id, request))
+    }
+
+    fn go_to_history_entry(&self, id: ItemId, offset: i32, url: &str) -> NativeDispatch {
+        let url = url.to_owned();
+        self.run_for_active_item(id, move |h| h.go_to_history_entry(id, offset, &url))
     }
 
     fn close(&self, id: ItemId) -> NativeDispatch {

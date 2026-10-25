@@ -66,6 +66,13 @@
     );
   }
 
+  // Back and Forward hold the pages behind and ahead; a held press or a right
+  // click lists them in a native menu.
+  function openHistoryMenu(forward: boolean, anchor: DOMRect) {
+    const id = tabs.activeId();
+    if (id) void commands.historyMenuPopup(id, forward, anchor.left, anchor.bottom);
+  }
+
   let handledCommand = 0;
   $effect(() => {
     const command = ui.uiCommand();
@@ -154,6 +161,7 @@
           size={16}
           disabled={active?.can_go_back !== true}
           onclick={tabs.backActive}
+          onmenu={(anchor) => openHistoryMenu(false, anchor)}
         />
         <IconButton
           icon={ArrowRight02Icon}
@@ -163,6 +171,7 @@
           size={16}
           disabled={active?.can_go_forward !== true}
           onclick={tabs.forwardActive}
+          onmenu={(anchor) => openHistoryMenu(true, anchor)}
         />
         <IconButton
           icon={Refresh01Icon}

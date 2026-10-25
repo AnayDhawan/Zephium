@@ -159,8 +159,9 @@ pub(crate) use native::run_principal_isolation_probe;
 pub(crate) use native::set_warm_spare_layout;
 pub(crate) use native::webkit as native_webview;
 pub use native::{
-    add_user_script, configure, query_document_playback, reload_ignoring_cache,
-    set_media_suspended, stop_loading, user_script_refusal, user_style_refusal,
+    add_user_script, configure, go_to_history_entry, history_session, query_document_playback,
+    reload_ignoring_cache, set_media_suspended, stop_loading, user_script_refusal,
+    user_style_refusal,
 };
 pub(crate) use native::{native_discard_idle, page_footprint, set_background_suspension};
 pub use navigation::NavigationObserver;

@@ -51,6 +51,9 @@ impl Shell {
             Command::ContinuePastCertificate(id) => self.operation_continue_past_certificate(id),
             Command::GoBack(id) => self.operation_history(id, false),
             Command::GoForward(id) => self.operation_history(id, true),
+            Command::GoToHistoryEntry { id, offset, url } => {
+                self.operation_go_to_history_entry(id, offset, url)
+            }
             Command::SplitWith { other, axis } => self.operation_split(other, axis),
             Command::Unsplit => self.operation_unsplit(),
             Command::LeaveSplit(id) => self.operation_leave_split(id),

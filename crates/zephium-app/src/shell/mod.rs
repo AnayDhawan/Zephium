@@ -20,6 +20,7 @@ mod favicon_probe;
 mod favicons;
 mod fullscreen;
 mod history;
+mod history_list;
 mod network;
 mod operations;
 mod page_permissions;
@@ -227,6 +228,7 @@ pub struct Shell {
     favicons: FaviconState,
     history: history::HistoryState,
     bookmarks: bookmarks::BookmarkState,
+    history_lists: history_list::HistoryListState,
     search: SearchState,
     tab_preferences: tabs::TabPreferences,
     proxy: network::ProxyPreference,
@@ -468,6 +470,7 @@ impl Shell {
             favicons: FaviconState::default(),
             history: history::HistoryState::default(),
             bookmarks: bookmarks::BookmarkState::default(),
+            history_lists: history_list::HistoryListState::default(),
             time: time::TimeState::load(&store),
             search: SearchState {
                 custom_url: store.app_setting("search.custom-url").unwrap_or_default(),
@@ -868,6 +871,10 @@ impl Shell {
             Command::GoForward(id) => {
                 let _ = self.operation_history(id, true);
             }
+            Command::GoToHistoryEntry { id, offset, url } => {
+                let _ = self.operation_go_to_history_entry(id, offset, url);
+            }
+            Command::HistoryList { id, done } => self.history_list(id, done),
             Command::SplitWith { other, axis } => {
                 let _ = self.operation_split(other, axis);
             }
@@ -1852,6 +1859,7 @@ impl Shell {
                 self.discard_blocker_inbox_for_shutdown();
                 self.finish_pending_blocker_operations_for_shutdown();
                 self.fail_pending_history_calls();
+                self.fail_pending_history_lists();
                 self.fail_pending_bookmark_calls();
             }))
             .is_ok();

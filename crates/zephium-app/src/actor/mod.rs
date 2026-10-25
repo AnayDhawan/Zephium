@@ -1284,6 +1284,7 @@ fn tracked_operation_command(command: &Command) -> bool {
             | Command::ContinuePastCertificate(_)
             | Command::GoBack(_)
             | Command::GoForward(_)
+            | Command::GoToHistoryEntry { .. }
             | Command::SplitWith { .. }
             | Command::Unsplit
             | Command::LeaveSplit(_)

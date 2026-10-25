@@ -81,6 +81,7 @@ mod favicon_probe;
 mod focus_alerts;
 mod haptics;
 mod help;
+mod history_menu;
 mod intro_sound;
 mod keymap;
 mod launcher_trigger;
@@ -1847,6 +1848,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             browser_import::import_cancel,
             browser_import::import_open_permission,
             data_export::export_browser_data,
+            history_menu::history_menu_popup,
             resource_close_ready,
             tab_drop,
             divider_grab,
@@ -3770,6 +3772,9 @@ fn execute_command(app: &tauri::AppHandle, id: &str) -> zephium_ipc::OperationAd
     }
     if let Some(action) = id.strip_prefix("tabmenu.") {
         return execute_tab_menu_action(app, action);
+    }
+    if let Some(step) = id.strip_prefix(history_menu::ID_PREFIX) {
+        return history_menu::execute(app, step);
     }
     if let Some(admission) = spaces::execute(app, id) {
         return admission;
@@ -6671,6 +6676,7 @@ pub fn run() {
             let operation_ledger = OperationLedger::default();
             app.manage(operation_ledger.clone());
             app.manage(TabMenuTarget::default());
+            app.manage(history_menu::HistoryMenuTarget::default());
 
             app.manage(keymap::Keymap::load());
             app.manage(browser_import::ImportJobs::default());

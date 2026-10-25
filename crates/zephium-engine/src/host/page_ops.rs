@@ -1,5 +1,7 @@
 use zephium_core::ids::ItemId;
-use zephium_core::ports::engine::{EngineEvent, FindRequest, ZoomRequestId};
+use zephium_core::ports::engine::{
+    EngineEvent, FindRequest, HistoryEntries, HistoryRequestId, ZoomRequestId,
+};
 
 use super::scripts::{EXTRACT_HTML_JS, MAX_HTML_CHARS, MAX_HTML_RESULT_BYTES};
 use super::EngineHost;
@@ -34,6 +36,52 @@ impl EngineHost {
                 succeeded,
             },
         );
+    }
+
+    /// Reads the view's back/forward list and reports it as
+    /// `EngineEvent::HistoryEntries`. A list that cannot be read is reported
+    /// empty, so the caller's request never hangs.
+    pub(crate) fn history_entries(&self, id: ItemId, request: HistoryRequestId) {
+        let Some(view) = self.views.get(&id) else {
+            return;
+        };
+        let (sink, permit) = (self.sink.clone(), view.event_permit.clone());
+        let report = move |session: Option<(Vec<(String, String)>, usize)>| {
+            let entries = session
+                .map(|(session, current)| HistoryEntries::from_session(&session, current))
+                .unwrap_or_default();
+            permit.emit(
+                &sink,
+                EngineEvent::HistoryEntries {
+                    id,
+                    request,
+                    entries,
+                },
+            );
+        };
+        let (sink, permit) = (self.sink.clone(), view.event_permit.clone());
+        let refused = move || {
+            permit.emit(
+                &sink,
+                EngineEvent::HistoryEntries {
+                    id,
+                    request,
+                    entries: HistoryEntries::default(),
+                },
+            );
+        };
+        if !crate::platform::imp::history_session(view, report) {
+            refused();
+        }
+    }
+
+    pub(crate) fn go_to_history_entry(&self, id: ItemId, offset: i32, url: &str) {
+        if let Some(view) = self.views.get(&id) {
+            view.navigation.release_auth_cleanup();
+            if !crate::platform::imp::go_to_history_entry(view, offset, url) {
+                eprintln!("engine: history entry is no longer there");
+            }
+        }
     }
 
     pub(crate) fn extract_html(&self, id: ItemId) {
