@@ -111,7 +111,9 @@ Its security-relevant deltas currently enforce these invariants:
   buffer before budget arithmetic or slicing. Its trusted print method calls
   `ICoreWebView2_16::ShowPrintUI` directly instead of evaluating the same
   page-controlled scripted-print primitives an embedder may deny at document
-  creation. Disabling browser accelerator keys is a construction postcondition:
+  creation. WKWebView printing works on a copy of the shared `NSPrintInfo` and
+  keeps the system margins unless the caller sets some, so printing never
+  rewrites the user's page setup. Disabling browser accelerator keys is a construction postcondition:
   the fork requires `ICoreWebView2Settings3`, applies the setting, and reads it
   back before an untrusted page can load.
 - Desktop navigation callbacks expose one opaque per-WebView identity across

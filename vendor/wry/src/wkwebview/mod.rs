@@ -1260,13 +1260,18 @@ impl InnerWebView {
         .webview
         .respondsToSelector(objc2::sel!(printOperationWithPrintInfo:));
       if can_print {
-        // Create a shared print info
-        let print_info = objc2_app_kit::NSPrintInfo::sharedPrintInfo();
-        // let print_info: id = msg_send![print_info, init];
-        print_info.setTopMargin(_options.margins.top.into());
-        print_info.setRightMargin(_options.margins.right.into());
-        print_info.setBottomMargin(_options.margins.bottom.into());
-        print_info.setLeftMargin(_options.margins.left.into());
+        // A copy, so a print never changes the person's own page setup.
+        // Margins are the system's unless the caller asked for some.
+        let shared = objc2_app_kit::NSPrintInfo::sharedPrintInfo();
+        let print_info: Retained<objc2_app_kit::NSPrintInfo> = objc2::msg_send![&shared, copy];
+        let margins = &_options.margins;
+        if margins.top != 0.0 || margins.right != 0.0 || margins.bottom != 0.0 || margins.left != 0.0
+        {
+          print_info.setTopMargin(margins.top.into());
+          print_info.setRightMargin(margins.right.into());
+          print_info.setBottomMargin(margins.bottom.into());
+          print_info.setLeftMargin(margins.left.into());
+        }
 
         // Create new print operation from the webview content
         let print_operation = self.webview.printOperationWithPrintInfo(&print_info);
