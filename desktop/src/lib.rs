@@ -108,7 +108,7 @@ mod private_window;
 mod privileged_runtime_windows;
 mod profiles;
 mod recently_closed;
-#[cfg(any(target_os = "windows", test))]
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 mod renderer_recovery;
 mod resource_close;
 mod search_providers;
@@ -480,10 +480,8 @@ impl UiStartupGate {
         {
             return;
         }
-        #[cfg(target_os = "windows")]
-        if platform::imp::renderer::ready(window)
-            && !platform::imp::set_chrome_hidden(window, false)
-        {
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        if renderer_recovery::ready(window) && !platform::imp::set_chrome_hidden(window, false) {
             request_startup_failure(window.app_handle(), "could not reveal recovered chrome");
             return;
         }
@@ -629,7 +627,7 @@ impl UiStartupGate {
         self.visible.load(Ordering::Acquire)
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     fn prepare_recovery(&self, window: &WebviewWindow) -> Option<tauri::Url> {
         self.document_loaded.store(false, Ordering::Release);
         self.frontend_ready.store(false, Ordering::Release);
@@ -4892,8 +4890,8 @@ fn panel_ready(
     overlay: State<'_, overlay::Overlay>,
 ) -> Option<zephium_ipc::PanelState> {
     authorize(&caller, CallerPolicy::Panel, "panel_ready").then(|| {
-        #[cfg(target_os = "windows")]
-        platform::imp::renderer::ready(&caller);
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        renderer_recovery::ready(&caller);
         overlay.ready()
     })
 }
@@ -6019,6 +6017,19 @@ pub fn run() {
     // backend below and uses either direct X11 grabs or the desktop portal.
     #[cfg(not(target_os = "linux"))]
     let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
+    // Windows hears the same from WebView2 ProcessFailed. Any other WebView
+    // keeps Tauri's own plain reload, which this hook replaces for all.
+    #[cfg(target_os = "macos")]
+    let builder = builder.on_web_content_process_terminate(|webview| {
+        let label = webview.label().to_owned();
+        if !renderer_recovery::owns(&label) {
+            let _ = webview.reload();
+            return;
+        }
+        let app = webview.app_handle().clone();
+        let target = app.clone();
+        let _ = app.run_on_main_thread(move || renderer_recovery::failed(&target, &label, false));
+    });
     let app = builder
         .invoke_handler(specta.invoke_handler())
         // This state must predate the setup hook: every environmental failure
@@ -6218,8 +6229,8 @@ pub fn run() {
                 UiStartupGate::new(app_url.clone())
             };
             app.manage(ui_startup_gate.clone());
-            #[cfg(target_os = "windows")]
-            app.manage(platform::imp::renderer::Renderers::default());
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
+            app.manage(renderer_recovery::Renderers::default());
             let page_gate = ui_startup_gate.clone();
             #[cfg(target_os = "windows")]
             setup_privileged_environments
