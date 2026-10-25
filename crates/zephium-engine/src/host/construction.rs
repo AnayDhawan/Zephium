@@ -1114,7 +1114,7 @@ impl EngineHost {
                 admitted
             })
             // Raw content starts with no device or ambient capabilities. On
-            // Windows, camera and microphone requests go to WebView2's own
+            // Windows, a foreground tab's requests go to WebView2's own
             // origin-labelled prompt; macOS replaces this handler with the
             // browser-owned broker below.
             .with_permission_handler(move |kind| {
@@ -1355,6 +1355,11 @@ impl EngineHost {
                 // brings what they do into the site's remembered level. Keys
                 // stay Zephium's own: browser accelerators are off above.
                 .with_hotkeys_zoom(true)
+                // A person's answer to WebView2's own permission prompt is
+                // kept in their profile, as in Edge; a private tab's lasts
+                // only for that request. Agent and extension views never
+                // reach this builder and keep denying every request.
+                .with_permission_decisions_saved(!matches!(partition, Partition::Ephemeral(_)))
                 // Runs after the exact environment exists and before Wry
                 // starts controller construction. This closes the opaque-build
                 // gap: even a later Wry error leaves a retained Environment5,
@@ -2868,8 +2873,28 @@ fn to_wry(r: Rect) -> wry::Rect {
 }
 
 pub(super) fn raw_content_permission(kind: wry::PermissionKind) -> wry::PermissionResponse {
+    raw_content_permission_on(kind, cfg!(windows))
+}
+
+/// What a human tab answers for each kind; `windows` asks WebView2 to show
+/// its own prompt for the kinds a browser asks about.
+pub(super) fn raw_content_permission_on(
+    kind: wry::PermissionKind,
+    windows: bool,
+) -> wry::PermissionResponse {
+    use wry::PermissionKind as Kind;
     match kind {
-        wry::PermissionKind::Camera | wry::PermissionKind::Microphone if cfg!(windows) => {
+        Kind::Camera
+        | Kind::Microphone
+        | Kind::Geolocation
+        | Kind::Notifications
+        | Kind::ClipboardRead
+        | Kind::Midi
+        | Kind::Sensors
+        | Kind::LocalFonts
+        | Kind::AutomaticDownloads
+            if windows =>
+        {
             wry::PermissionResponse::Prompt
         }
         _ => wry::PermissionResponse::Deny,

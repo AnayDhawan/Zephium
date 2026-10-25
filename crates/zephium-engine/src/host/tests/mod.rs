@@ -849,24 +849,71 @@ fn raw_native_media_surfaces_are_deny_only_or_exactly_brokered_per_view() {
     assert!(source.contains("with_permission_request_handler(move |request|"));
     assert!(source.contains("page_permissions::admit_native_request("));
 
-    use super::construction::raw_content_permission;
+    use super::construction::{raw_content_permission, raw_content_permission_on};
     use wry::{PermissionKind, PermissionResponse};
-    let media = if cfg!(windows) {
-        PermissionResponse::Prompt
-    } else {
-        PermissionResponse::Deny
-    };
-    assert_eq!(raw_content_permission(PermissionKind::Camera), media);
-    assert_eq!(raw_content_permission(PermissionKind::Microphone), media);
-    for kind in [
-        PermissionKind::DisplayCapture,
+    let asked = [
+        PermissionKind::Camera,
+        PermissionKind::Microphone,
         PermissionKind::Geolocation,
         PermissionKind::Notifications,
         PermissionKind::ClipboardRead,
+        PermissionKind::Midi,
         PermissionKind::Sensors,
+        PermissionKind::LocalFonts,
+        PermissionKind::AutomaticDownloads,
+    ];
+    let never = [
+        PermissionKind::DisplayCapture,
+        PermissionKind::MediaKeySystemAccess,
+        PermissionKind::WindowManagement,
+        PermissionKind::PointerLock,
+        PermissionKind::FileSystemAccess,
+        PermissionKind::Autoplay,
         PermissionKind::Other,
-    ] {
+    ];
+    for kind in asked {
+        assert_eq!(
+            raw_content_permission_on(kind, true),
+            PermissionResponse::Prompt
+        );
+        assert_eq!(
+            raw_content_permission_on(kind, false),
+            PermissionResponse::Deny
+        );
+        assert_eq!(
+            raw_content_permission(kind),
+            raw_content_permission_on(kind, cfg!(windows))
+        );
+    }
+    for kind in never {
+        assert_eq!(
+            raw_content_permission_on(kind, true),
+            PermissionResponse::Deny
+        );
         assert_eq!(raw_content_permission(kind), PermissionResponse::Deny);
+    }
+    assert!(source.contains(
+        ".with_permission_decisions_saved(!matches!(partition, Partition::Ephemeral(_)))"
+    ));
+    // Agent, Work and extension views are built elsewhere and keep denying
+    // every request without ever saving an answer.
+    for other in [
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/platform/windows/agent_context.rs"
+        )),
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/platform/macos/agent_context.rs"
+        )),
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/host/webext_windows.rs"
+        )),
+    ] {
+        assert!(other.contains(".with_permission_handler(|_| wry::PermissionResponse::Deny)"));
+        assert!(!other.contains("with_permission_decisions_saved"));
+        assert!(!other.contains("PermissionResponse::Prompt"));
     }
 }
 

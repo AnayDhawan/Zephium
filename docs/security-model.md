@@ -310,15 +310,24 @@ JavaScript history/window calls. Native URL/history observers are mandatory on a
 platforms. They deduplicate bounded state and close the view if an engine source escapes
 the URL policy, so chrome never presents a pre-navigation URL over a forbidden document.
 
-**Permissions and downloads.** Geolocation, notifications and other permissions
-routed through Wry's permission callback are denied in every view. Display
+**Permissions and downloads.** Permissions routed through Wry's permission
+callback are denied in every agent, Work, extension and privileged view. Display
 capture uses separate native paths: ordinary human OS-picker consent is not a
 camera/microphone grant, and a deny callback alone does not prove agent display
-capture containment. That boundary still requires native qualification. Camera and microphone are
-the only exceptions, and only for ordinary human tabs. On Windows, those tabs defer
-camera and microphone to WebView2's own origin-labelled prompt
-(`PermissionResponse::Prompt`); Zephium stores nothing in the profile, and work,
-extension and privileged views stay deny-only. On macOS, Zephium replaces Wry's
+capture containment. That boundary still requires native qualification. Ordinary
+human tabs are the only exception. On Windows, a request from the foreground tab of
+the foreground window for camera, microphone, geolocation, notifications, clipboard
+read, MIDI system-exclusive messages, sensors, local fonts or multiple automatic
+downloads goes to WebView2's own origin-labelled prompt (`PermissionResponse::Prompt`);
+file-system access, window management, autoplay and unknown kinds stay denied. Only
+the person's answer to that prompt is saved, in the WebView2 profile of a non-private
+tab (`SetSavesInProfile(true)`); a denial the handler itself sets, including every
+background or hidden request, is never saved, and private tabs save nothing. A saved
+answer then applies without the event being raised, as in Edge, so it also covers that
+origin's background tabs. Agent and Work views use their own named WebView2 profiles
+(`agent-…`, `work-…`), so they never inherit a human tab's saved answers. Notifications
+a site is allowed to show use WebView2's default notification UI; Zephium does not yet
+handle `NotificationReceived`. On macOS, Zephium replaces Wry's
 permission callback with a browser-owned broker that is on by default (the
 `macos-page-permission-prompts` desktop feature). It uses WebKit's structured
 security origin, retains the native completion on the main thread, and binds it to the
@@ -514,8 +523,9 @@ native download UI precede host admission. Cookies, POST bodies and blob/data
 payloads remain native. Pending destination selection requires the exact live
 view/navigation/presentation and foreground parent. The default saves into the
 system Downloads directory; a custom directory requires its picker-issued identity.
-The optional ask-first preference opens the native save dialog. WebView2's
-multiple-automatic-download permission remains denied. This admits a first download
+The optional ask-first preference opens the native save dialog. A page's second
+automatic download asks through WebView2's multiple-automatic-download prompt
+described above, and every download it admits still passes this adapter. This admits a first download
 from a foreground document without claiming initiating-frame activation, which
 DownloadStarting does not expose. HTTP origins
 are displayed without URL secrets; origin-less data downloads label their top
@@ -1759,7 +1769,8 @@ unknown settlement keeps the owner poisoned until recovery.
 
 The following are roadmap items or disabled backends, not current security guarantees:
 
-- any permission beyond camera and microphone;
+- on macOS, any permission beyond camera and microphone;
+- on Windows, Zephium-branded notifications that focus their tab when clicked;
 - Linux as a supported platform: the code stays in the tree, but the app refuses to
   start there;
 - native Windows release qualification of downloads/protection,

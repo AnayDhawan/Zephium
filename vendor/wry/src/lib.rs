@@ -2276,6 +2276,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   native_download_handler: Option<
     std::sync::Arc<dyn Fn(&ICoreWebView2Controller, &ICoreWebView2DownloadStartingEventArgs)>,
   >,
+  permission_decisions_saved: bool,
 }
 
 #[cfg(windows)]
@@ -2296,6 +2297,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       profile_name: None,
       native_context_menu_handler: None,
       native_download_handler: None,
+      permission_decisions_saved: false,
     }
   }
 }
@@ -2345,6 +2347,11 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#aredefaultcontextmenusenabled>
   fn with_default_context_menus(self, enabled: bool) -> Self;
+
+  /// Lets WebView2 save the person's answer to its own permission prompt in
+  /// the profile, as a browser does. Off by default: every request then asks
+  /// again, and nothing the permission handler itself answers is ever saved.
+  fn with_permission_decisions_saved(self, saved: bool) -> Self;
 
   /// Specifies the theme of webview2. This affects things like `prefers-color-scheme`.
   ///
@@ -2489,6 +2496,11 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_default_context_menus(mut self, enabled: bool) -> Self {
     self.platform_specific.default_context_menus = enabled;
+    self
+  }
+
+  fn with_permission_decisions_saved(mut self, saved: bool) -> Self {
+    self.platform_specific.permission_decisions_saved = saved;
     self
   }
 

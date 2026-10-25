@@ -275,12 +275,14 @@ pub enum PermissionResponse {
   /// - **Android**: The default behavior continues the platform permission flow.
   #[default]
   Default,
-  /// Leave camera and microphone requests to the engine's own prompt.
+  /// Leave the request to the engine's own prompt.
   ///
   /// ## Platform-specific
   ///
   /// - **Windows**: WebView2 shows its built-in, origin-labelled prompt for
-  ///   camera and microphone requests; every other kind is denied.
+  ///   camera, microphone, geolocation, notifications, clipboard read, MIDI
+  ///   system-exclusive messages, sensors, local fonts and multiple automatic
+  ///   downloads; every other kind is denied.
   /// - **macOS / Linux / Android**: Treated as [`Self::Deny`].
   Prompt,
 }

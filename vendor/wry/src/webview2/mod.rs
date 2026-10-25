@@ -1008,6 +1008,25 @@ const fn extension_startup_refusal(
   }
 }
 
+/// The kinds whose request WebView2 may put to the person with its own
+/// origin-labelled prompt when the embedder answers [`PermissionResponse::Prompt`].
+/// File-system access, autoplay, window management and anything unknown stay
+/// denied.
+pub(crate) fn prompts_natively(kind: PermissionKind) -> bool {
+  matches!(
+    kind,
+    PermissionKind::Camera
+      | PermissionKind::Microphone
+      | PermissionKind::Geolocation
+      | PermissionKind::Notifications
+      | PermissionKind::ClipboardRead
+      | PermissionKind::Midi
+      | PermissionKind::Sensors
+      | PermissionKind::LocalFonts
+      | PermissionKind::AutomaticDownloads
+  )
+}
+
 impl InnerWebView {
   #[inline]
   pub fn new(
@@ -1529,17 +1548,21 @@ impl InnerWebView {
 
     // Install one construction-time broker for every permission. Missing
     // callbacks, malformed native state, and `Default` all remain denied;
-    // `Prompt` defers only camera and microphone to WebView2's own prompt.
+    // `Prompt` defers only the kinds in `prompts_natively` to WebView2's own
+    // prompt.
     let clipboard = attributes.clipboard;
     let permission_handler = attributes.permission_handler.take();
+    let saves_decisions = pl_attrs.permission_decisions_saved;
     unsafe {
       webview.add_PermissionRequested(
         &PermissionRequestedEventHandler::create(Box::new(move |_, args| {
           let Some(args) = args else { return Ok(()) };
           args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY)?;
           // A persisted decision would outlive this broker's policy and
-          // suppress later requests, so nothing set here is saved.
-          if let Ok(args3) = args.cast::<ICoreWebView2PermissionRequestedEventArgs3>() {
+          // suppress later requests, so nothing set here is saved; only the
+          // person's own answer to the native prompt may be, below.
+          let args3 = args.cast::<ICoreWebView2PermissionRequestedEventArgs3>().ok();
+          if let Some(args3) = &args3 {
             let _ = args3.SetSavesInProfile(false);
           }
 
@@ -1572,11 +1595,15 @@ impl InnerWebView {
               .map(|handler| handler(permission_kind))
               .unwrap_or(PermissionResponse::Deny)
           };
-          let media = kind == COREWEBVIEW2_PERMISSION_KIND_CAMERA
-            || kind == COREWEBVIEW2_PERMISSION_KIND_MICROPHONE;
           match response {
             PermissionResponse::Allow => args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?,
-            PermissionResponse::Prompt if media => {
+            PermissionResponse::Prompt if prompts_natively(permission_kind) => {
+              // Without the interface WebView2 would save by default, so
+              // the prompt is shown only where the choice can be scoped.
+              let Some(args3) = &args3 else { return Ok(()) };
+              if saves_decisions {
+                args3.SetSavesInProfile(true)?;
+              }
               args.SetState(COREWEBVIEW2_PERMISSION_STATE_DEFAULT)?
             }
             _ => {}
