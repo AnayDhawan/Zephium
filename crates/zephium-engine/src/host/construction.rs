@@ -2181,8 +2181,12 @@ impl EngineHost {
         #[cfg(target_os = "windows")]
         let process_failure_permit = crash_permit.clone();
         #[cfg(target_os = "windows")]
-        let crash_observer =
-            match crate::platform::imp::install_crash_handler(&view, move |failure| match failure {
+        let (responsiveness_permit, responsiveness_id, responsiveness_sink) =
+            (crash_permit.clone(), crash_id.clone(), self.sink.clone());
+        #[cfg(target_os = "windows")]
+        let crash_observer = match crate::platform::imp::install_crash_handler_with_responsiveness(
+            &view,
+            move |failure| match failure {
                 crate::platform::imp::ProcessFailure::Renderer => {
                     let id = crash_id.get();
                     let queued_permit = process_failure_permit.clone();
@@ -2200,17 +2204,26 @@ impl EngineHost {
                         );
                     });
                 }
-            }) {
-                Ok(observer) => observer,
-                Err(error) => {
-                    eprintln!("engine: required WebView2 process-failure handler failed: {error}");
-                    if report_failure {
-                        event_permit
-                            .emit(&self.sink, EngineEvent::ViewCreationFailed { id: id.get() });
-                    }
-                    return None;
+            },
+            move |responding| {
+                responsiveness_permit.emit(
+                    &responsiveness_sink,
+                    EngineEvent::PageResponsiveness {
+                        id: responsiveness_id.get(),
+                        responding,
+                    },
+                );
+            },
+        ) {
+            Ok(observer) => observer,
+            Err(error) => {
+                eprintln!("engine: required WebView2 process-failure handler failed: {error}");
+                if report_failure {
+                    event_permit.emit(&self.sink, EngineEvent::ViewCreationFailed { id: id.get() });
                 }
-            };
+                return None;
+            }
+        };
         // A dead web process must surface as an event, never as a silently
         // blank pane; the shell decides whether to relaunch.
         #[cfg(all(unix, not(target_os = "macos")))]

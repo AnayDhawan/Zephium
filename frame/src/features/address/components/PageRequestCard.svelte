@@ -51,6 +51,8 @@
   // A link for another app, and a new tab the page could not open, wait here
   // under the field, in chrome the page cannot draw over, until answered.
   let app = $derived(request.kind === "external_app" ? request : null);
+  // A hung page: the person may wait for it or reload it in a fresh view.
+  let hung = $derived(request.kind === "unresponsive");
   let title = $derived(
     auth
       ? auth.proxy
@@ -60,7 +62,9 @@
         ? app.app
           ? m.page_request_app_title({ app: app.app })
           : m.page_request_app_missing({ scheme: app.scheme })
-        : m.page_request_popup_title(),
+        : hung
+          ? m.page_request_unresponsive_title()
+          : m.page_request_popup_title(),
   );
   let detail = $derived(
     app
@@ -69,9 +73,11 @@
           ? m.page_request_app_detail({ site: app.site })
           : m.page_request_app_detail_page()
         : null
-      : request.kind === "popup" && request.host
-        ? request.host
-        : null,
+      : hung
+        ? m.page_request_unresponsive_detail()
+        : request.kind === "popup" && request.host
+          ? request.host
+          : null,
   );
   let openable = $derived(
     app ? app.app !== null : request.kind === "popup" && request.host !== null,
@@ -122,6 +128,15 @@
       </Button>
       <Button size="compact" variant="primary" disabled={!username} onclick={signIn}>
         {m.page_request_sign_in_submit()}
+      </Button>
+    </div>
+  {:else if hung}
+    <div class="actions">
+      <Button size="compact" variant="ghost" onclick={() => answer("dismiss")}>
+        {m.page_request_wait()}
+      </Button>
+      <Button size="compact" variant="primary" onclick={() => answer("allow")}>
+        {m.navigation_error_reload()}
       </Button>
     </div>
   {:else}

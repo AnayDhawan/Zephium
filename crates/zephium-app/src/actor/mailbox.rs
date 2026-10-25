@@ -62,6 +62,7 @@ enum CoalescedKey {
     WindowVisible,
     MediaCapture(ItemId),
     Audio(ItemId),
+    Responsiveness(ItemId),
     MemoryPressure,
     SidebarWidth,
     SidebarGuide,
@@ -100,6 +101,7 @@ impl CoalescedKey {
             EngineEvent::ExtensionPageChanged { id, .. } => Self::ExtensionPageChanged(*id),
             EngineEvent::MediaCaptureChanged { id, .. } => Self::MediaCapture(*id),
             EngineEvent::AudioChanged { id, .. } => Self::Audio(*id),
+            EngineEvent::PageResponsiveness { id, .. } => Self::Responsiveness(*id),
             EngineEvent::FullscreenChanged { id, .. } => Self::Fullscreen(*id),
             EngineEvent::SplitChanged { window, .. } => Self::Split(*window),
             EngineEvent::ContentRulesSettled {

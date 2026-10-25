@@ -1012,6 +1012,11 @@ pub trait Engine {
     ) -> NativeDispatch {
         NativeDispatch::Unsupported
     }
+    /// Ends a page that stopped responding: its view is closed as if its
+    /// renderer had crashed, and `EngineEvent::Crashed` follows.
+    fn end_unresponsive_page(&self, _item: ItemId) -> NativeDispatch {
+        NativeDispatch::Unsupported
+    }
     /// How a page's element fullscreen is presented on this engine.
     fn fullscreen_presentation(&self) -> FullscreenPresentation {
         FullscreenPresentation::OwnWindow
@@ -1402,6 +1407,12 @@ pub enum EngineEvent {
         id: ItemId,
         navigation: NavigationPresentationId,
         state: MediaCaptureState,
+    },
+    /// The page's renderer stopped responding (`responding: false`, repeated
+    /// every few seconds while it stays hung) or ran again.
+    PageResponsiveness {
+        id: ItemId,
+        responding: bool,
     },
     /// The page started or stopped making sound, muted or not. Native state
     /// that page script cannot fake.

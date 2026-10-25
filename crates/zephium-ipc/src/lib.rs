@@ -98,6 +98,8 @@ pub enum PageRequestView {
         /// The last username or password was wrong.
         retry: bool,
     },
+    /// The page stopped responding: wait for it, or reload it.
+    Unresponsive,
 }
 
 /// What the person typed into a sign-in prompt. Deliberately not Debug or

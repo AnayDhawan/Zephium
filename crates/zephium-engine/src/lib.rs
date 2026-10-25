@@ -1132,6 +1132,7 @@ impl RetirementGate {
             | event @ EngineEvent::LoadingChanged { id, .. }
             | event @ EngineEvent::MediaCaptureChanged { id, .. }
             | event @ EngineEvent::AudioChanged { id, .. }
+            | event @ EngineEvent::PageResponsiveness { id, .. }
             | event @ EngineEvent::FullscreenChanged { id, .. }
             | event @ EngineEvent::FaviconPixels { id, .. }
             | event @ EngineEvent::FaviconRasterFailed { id, .. }
@@ -2787,6 +2788,10 @@ impl Engine for WebviewEngine {
             let _ = (item, url);
             NativeDispatch::Unsupported
         }
+    }
+
+    fn end_unresponsive_page(&self, item: ItemId) -> NativeDispatch {
+        self.run_for_active_item(item, move |host| host.end_unresponsive_page(item))
     }
 
     fn answer_http_auth(

@@ -201,6 +201,8 @@ pub(super) struct Warmth {
 pub(super) struct CrashState {
     pub(super) crashes: std::collections::HashMap<ItemId, std::time::Instant>,
     pub(super) presentations: std::collections::HashSet<ItemId>,
+    /// When the person chose to wait for a page that stopped responding.
+    pub(super) unresponsive_waits: std::collections::HashMap<ItemId, std::time::Instant>,
 }
 
 impl Shell {
@@ -398,6 +400,9 @@ impl Shell {
         self.crash
             .presentations
             .retain(|id| self.items.tab(*id).is_some());
+        self.crash
+            .unresponsive_waits
+            .retain(|id, _| self.items.tab(*id).is_some_and(TabState::has_view));
         self.zoom
             .pending
             .retain(|id, _| self.items.tab(*id).is_some_and(TabState::has_view));

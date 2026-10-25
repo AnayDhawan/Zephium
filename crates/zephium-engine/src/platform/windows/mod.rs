@@ -143,21 +143,25 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
     COREWEBVIEW2_BROWSER_PROCESS_EXIT_KIND_FAILED, COREWEBVIEW2_BROWSER_PROCESS_EXIT_KIND_NORMAL,
     COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN, COREWEBVIEW2_KEY_EVENT_KIND_SYSTEM_KEY_DOWN,
     COREWEBVIEW2_PDF_TOOLBAR_ITEMS_PRINT, COREWEBVIEW2_PDF_TOOLBAR_ITEMS_SAVE,
-    COREWEBVIEW2_PDF_TOOLBAR_ITEMS_SAVE_AS,
+    COREWEBVIEW2_PDF_TOOLBAR_ITEMS_SAVE_AS, COREWEBVIEW2_PROCESS_FAILED_KIND,
     COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED,
     COREWEBVIEW2_PROCESS_FAILED_KIND_FRAME_RENDER_PROCESS_EXITED,
+    COREWEBVIEW2_PROCESS_FAILED_KIND_GPU_PROCESS_EXITED,
     COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED,
     COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE,
-    COREWEBVIEW2_PROCESS_KIND_BROWSER, COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_CANCEL,
+    COREWEBVIEW2_PROCESS_FAILED_KIND_SANDBOX_HELPER_PROCESS_EXITED,
+    COREWEBVIEW2_PROCESS_FAILED_KIND_UTILITY_PROCESS_EXITED, COREWEBVIEW2_PROCESS_KIND_BROWSER,
+    COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_CANCEL,
 };
 use webview2_com::{
     AcceleratorKeyPressedEventHandler, BasicAuthenticationRequestedEventHandler,
     BrowserProcessExitedEventHandler, CallDevToolsProtocolMethodCompletedHandler,
     ClearBrowsingDataCompletedHandler, ClientCertificateRequestedEventHandler,
-    HistoryChangedEventHandler, LaunchingExternalUriSchemeEventHandler,
-    NavigationStartingEventHandler, NewBrowserVersionAvailableEventHandler,
-    ProcessFailedEventHandler, ServerCertificateErrorDetectedEventHandler,
-    SourceChangedEventHandler, ZoomFactorChangedEventHandler,
+    ExecuteScriptCompletedHandler, HistoryChangedEventHandler,
+    LaunchingExternalUriSchemeEventHandler, NavigationStartingEventHandler,
+    NewBrowserVersionAvailableEventHandler, ProcessFailedEventHandler,
+    ServerCertificateErrorDetectedEventHandler, SourceChangedEventHandler,
+    ZoomFactorChangedEventHandler,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetKeyState, VK_CONTROL, VK_ESCAPE, VK_MENU, VK_SHIFT,
@@ -693,8 +697,29 @@ pub fn install_crash_handler(
     webview: &wry::WebView,
     on_failure: impl Fn(ProcessFailure) + 'static,
 ) -> windows_core::Result<CrashObserver> {
+    install_process_failure_handler(webview, on_failure, None)
+}
+
+/// A person's tab: also says when its page stops responding (`false`) and
+/// when it answers again (`true`). WebView2 repeats the unresponsive report
+/// every few seconds while the renderer is hung; one queued script per hang
+/// completes once the renderer runs again.
+pub fn install_crash_handler_with_responsiveness(
+    webview: &wry::WebView,
+    on_failure: impl Fn(ProcessFailure) + 'static,
+    on_responsive: impl Fn(bool) + 'static,
+) -> windows_core::Result<CrashObserver> {
+    install_process_failure_handler(webview, on_failure, Some(Rc::new(on_responsive)))
+}
+
+fn install_process_failure_handler(
+    webview: &wry::WebView,
+    on_failure: impl Fn(ProcessFailure) + 'static,
+    on_responsive: Option<Rc<dyn Fn(bool)>>,
+) -> windows_core::Result<CrashObserver> {
     let core = webview.webview();
-    let handler = ProcessFailedEventHandler::create(Box::new(move |_, args| {
+    let probing = Rc::new(Cell::new(false));
+    let handler = ProcessFailedEventHandler::create(Box::new(move |sender, args| {
         let Some(args) = args else {
             return Ok(());
         };
@@ -707,17 +732,62 @@ pub fn install_crash_handler(
             COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED => {
                 on_failure(ProcessFailure::Renderer)
             }
-            // A subframe failure is not a top-level page death. Likewise an
-            // unresponsive page must not be destroyed without user consent.
-            COREWEBVIEW2_PROCESS_FAILED_KIND_FRAME_RENDER_PROCESS_EXITED
-            | COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE => {}
-            _ => {}
+            // An unresponsive page is never ended without the person's say.
+            COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE => {
+                if let (Some(report), Some(core)) = (on_responsive.as_ref(), sender.as_ref()) {
+                    report(false);
+                    probe_responsiveness(core, &probing, report);
+                }
+            }
+            // A subframe, GPU or utility process WebView2 brings back itself.
+            other => log_ignored_process_failure(other),
         }
         Ok(())
     }));
     let mut token = Default::default();
     unsafe { core.add_ProcessFailed(&handler, &mut token)? };
     Ok(CrashObserver { core, token })
+}
+
+/// Queues a no-op script behind the hung page's work, once per hang. It
+/// completes only when the renderer runs again.
+fn probe_responsiveness(core: &ICoreWebView2, probing: &Rc<Cell<bool>>, report: &Rc<dyn Fn(bool)>) {
+    if probing.replace(true) {
+        return;
+    }
+    let settled = probing.clone();
+    let answered = report.clone();
+    let handler = ExecuteScriptCompletedHandler::create(Box::new(move |result, _| {
+        settled.set(false);
+        if result.is_ok() {
+            answered(true);
+        }
+        Ok(())
+    }));
+    // SAFETY: the sender's live core on its UI thread; constant script.
+    if unsafe { core.ExecuteScript(windows_core::w!("0"), &handler) }.is_err() {
+        probing.set(false);
+    }
+}
+
+static LOGGED_PROCESS_FAILURES: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+fn log_ignored_process_failure(kind: COREWEBVIEW2_PROCESS_FAILED_KIND) {
+    let bit = 1_u32.checked_shl(kind.0.clamp(0, 31) as u32).unwrap_or(0);
+    let logged = LOGGED_PROCESS_FAILURES.fetch_or(bit, std::sync::atomic::Ordering::Relaxed);
+    if logged & bit == 0 {
+        let name = match kind {
+            COREWEBVIEW2_PROCESS_FAILED_KIND_FRAME_RENDER_PROCESS_EXITED => "subframe renderer",
+            COREWEBVIEW2_PROCESS_FAILED_KIND_GPU_PROCESS_EXITED => "GPU",
+            COREWEBVIEW2_PROCESS_FAILED_KIND_UTILITY_PROCESS_EXITED => "utility",
+            COREWEBVIEW2_PROCESS_FAILED_KIND_SANDBOX_HELPER_PROCESS_EXITED => "sandbox helper",
+            _ => "other",
+        };
+        eprintln!(
+            "engine: a WebView2 {name} process ended ({}); left to WebView2",
+            kind.0
+        );
+    }
 }
 
 /// Registrations that make the native WebView2 source and back/forward list

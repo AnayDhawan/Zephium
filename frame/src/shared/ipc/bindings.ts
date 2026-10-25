@@ -2386,7 +2386,9 @@ host: string;
 /**  Plain http: the password would cross the network readable. */
 insecure: boolean; proxy: boolean;
 /**  The last username or password was wrong. */
-retry: boolean };
+retry: boolean } |
+/**  The page stopped responding: wait for it, or reload it. */
+{ kind: "unresponsive" };
 
 /**  One site's styles, for the Settings manager. */
 export type PageSiteStylesV1 = {

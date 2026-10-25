@@ -148,6 +148,8 @@ pub enum PageRequest {
     Popup { url: Option<Url> },
     /// The site or its proxy asks to sign in; the engine holds the request.
     HttpAuth(crate::http_auth::HttpAuthPrompt),
+    /// The page stopped responding; the person may wait or end it.
+    Unresponsive,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

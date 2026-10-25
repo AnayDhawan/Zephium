@@ -392,6 +392,23 @@ impl EngineHost {
         }
     }
 
+    /// The person chose to reload a page that stopped responding. Closing
+    /// the controller is the documented way to release what powers one
+    /// WebView; a renderer still busy in a script never handles a reload.
+    /// The page then comes back through the crash path, in a fresh view.
+    pub(crate) fn end_unresponsive_page(&mut self, id: ItemId) {
+        let Some(token) = self
+            .views
+            .get(&id)
+            .and_then(|view| view.event_permit.active_token())
+        else {
+            return;
+        };
+        eprintln!("engine: ending a page that stopped responding");
+        self.close(id);
+        self.sink.emit_for(token, EngineEvent::Crashed { id });
+    }
+
     #[cfg(target_os = "windows")]
     pub(super) fn on_stage_placement_failure(&mut self, id: ItemId, generation: &Arc<AtomicBool>) {
         let token = self.views.get(&id).and_then(|view| {

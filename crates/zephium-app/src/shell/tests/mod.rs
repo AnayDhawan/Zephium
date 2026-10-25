@@ -891,6 +891,10 @@ impl Engine for FakeEngine {
         self.log(format!("allow-certificate {item} {url}"));
         self.native_admission()
     }
+    fn end_unresponsive_page(&self, item: ItemId) -> NativeDispatch {
+        self.log(format!("end-unresponsive {item}"));
+        self.native_admission()
+    }
     fn answer_http_auth(
         &self,
         item: ItemId,

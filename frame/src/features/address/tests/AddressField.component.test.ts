@@ -25,7 +25,10 @@ afterEach(() => {
 
 async function field() {
   await tabs.init();
-  const tab = tabFixture({ url: "https://www.wikipedia.org/wiki/Premium" });
+  const tab = tabFixture({
+    projection_revision: stamp(),
+    url: "https://www.wikipedia.org/wiki/Premium",
+  });
   emitNativeEvent("itemsChanged", {
     projection_revision: revision(Date.now()),
     profile: null,
@@ -98,6 +101,26 @@ test("a page's link for another app asks before it opens", async () => {
   await expect.element(card).toHaveTextContent("Open zoom.us?");
   await expect.element(card.getByRole("checkbox")).not.toBeChecked();
   await expect.element(card.getByRole("button", { name: "Cancel" })).toBeVisible();
+});
+
+test("a page that stopped responding offers to wait or reload", async () => {
+  const { screen } = await field();
+  const tab = tabs.activeTab()!;
+  emitNativeEvent("tabChanged", {
+    ...tab,
+    projection_revision: stamp(),
+    page_request: { kind: "unresponsive" },
+  });
+  const card = screen.getByRole("alertdialog");
+  await expect.element(card).toHaveTextContent("This page isn't responding");
+  await expect.element(card.getByRole("button", { name: "Wait" })).toBeVisible();
+  await expect.element(card.getByRole("button", { name: "Reload" })).toBeVisible();
+  emitNativeEvent("tabChanged", {
+    ...tab,
+    projection_revision: stamp(),
+    page_request: null,
+  });
+  await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
 });
 
 async function zoomed(zoom: number | undefined) {

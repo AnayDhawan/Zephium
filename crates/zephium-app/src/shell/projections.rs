@@ -702,6 +702,9 @@ fn tab_view(
                     retry: prompt.retry,
                 }
             }
+            zephium_core::item::PageRequest::Unresponsive => {
+                zephium_ipc::PageRequestView::Unresponsive
+            }
         }),
         availability: None,
         failure: tab.failure.as_ref().map(|failure| {

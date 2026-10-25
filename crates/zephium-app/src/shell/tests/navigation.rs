@@ -280,6 +280,71 @@ fn a_page_kept_in_place_after_a_failure_is_never_covered() {
 }
 
 #[test]
+fn a_page_that_stops_responding_in_front_asks_to_wait_or_reload() {
+    use zephium_ipc::PageRequestView;
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let behind = active_id(&screen);
+    commit_url(&mut shell, behind, "https://behind.example/");
+    shell.handle(Command::Open);
+    let id = active_id(&screen);
+    shell.handle(Command::Navigate {
+        id,
+        input: "example.com".into(),
+    });
+    commit_url(&mut shell, id, "https://example.com/");
+    present_committed(&mut shell, id, "https://example.com/");
+    let request = |screen: &Screen, id: ItemId| {
+        last(screen)
+            .tabs
+            .into_iter()
+            .find(|tab| tab.id == id.to_string())
+            .and_then(|tab| tab.page_request)
+    };
+    let hung = |shell: &mut Shell, id: ItemId, responding: bool| {
+        shell.handle(Command::Engine(EngineEvent::PageResponsiveness {
+            id,
+            responding,
+        }));
+    };
+
+    hung(&mut shell, behind, false);
+    assert_eq!(request(&screen, behind), None, "only the tab in front asks");
+
+    hung(&mut shell, id, false);
+    assert_eq!(request(&screen, id), Some(PageRequestView::Unresponsive));
+
+    // The page answers again: the question goes.
+    hung(&mut shell, id, true);
+    assert_eq!(request(&screen, id), None);
+
+    // Waiting holds the question back while the page stays hung.
+    hung(&mut shell, id, false);
+    shell.handle(Command::AnswerPageRequest {
+        id,
+        decision: crate::PageRequestDecision::Dismiss,
+    });
+    assert_eq!(request(&screen, id), None);
+    hung(&mut shell, id, false);
+    assert_eq!(request(&screen, id), None, "the person chose to wait");
+    shell.crash.unresponsive_waits.insert(
+        id,
+        std::time::Instant::now() - super::super::page_requests::UNRESPONSIVE_WAIT,
+    );
+    hung(&mut shell, id, false);
+    assert_eq!(request(&screen, id), Some(PageRequestView::Unresponsive));
+
+    // Reload ends the hung view; the crash path brings the page back.
+    shell.handle(Command::AnswerPageRequest {
+        id,
+        decision: crate::PageRequestDecision::Allow,
+    });
+    assert_eq!(request(&screen, id), None);
+    assert!(engine.calls().contains(&format!("end-unresponsive {id}")));
+    assert!(shell.crash.unresponsive_waits.is_empty());
+}
+
+#[test]
 fn a_link_for_another_app_waits_for_the_person() {
     use zephium_ipc::PageRequestView;
     let (mut shell, engine, screen) = setup();
