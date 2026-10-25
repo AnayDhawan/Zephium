@@ -1416,6 +1416,7 @@
   "launcher_kind_tab": "Onglet",
   "launcher_kind_history": "Historique",
   "launcher_kind_recent": "Recherche récente",
+  "launcher_kind_bookmark": "Signet",
   "launcher_kind_suggestion": "Suggestion",
   "launcher_kind_note": "Note",
   "launcher_kind_address": "Adresse",

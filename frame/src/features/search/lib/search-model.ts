@@ -38,7 +38,8 @@ export type ResultSection =
 export function resultSection(result: SearchResult): ResultSection {
   if (result.kind === "tab") return "tabs";
   if (result.kind === "note") return "notes";
-  if (result.kind === "history" || result.kind === "search_history") return "history";
+  if (result.kind === "history" || result.kind === "bookmark" || result.kind === "search_history")
+    return "history";
   if (result.kind === "command") return "commands";
   return "search";
 }
@@ -61,7 +62,12 @@ export function groupRows<T extends { section: ResultSection }>(rows: readonly T
 export function resultDetail(result: SearchResult): string {
   if (result.kind === "search" || result.kind === "suggestion" || result.kind === "note")
     return result.detail;
-  if (result.kind !== "tab" && result.kind !== "history" && result.kind !== "search_history")
+  if (
+    result.kind !== "tab" &&
+    result.kind !== "history" &&
+    result.kind !== "bookmark" &&
+    result.kind !== "search_history"
+  )
     return "";
   return hostOf(result.detail);
 }

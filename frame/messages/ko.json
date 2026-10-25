@@ -1416,6 +1416,7 @@
   "launcher_kind_tab": "탭",
   "launcher_kind_history": "방문 기록",
   "launcher_kind_recent": "최근 검색",
+  "launcher_kind_bookmark": "북마크",
   "launcher_kind_suggestion": "제안",
   "launcher_kind_note": "메모",
   "launcher_kind_address": "주소",

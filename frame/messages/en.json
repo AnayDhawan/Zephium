@@ -1416,6 +1416,7 @@
   "launcher_kind_tab": "Tab",
   "launcher_kind_history": "History",
   "launcher_kind_recent": "Recent Search",
+  "launcher_kind_bookmark": "Bookmark",
   "launcher_kind_suggestion": "Suggestion",
   "launcher_kind_note": "Note",
   "launcher_kind_address": "Address",

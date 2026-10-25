@@ -1022,6 +1022,8 @@ pub(crate) struct FakeStore {
     load_session_calls: std::sync::atomic::AtomicUsize,
     pending_deletion_load_calls: std::sync::atomic::AtomicUsize,
     history: Vec<zephium_core::ports::store::HistoryHit>,
+    /// Saved pages `bookmarks` answers a search with, as (title, address).
+    saved_pages: Vec<(&'static str, &'static str)>,
     history_delay_ms: std::sync::atomic::AtomicU64,
     history_started: std::sync::atomic::AtomicBool,
     visits: Mutex<Vec<String>>,
@@ -1523,6 +1525,35 @@ impl Store for FakeStore {
             std::thread::sleep(std::time::Duration::from_millis(delay));
         }
         self.history.clone()
+    }
+    fn bookmarks(
+        &self,
+        _profile: ProfileId,
+        request: zephium_core::bookmarks::BookmarkRequest,
+    ) -> zephium_core::bookmarks::BookmarkReply {
+        use zephium_core::bookmarks::{BookmarkNode, BookmarkReply, BookmarkRequest};
+        let BookmarkRequest::Search { query } = request else {
+            return BookmarkReply::Done;
+        };
+        let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
+        BookmarkReply::Nodes(
+            self.saved_pages
+                .iter()
+                .enumerate()
+                .filter(|(_, (title, url))| {
+                    words.iter().all(|word| {
+                        title.to_lowercase().contains(word) || url.to_lowercase().contains(word)
+                    })
+                })
+                .map(|(at, (title, url))| BookmarkNode {
+                    id: at as i64 + 1,
+                    parent: None,
+                    url: Some((*url).into()),
+                    title: (*title).into(),
+                    children: 0,
+                })
+                .collect(),
+        )
     }
     fn history_page(
         &self,

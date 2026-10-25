@@ -79,6 +79,28 @@ pub struct PageFavicon {
     pub icon: StoredIcon,
 }
 
+/// What a launcher read looks through.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Sources {
+    pub history: bool,
+    pub bookmarks: bool,
+}
+
+#[cfg(test)]
+impl Sources {
+    pub const HISTORY: Self = Self {
+        history: true,
+        bookmarks: false,
+    };
+}
+
+/// A saved page that matched what was typed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BookmarkHit {
+    pub title: String,
+    pub url: String,
+}
+
 #[derive(Clone, Debug)]
 pub enum StoreReadResult {
     History {
@@ -86,6 +108,7 @@ pub enum StoreReadResult {
         profile: ProfileId,
         query: String,
         hits: Vec<HistoryHit>,
+        bookmarks: Vec<BookmarkHit>,
     },
     Favicon {
         generation: u64,
@@ -180,6 +203,7 @@ enum Request {
         generation: u64,
         profile: ProfileId,
         query: String,
+        sources: Sources,
     },
     Favicon {
         generation: u64,
@@ -274,6 +298,7 @@ impl StoreReadQueue {
         generation: u64,
         profile: ProfileId,
         query: String,
+        sources: Sources,
     ) -> bool {
         if query.len() > MAX_SEARCH_QUERY_BYTES {
             return false;
@@ -290,6 +315,7 @@ impl StoreReadQueue {
             generation,
             profile,
             query,
+            sources,
         });
         self.inner.ready.notify_one();
         true
@@ -655,6 +681,55 @@ pub(crate) fn run_for_test(
 /// searches and already-open tabs can be filtered out without leaving the
 /// history section short.
 const HISTORY_READ_LIMIT: u32 = 10;
+const BOOKMARK_READ_LIMIT: usize = 10;
+
+/// Visited pages and saved pages for the launcher, vetted before they leave
+/// the worker: only allowed addresses, titles with their controls stripped.
+pub(crate) fn read_suggestions(
+    store: &dyn zephium_core::ports::store::Store,
+    profile: ProfileId,
+    query: &str,
+    sources: Sources,
+) -> (Vec<HistoryHit>, Vec<BookmarkHit>) {
+    let hits = if sources.history {
+        store
+            .search_history(profile, query, HISTORY_READ_LIMIT)
+            .into_iter()
+            .take(HISTORY_READ_LIMIT as usize)
+            .filter(|hit| navigation::is_allowed_str(&hit.url))
+            .map(|mut hit| {
+                hit.title = sanitize_page_title(&hit.title);
+                hit
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let bookmarks = if sources.bookmarks {
+        match store.bookmarks(
+            profile,
+            BookmarkRequest::Search {
+                query: query.to_owned(),
+            },
+        ) {
+            BookmarkReply::Nodes(nodes) => nodes
+                .into_iter()
+                .filter_map(|node| {
+                    let url = node.url?;
+                    navigation::is_allowed_str(&url).then(|| BookmarkHit {
+                        title: sanitize_page_title(&node.title),
+                        url,
+                    })
+                })
+                .take(BOOKMARK_READ_LIMIT)
+                .collect(),
+            _ => Vec::new(),
+        }
+    } else {
+        Vec::new()
+    };
+    (hits, bookmarks)
+}
 
 fn bookmark_work(
     store: &dyn zephium_core::ports::store::Store,
@@ -792,21 +867,17 @@ fn run_with(
                 generation,
                 profile,
                 query,
-            } => StoreReadResult::History {
-                generation,
-                profile,
-                hits: store
-                    .search_history(profile, &query, HISTORY_READ_LIMIT)
-                    .into_iter()
-                    .take(HISTORY_READ_LIMIT as usize)
-                    .filter(|hit| navigation::is_allowed_str(&hit.url))
-                    .map(|mut hit| {
-                        hit.title = sanitize_page_title(&hit.title);
-                        hit
-                    })
-                    .collect(),
-                query,
-            },
+                sources,
+            } => {
+                let (hits, bookmarks) = read_suggestions(&*store, profile, &query, sources);
+                StoreReadResult::History {
+                    generation,
+                    profile,
+                    query,
+                    hits,
+                    bookmarks,
+                }
+            }
             Request::HistorySurface {
                 token,
                 profile,
@@ -1044,8 +1115,8 @@ mod tests {
     fn latest_search_replaces_pending_without_growing_a_fifo() {
         let queue = StoreReadQueue::new();
         let profile = ProfileId::from(1);
-        assert!(queue.request_history(1, profile, "old".into()));
-        assert!(queue.request_history(2, profile, "new".into()));
+        assert!(queue.request_history(1, profile, "old".into(), Sources::HISTORY));
+        assert!(queue.request_history(2, profile, "new".into(), Sources::HISTORY));
 
         let mut lease = queue.recv().unwrap();
         assert!(matches!(
@@ -1110,17 +1181,17 @@ mod tests {
     #[test]
     fn quiescence_clears_pending_and_can_resume_after_retryable_shutdown() {
         let queue = StoreReadQueue::new();
-        assert!(queue.request_history(1, ProfileId::from(1), "pending".into()));
+        assert!(queue.request_history(1, ProfileId::from(1), "pending".into(), Sources::HISTORY));
         assert!(queue.quiesce_until(Instant::now()));
-        assert!(!queue.request_history(2, ProfileId::from(1), "rejected".into()));
+        assert!(!queue.request_history(2, ProfileId::from(1), "rejected".into(), Sources::HISTORY));
         queue.resume();
-        assert!(queue.request_history(3, ProfileId::from(1), "accepted".into()));
+        assert!(queue.request_history(3, ProfileId::from(1), "accepted".into(), Sources::HISTORY));
     }
 
     #[test]
     fn quiescence_deadline_cannot_claim_an_in_flight_read_is_finished() {
         let queue = StoreReadQueue::new();
-        assert!(queue.request_history(1, ProfileId::from(1), "active".into()));
+        assert!(queue.request_history(1, ProfileId::from(1), "active".into(), Sources::HISTORY));
         let lease = queue.recv().unwrap();
         assert!(!queue.quiesce_until(Instant::now() + std::time::Duration::from_millis(1)));
         drop(lease);

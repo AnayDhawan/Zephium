@@ -55,6 +55,8 @@ describe("result presentation", () => {
       "history",
       "notes",
     ]);
+    // A bookmark leads the visited pages it ties with, in the same section.
+    expect(resultSection({ ...tab("x"), kind: "bookmark" })).toBe("history");
     // Two runs of the same section stay two runs; grouping never gathers rows
     // across the list, which is what used to let a late result jump sections.
     const split = [
@@ -69,6 +71,9 @@ describe("result presentation", () => {
     // Either spelling native may use for a host resolves the same way.
     expect(resultDetail({ ...tab("a"), detail: "https://www.example.com/x" })).toBe("example.com");
     expect(resultDetail({ ...tab("a"), detail: "www.example.com" })).toBe("example.com");
+    expect(
+      resultDetail({ ...tab("a"), kind: "bookmark", detail: "https://www.example.com/x" }),
+    ).toBe("example.com");
     expect(resultDetail({ ...tab("a"), kind: "search", detail: "DuckDuckGo" })).toBe("DuckDuckGo");
     expect(resultDetail({ ...tab("a"), kind: "note", detail: "Pack the adapter" })).toBe(
       "Pack the adapter",

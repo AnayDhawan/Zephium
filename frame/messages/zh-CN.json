@@ -1416,6 +1416,7 @@
   "launcher_kind_tab": "标签页",
   "launcher_kind_history": "历史记录",
   "launcher_kind_recent": "最近搜索",
+  "launcher_kind_bookmark": "书签",
   "launcher_kind_suggestion": "建议",
   "launcher_kind_note": "备忘录",
   "launcher_kind_address": "地址",

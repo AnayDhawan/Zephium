@@ -1416,6 +1416,7 @@
   "launcher_kind_tab": "Tab",
   "launcher_kind_history": "Verlauf",
   "launcher_kind_recent": "Letzte Suche",
+  "launcher_kind_bookmark": "Lesezeichen",
   "launcher_kind_suggestion": "Vorschlag",
   "launcher_kind_note": "Notiz",
   "launcher_kind_address": "Adresse",

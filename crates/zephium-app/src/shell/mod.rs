@@ -2126,7 +2126,8 @@ impl Shell {
                 profile,
                 query,
                 hits,
-            } => self.on_history_read(generation, profile, query, hits),
+                bookmarks,
+            } => self.on_history_read(generation, profile, query, hits, bookmarks),
             StoreReadResult::Favicon {
                 generation,
                 id,
