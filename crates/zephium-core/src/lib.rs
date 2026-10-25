@@ -3,6 +3,7 @@
 pub mod accelerator;
 pub mod blocker;
 pub mod bookmarks;
+pub mod certificates;
 pub mod commands;
 pub mod downloads;
 pub mod extensions;

@@ -226,6 +226,8 @@ impl Shell {
     /// profile erasure owns closure and exact retirement of every view.
     pub(super) fn apply_profile_tombstone(&mut self, profile: ProfileId) {
         self.engine.forget_discarded_state(profile, None);
+        self.continued_certificates
+            .retain(|(owner, _)| *owner != profile);
         self.recently_closed
             .retain(|entry| entry.profile != profile);
         self.extension_browser_surfaces.retire_profile(profile);

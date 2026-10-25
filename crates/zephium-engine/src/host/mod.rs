@@ -7,6 +7,8 @@ mod automatic_pip;
 mod blocker_statistics;
 #[cfg(all(test, target_os = "windows"))]
 mod browser_windows_qualification;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+mod certificates;
 mod construction;
 mod content_rules;
 mod content_styles;
@@ -199,6 +201,8 @@ struct ObservedView {
     file_uploads: Rc<file_uploads::FileUploadBroker>,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     http_auth: Rc<http_auth::HttpAuthBroker>,
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    certificates: Rc<certificates::CertificateWatch>,
     // A current layout may request a view before its first document commits
     // (for example a download URL entered in a new tab). This permits only a
     // native download decision, never document presentation or file access.
@@ -549,6 +553,9 @@ pub(crate) struct EngineHost {
     /// views already open without touching them.
     focus_gate: focus::SharedFocusGate,
     blocker_sites: HashMap<ProfileId, content_styles::SitePreferencesSlot>,
+    /// Certificates people chose to continue past, per profile, until quit.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    certificate_exceptions: HashMap<ProfileId, certificates::SharedExceptions>,
     /// Ask panel page styles: validated CSS per registrable site.
     page_styles: HashMap<ProfileId, HashMap<String, Arc<str>>>,
     picker: Option<Arc<element_picker::PickerSession>>,

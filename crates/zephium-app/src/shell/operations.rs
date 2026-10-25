@@ -47,6 +47,7 @@ impl Shell {
                 request,
                 credentials,
             } => self.operation_answer_http_auth(id, request, credentials),
+            Command::ContinuePastCertificate(id) => self.operation_continue_past_certificate(id),
             Command::GoBack(id) => self.operation_history(id, false),
             Command::GoForward(id) => self.operation_history(id, true),
             Command::SplitWith { other, axis } => self.operation_split(other, axis),

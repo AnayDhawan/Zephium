@@ -84,6 +84,10 @@ pub struct WryNavigationDelegateIvars {
   pub credential_challenge_denied_handler: Option<std::rc::Rc<dyn Fn()>>,
   #[cfg(target_os = "macos")]
   pub http_auth_handler: Option<Box<crate::http_auth::HttpAuthHandler>>,
+  #[cfg(target_os = "macos")]
+  pub certificate_failure_handler: Option<Box<dyn Fn(crate::CertificateFailure)>>,
+  #[cfg(target_os = "macos")]
+  pub server_trust_exceptions: Option<crate::ServerTrustExceptions>,
   pub download_delegate: Option<Retained<WryDownloadDelegate>>,
   pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent)>>,
   pub navigation_event_handler: Option<Box<dyn Fn(NavigationEvent)>>,
@@ -299,6 +303,20 @@ define_class!(
         }
       }
       let disposition = if method.isEqualToString(NSURLAuthenticationMethodServerTrust) {
+        // Only a chain the embedder excepted, for its exact origin and leaf,
+        // and that still fails system evaluation, is accepted here.
+        if let Some(credential) = self
+          .ivars()
+          .server_trust_exceptions
+          .as_ref()
+          .and_then(|exceptions| crate::wkwebview::server_trust::excepted(exceptions, challenge))
+        {
+          completion_handler.call((
+            NSURLSessionAuthChallengeDisposition::UseCredential,
+            Retained::as_ptr(&credential).cast_mut(),
+          ));
+          return;
+        }
         NSURLSessionAuthChallengeDisposition::PerformDefaultHandling
       } else {
         if let Some(notify) = &self.ivars().credential_challenge_denied_handler {
@@ -343,6 +361,10 @@ impl WryNavigationDelegate {
     #[cfg(target_os = "macos")] main_frame_navigation_attempt_handler: Option<Box<dyn Fn(String)>>,
     #[cfg(target_os = "macos")] credential_challenge_denied_handler: Option<std::rc::Rc<dyn Fn()>>,
     #[cfg(target_os = "macos")] http_auth_handler: Option<Box<crate::http_auth::HttpAuthHandler>>,
+    #[cfg(target_os = "macos")] certificate_failure_handler: Option<
+      Box<dyn Fn(crate::CertificateFailure)>,
+    >,
+    #[cfg(target_os = "macos")] server_trust_exceptions: Option<crate::ServerTrustExceptions>,
     download_delegate: Option<Retained<WryDownloadDelegate>>,
     on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
     navigation_event_handler: Option<Box<dyn Fn(NavigationEvent)>>,
@@ -393,6 +415,10 @@ impl WryNavigationDelegate {
         credential_challenge_denied_handler,
         #[cfg(target_os = "macos")]
         http_auth_handler,
+        #[cfg(target_os = "macos")]
+        certificate_failure_handler,
+        #[cfg(target_os = "macos")]
+        server_trust_exceptions,
         has_download_handler,
         #[cfg(target_os = "macos")]
         new_window_req_handler,

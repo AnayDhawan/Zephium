@@ -6,6 +6,7 @@ mod blocker_sites;
 mod blocker_statistics;
 mod bookmarks;
 mod bootstrap;
+mod certificates;
 mod effects;
 mod engine_events;
 mod extension_actions;
@@ -235,6 +236,10 @@ pub struct Shell {
     /// Sites allowed to open a kind of application link without asking,
     /// for this run only.
     external_apps_allowed: std::collections::HashSet<(ProfileId, String, String)>,
+    /// Local https origins whose refused certificate the person continued
+    /// past, for this run only; their pages never look secure.
+    continued_certificates:
+        std::collections::HashSet<(ProfileId, zephium_core::http_auth::AuthOrigin)>,
     residency: ResidencyState,
     last_visits: std::collections::HashMap<ItemId, (String, std::time::Instant)>,
     time: time::TimeState,
@@ -471,6 +476,7 @@ impl Shell {
             roster: profile_roster::RosterState::default(),
             space_memory: spaces::SpaceMemory::default(),
             external_apps_allowed: std::collections::HashSet::new(),
+            continued_certificates: std::collections::HashSet::new(),
             residency: ResidencyState::load(&*store),
             last_visits: std::collections::HashMap::new(),
             window_visible: true,
@@ -816,6 +822,9 @@ impl Shell {
                 credentials,
             } => {
                 let _ = self.operation_answer_http_auth(id, request, credentials);
+            }
+            Command::ContinuePastCertificate(id) => {
+                let _ = self.operation_continue_past_certificate(id);
             }
             Command::GoBack(id) => {
                 let _ = self.operation_history(id, false);

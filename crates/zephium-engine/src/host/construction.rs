@@ -712,6 +712,12 @@ impl EngineHost {
         #[cfg(any(target_os = "macos", target_os = "windows"))]
         let load_http_auth = Rc::downgrade(&http_auth);
         #[cfg(any(target_os = "macos", target_os = "windows"))]
+        let certificates = Rc::new(super::certificates::CertificateWatch::default());
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        let load_certificates = Rc::downgrade(&certificates);
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        let certificate_exceptions = self.certificate_exceptions_for(partition.profile());
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         let download_surface_intent = Arc::new(AtomicBool::new(false));
         let guard_presentation_permit = presentation_permit.clone();
         let load_presentation_permit = presentation_permit.clone();
@@ -1418,6 +1424,9 @@ impl EngineHost {
             let permit = crash_permit.clone();
             let upload_broker = Rc::downgrade(&file_uploads);
             let auth_broker = Rc::downgrade(&http_auth);
+            let refused_watch = Rc::downgrade(&certificates);
+            let covers_exceptions = certificate_exceptions.clone();
+            let allows_exceptions = certificate_exceptions.clone();
             let crash_upload_broker = Rc::downgrade(&file_uploads);
             let drop_permit = event_permit.clone();
             let drop_navigation = navigation.clone();
@@ -1462,6 +1471,23 @@ impl EngineHost {
                         broker.present(view, request, responder);
                     }
                 })
+                .with_certificate_failure_handler(move |refused| {
+                    if let Some(watch) = refused_watch.upgrade() {
+                        watch.refused(&refused.url, refused.leaf_sha256);
+                    }
+                })
+                .with_server_trust_exceptions(
+                    move |scheme, host, port| {
+                        covers_exceptions
+                            .try_borrow()
+                            .is_ok_and(|exceptions| exceptions.covers(scheme, host, port))
+                    },
+                    move |scheme, host, port, leaf| {
+                        allows_exceptions
+                            .try_borrow()
+                            .is_ok_and(|exceptions| exceptions.allows(scheme, host, port, leaf))
+                    },
+                )
                 .with_http_auth_handler(move |request, responder| {
                     if let (Some(broker), Some(challenge)) = (
                         auth_broker.upgrade(),
@@ -1563,12 +1589,18 @@ impl EngineHost {
             let failure_permit = load_permit.clone();
             let failure_sink = on_load.clone();
             let failure_id = load_id.clone();
+            let failure_certificates = Rc::downgrade(&certificates);
             builder = builder.with_navigation_failure_handler(move |_navigation, reason| {
+                let reason = failure_reason(reason);
+                let url = matches!(reason, NavigationFailureReason::Certificate(_))
+                    .then(|| failure_certificates.upgrade()?.refused_url())
+                    .flatten();
                 failure_permit.emit(
                     &failure_sink,
                     EngineEvent::NavigationFailureReported {
                         id: failure_id.get(),
-                        reason: failure_reason(reason),
+                        reason,
+                        url,
                     },
                 );
             });
@@ -1598,6 +1630,10 @@ impl EngineHost {
                     if let Some(broker) = load_http_auth.upgrade() {
                         broker.navigation_started(&event.url);
                     }
+                    #[cfg(any(target_os = "macos", target_os = "windows"))]
+                    if let Some(watch) = load_certificates.upgrade() {
+                        watch.navigating(&event.url);
+                    }
                     #[cfg(all(feature = "agentic-browser", target_os = "windows"))]
                     super::page_reader::begin_load(&load_reader);
                     #[cfg(target_os = "macos")]
@@ -1618,6 +1654,10 @@ impl EngineHost {
                     if let Some(broker) = load_http_auth.upgrade() {
                         broker.navigation_redirected(&event.url);
                     }
+                    #[cfg(any(target_os = "macos", target_os = "windows"))]
+                    if let Some(watch) = load_certificates.upgrade() {
+                        watch.navigating(&event.url);
+                    }
                 }
                 NavigationTransition::Committed(epoch) => {
                     #[cfg(target_os = "macos")]
@@ -1625,6 +1665,10 @@ impl EngineHost {
                     #[cfg(any(target_os = "macos", target_os = "windows"))]
                     if let Some(broker) = load_http_auth.upgrade() {
                         broker.navigation_committed(&event.url);
+                    }
+                    #[cfg(any(target_os = "macos", target_os = "windows"))]
+                    if let Some(watch) = load_certificates.upgrade() {
+                        watch.committed();
                     }
                     load_site_scope.navigating(&event.url);
                     // This identity-bearing native commit, not URL equality or
@@ -1914,6 +1958,32 @@ impl EngineHost {
                 link(uri, user_gesture);
             }) {
                 eprintln!("security: content WebView2 app-link routing failed: {error}");
+                if report_failure {
+                    event_permit.emit(&self.sink, EngineEvent::ViewCreationFailed { id: id.get() });
+                }
+                return None;
+            }
+            let refused_watch = Rc::downgrade(&certificates);
+            let exceptions = certificate_exceptions.clone();
+            if let Err(error) = security_policy.route_certificate_errors(move |uri, leaf| {
+                let excepted = url::Url::parse(uri).ok().is_some_and(|url| {
+                    let (Some(host), Some(port), Some(leaf)) =
+                        (url.host_str(), url.port_or_known_default(), leaf)
+                    else {
+                        return false;
+                    };
+                    exceptions
+                        .try_borrow()
+                        .is_ok_and(|exceptions| exceptions.allows(url.scheme(), host, port, &leaf))
+                });
+                if !excepted {
+                    if let Some(watch) = refused_watch.upgrade() {
+                        watch.refused_request(uri, leaf);
+                    }
+                }
+                excepted
+            }) {
+                eprintln!("security: content WebView2 certificate routing failed: {error}");
                 if report_failure {
                     event_permit.emit(&self.sink, EngineEvent::ViewCreationFailed { id: id.get() });
                 }
@@ -2331,6 +2401,8 @@ impl EngineHost {
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             http_auth,
             #[cfg(any(target_os = "macos", target_os = "windows"))]
+            certificates,
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
             download_surface_intent,
             event_permit,
             navigation,
@@ -2743,6 +2815,16 @@ fn failure_reason(failure: wry::NavigationFailure) -> NavigationFailureReason {
         wry::NavigationFailure::Unreachable => NavigationFailureReason::Unreachable,
         wry::NavigationFailure::TimedOut => NavigationFailureReason::TimedOut,
         wry::NavigationFailure::Insecure => NavigationFailureReason::Insecure,
+        wry::NavigationFailure::Certificate(problem) => {
+            use zephium_core::certificates::CertificateProblem as Problem;
+            NavigationFailureReason::Certificate(match problem {
+                wry::CertificateProblem::Expired => Problem::Expired,
+                wry::CertificateProblem::Untrusted => Problem::Untrusted,
+                wry::CertificateProblem::NameMismatch => Problem::NameMismatch,
+                wry::CertificateProblem::Revoked => Problem::Revoked,
+                wry::CertificateProblem::Other => Problem::Other,
+            })
+        }
         wry::NavigationFailure::Other => NavigationFailureReason::Other,
     }
 }

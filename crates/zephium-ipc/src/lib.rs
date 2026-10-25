@@ -39,6 +39,10 @@ pub struct TabView {
     #[serde(default)]
     #[specta(optional)]
     pub failure: Option<TabFailure>,
+    /// The page is from an origin whose certificate the person chose to
+    /// continue past; chrome must never show it as secure.
+    #[serde(default)]
+    pub certificate_exception: bool,
     pub can_go_back: bool,
     pub can_go_forward: bool,
     pub icon: Option<IconRef>,
@@ -108,6 +112,26 @@ pub struct MediaCaptureView {
 pub struct TabFailure {
     pub url: String,
     pub reason: TabFailureReason,
+    /// For a refused certificate, what the engine could tell about it.
+    #[serde(default)]
+    #[specta(optional)]
+    pub certificate: Option<TabCertificateProblem>,
+    /// The refused certificate is on a host on the person's own network, so
+    /// they may continue past it. Never true for a public name.
+    #[serde(default)]
+    pub can_continue: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum TabCertificateProblem {
+    /// Expired, or not valid yet.
+    Expired,
+    /// Self-signed, or from an issuer the system does not trust.
+    Untrusted,
+    NameMismatch,
+    Revoked,
+    Other,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]

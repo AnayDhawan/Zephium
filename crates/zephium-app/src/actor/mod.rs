@@ -1261,6 +1261,7 @@ fn tracked_operation_command(command: &Command) -> bool {
             | Command::Reload(_)
             | Command::AnswerPageRequest { .. }
             | Command::AnswerHttpAuth { .. }
+            | Command::ContinuePastCertificate(_)
             | Command::GoBack(_)
             | Command::GoForward(_)
             | Command::SplitWith { .. }

@@ -163,6 +163,7 @@ fn a_failed_address_is_explained_until_the_next_attempt() {
     shell.handle(Command::Engine(EngineEvent::NavigationFailureReported {
         id,
         reason: NavigationFailureReason::Offline,
+        url: None,
     }));
     assert_eq!(failure(&screen), None, "a page's own load names no address");
 
@@ -173,6 +174,7 @@ fn a_failed_address_is_explained_until_the_next_attempt() {
     shell.handle(Command::Engine(EngineEvent::NavigationFailureReported {
         id,
         reason: NavigationFailureReason::HostNotFound,
+        url: None,
     }));
     let shown = failure(&screen).expect("the failed address is explained");
     assert_eq!(shown.url, "https://unreachable.example/");
@@ -487,4 +489,70 @@ fn a_sign_in_prompt_waits_on_its_tab_and_answers_once() {
         shown(&screen),
         Some(PageRequestView::HttpAuth { .. })
     ));
+}
+
+#[test]
+fn only_a_local_hosts_refused_certificate_has_a_way_past() {
+    use zephium_core::certificates::CertificateProblem;
+    use zephium_core::ports::engine::NavigationFailureReason;
+    use zephium_ipc::{TabCertificateProblem, TabFailureReason};
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    let tab = |screen: &Screen| {
+        last(screen)
+            .tabs
+            .into_iter()
+            .find(|tab| tab.id == id.to_string())
+            .unwrap()
+    };
+    let allowed = |engine: &FakeEngine| {
+        engine
+            .calls()
+            .into_iter()
+            .filter(|call| call.starts_with("allow-certificate "))
+            .collect::<Vec<_>>()
+    };
+    let refuse = |shell: &mut Shell, input: &str, refused: &str| {
+        shell.handle(Command::Navigate {
+            id,
+            input: input.into(),
+        });
+        shell.handle(Command::Engine(EngineEvent::NavigationFailureReported {
+            id,
+            reason: NavigationFailureReason::Certificate(CertificateProblem::Untrusted),
+            url: Some(refused.into()),
+        }));
+    };
+
+    refuse(&mut shell, "example.com", "https://example.com/");
+    let failure = tab(&screen).failure.expect("the refusal is explained");
+    assert_eq!(failure.reason, TabFailureReason::Insecure);
+    assert_eq!(failure.certificate, Some(TabCertificateProblem::Untrusted));
+    assert!(!failure.can_continue, "a public name never has a way past");
+    shell.handle(Command::ContinuePastCertificate(id));
+    assert!(allowed(&engine).is_empty());
+
+    // The refused address, after the redirect to https, is the one shown.
+    refuse(&mut shell, "http://nas.local", "https://nas.local:5001/");
+    let failure = tab(&screen).failure.unwrap();
+    assert_eq!(failure.url, "https://nas.local:5001/");
+    assert!(failure.can_continue);
+    shell.handle(Command::ContinuePastCertificate(id));
+    assert_eq!(
+        allowed(&engine),
+        [format!("allow-certificate {id} https://nas.local:5001/")]
+    );
+    commit_url(&mut shell, id, "https://nas.local:5001/");
+    present_committed(&mut shell, id, "https://nas.local:5001/");
+    let shown = tab(&screen);
+    assert_eq!(shown.failure, None);
+    assert!(shown.certificate_exception, "the page never looks secure");
+
+    commit_url(&mut shell, id, "https://nas.local/");
+    present_committed(&mut shell, id, "https://nas.local/");
+    assert!(
+        !tab(&screen).certificate_exception,
+        "another port is another origin"
+    );
 }

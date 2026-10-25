@@ -281,6 +281,11 @@ export const commands = {
 	username: string,
 	password: string,
 } | null) => __TAURI_INVOKE<OperationAdmission>("tabs_answer_sign_in", { id, request, credentials }),
+	/**
+	 *  Continues past the certificate the tab refused, on a host on the
+	 *  person's own network only, and loads the page again.
+	 */
+	tabsContinuePastCertificate: (id: string) => __TAURI_INVOKE<OperationAdmission>("tabs_continue_past_certificate", { id }),
 	/**  Shows the folder with Zephium's local log and crash report. */
 	diagnosticsShowLogs: () => __TAURI_INVOKE<boolean>("diagnostics_show_logs"),
 	/**  The text for a bug report: version, system and the redacted recent log. */
@@ -2952,6 +2957,12 @@ export type SwipeScroll = {
 
 export type TabAvailability = { state: "sleeping" } | { state: "waiting_for_capacity"; url: string } | { state: "blocked_by_capacity"; url: string };
 
+export type TabCertificateProblem =
+/**  Expired, or not valid yet. */
+"expired" |
+/**  Self-signed, or from an issuer the system does not trust. */
+"untrusted" | "name_mismatch" | "revoked" | "other";
+
 export type TabChanged = TabView;
 
 /**
@@ -2963,6 +2974,13 @@ export type TabContentView = "web" | "settings" | "extensions" | "extension_owne
 export type TabFailure = {
 	url: string,
 	reason: TabFailureReason,
+	/**  For a refused certificate, what the engine could tell about it. */
+	certificate?: TabCertificateProblem | null,
+	/**
+	 *  The refused certificate is on a host on the person's own network, so
+	 *  they may continue past it. Never true for a public name.
+	 */
+	can_continue?: boolean,
 };
 
 export type TabFailureReason = "offline" | "host_not_found" | "unreachable" | "timed_out" | "insecure" |
@@ -3010,6 +3028,11 @@ export type TabView = {
 	 *  next attempt or commit. Never carries native error text.
 	 */
 	failure?: TabFailure | null,
+	/**
+	 *  The page is from an origin whose certificate the person chose to
+	 *  continue past; chrome must never show it as secure.
+	 */
+	certificate_exception?: boolean,
 	can_go_back: boolean,
 	can_go_forward: boolean,
 	icon: IconRef | null,

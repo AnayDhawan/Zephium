@@ -396,6 +396,9 @@ pub enum Command {
         request: u32,
         credentials: Option<zephium_core::http_auth::HttpCredentials>,
     },
+    /// The person chose to continue past the certificate the tab refused,
+    /// on a host on their own network, and to load it again.
+    ContinuePastCertificate(ItemId),
     GoBack(ItemId),
     GoForward(ItemId),
     SplitWith {

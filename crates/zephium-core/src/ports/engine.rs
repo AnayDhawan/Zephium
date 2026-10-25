@@ -939,6 +939,12 @@ pub trait Engine {
     ) -> NativeDispatch {
         NativeDispatch::Unsupported
     }
+    /// The person chose to continue past the certificate the tab's engine
+    /// refused at `url`. The engine accepts only an https address on a local
+    /// host, with the exact leaf it refused there; anything else is ignored.
+    fn allow_certificate_exception(&self, _item: ItemId, _url: String) -> NativeDispatch {
+        NativeDispatch::Unsupported
+    }
     /// Answers the tab's sign-in prompt with credentials, or cancels it with
     /// None. A stale or unknown request is ignored and its credentials are
     /// dropped.
@@ -1070,6 +1076,9 @@ pub enum NavigationFailureReason {
     Unreachable,
     TimedOut,
     Insecure,
+    /// The server's certificate was refused, and what the engine could tell
+    /// about why.
+    Certificate(crate::certificates::CertificateProblem),
     Other,
 }
 
@@ -1296,6 +1305,9 @@ pub enum EngineEvent {
     NavigationFailureReported {
         id: ItemId,
         reason: NavigationFailureReason,
+        /// The main-frame address the engine refused, for a certificate
+        /// failure; it may differ from the one asked for after redirects.
+        url: Option<String>,
     },
     /// The exact native zoom invocation settled. `applied_scale` is the
     /// adapter's last successfully applied scale for this view generation, so

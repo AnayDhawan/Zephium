@@ -80,11 +80,19 @@
   );
   let authoritativeValue = $derived(restingAddress(activeUrl));
   let value = $derived(editing ? draft : authoritativeValue);
-  let security = $derived(addressSecurity(activeUrl));
+  let security = $derived(
+    addressSecurity(activeUrl, tabs.activeTab()?.certificate_exception === true),
+  );
   // Only a problem earns a glyph. A padlock on every encrypted page is the
   // default state of the web and says nothing; the field reads cleaner
   // without it, and the one case worth interrupting for still shows.
-  let warning = $derived(!editing && security === "insecure");
+  let warning = $derived(
+    editing || security === "none" || security === "secure"
+      ? null
+      : security === "untrusted"
+        ? m.address_certificate_exception()
+        : m.address_insecure(),
+  );
 
   $effect(() => {
     const command = ui.uiCommand();
@@ -232,9 +240,9 @@
     {#if !compact && warning}
       <span
         class="flex h-4 w-4 shrink-0 items-center justify-center text-danger"
-        title={m.address_insecure()}
+        title={warning}
         role="img"
-        aria-label={m.address_insecure()}
+        aria-label={warning}
       >
         <Icon icon={Alert02Icon} size={14} />
       </span>

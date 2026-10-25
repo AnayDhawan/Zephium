@@ -327,11 +327,20 @@ fn web_error_failure(status: COREWEBVIEW2_WEB_ERROR_STATUS) -> Option<crate::Nav
     | COREWEBVIEW2_WEB_ERROR_STATUS_CANNOT_CONNECT
     | COREWEBVIEW2_WEB_ERROR_STATUS_CONNECTION_RESET => Failure::Unreachable,
     COREWEBVIEW2_WEB_ERROR_STATUS_TIMEOUT => Failure::TimedOut,
-    COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_COMMON_NAME_IS_INCORRECT
-    | COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_EXPIRED
-    | COREWEBVIEW2_WEB_ERROR_STATUS_CLIENT_CERTIFICATE_CONTAINS_ERRORS
-    | COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_REVOKED
-    | COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_IS_INVALID => Failure::Insecure,
+    COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_COMMON_NAME_IS_INCORRECT => {
+      Failure::Certificate(crate::CertificateProblem::NameMismatch)
+    }
+    COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_EXPIRED => {
+      Failure::Certificate(crate::CertificateProblem::Expired)
+    }
+    COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_REVOKED => {
+      Failure::Certificate(crate::CertificateProblem::Revoked)
+    }
+    // Self-signed and unknown issuers, among other chain faults.
+    COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_IS_INVALID => {
+      Failure::Certificate(crate::CertificateProblem::Untrusted)
+    }
+    COREWEBVIEW2_WEB_ERROR_STATUS_CLIENT_CERTIFICATE_CONTAINS_ERRORS => Failure::Insecure,
     _ => Failure::Other,
   })
 }

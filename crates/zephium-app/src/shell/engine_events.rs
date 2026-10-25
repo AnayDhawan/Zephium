@@ -488,8 +488,19 @@ impl Shell {
                     self.project_tab(id);
                 }
             }
-            EngineEvent::NavigationFailureReported { id, reason } => {
-                if self.items.record_navigation_failure(id, reason) {
+            EngineEvent::NavigationFailureReported { id, reason, url } => {
+                // Only a certificate refusal names its own address, which
+                // is where the way past it, if any, leads.
+                let refused = url
+                    .filter(|_| {
+                        matches!(
+                            reason,
+                            zephium_core::ports::engine::NavigationFailureReason::Certificate(_)
+                        )
+                    })
+                    .and_then(|url| url::Url::parse(&url).ok())
+                    .filter(|url| url.scheme() == "https");
+                if self.items.record_navigation_failure(id, reason, refused) {
                     self.project_tab(id);
                 }
             }

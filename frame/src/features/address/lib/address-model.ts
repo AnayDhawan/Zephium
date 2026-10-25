@@ -19,20 +19,24 @@ export function editingAddress(url: string | null | undefined): string {
   return url ?? "";
 }
 
-export type AddressSecurity = "none" | "secure" | "insecure";
+export type AddressSecurity = "none" | "secure" | "insecure" | "untrusted";
 
 /**
  * Transport standing of one authoritative URL. Anything that is not an exact
  * known web scheme reports `none` rather than guessing, so an internal page or
- * a malformed authoritative value never renders a reassuring lock.
+ * a malformed authoritative value never renders a reassuring lock. An
+ * encrypted page whose certificate the person continued past is `untrusted`.
  */
-export function addressSecurity(url: string | null | undefined): AddressSecurity {
+export function addressSecurity(
+  url: string | null | undefined,
+  certificateException = false,
+): AddressSecurity {
   if (!url) return "none";
   try {
     switch (new URL(url).protocol) {
       case "https:":
       case "wss:":
-        return "secure";
+        return certificateException ? "untrusted" : "secure";
       case "http:":
       case "ws:":
         return "insecure";

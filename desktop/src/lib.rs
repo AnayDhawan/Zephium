@@ -1724,6 +1724,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             tabs_reload,
             tabs_answer_page_request,
             tabs_answer_sign_in,
+            tabs_continue_past_certificate,
             diagnostics_show_logs,
             diagnostic_report::diagnostics_report,
             tabs_back,
@@ -2942,6 +2943,30 @@ fn tabs_answer_sign_in(
             credentials,
         }
     })
+}
+
+/// Continues past the certificate the tab refused, on a host on the
+/// person's own network only, and loads the page again.
+#[tauri::command]
+#[specta::specta]
+fn tabs_continue_past_certificate(
+    caller: WebviewWindow,
+    shell: State<'_, Handle>,
+    id: String,
+) -> zephium_ipc::OperationAdmission {
+    if !authorize(
+        &caller,
+        CallerPolicy::Main,
+        "tabs_continue_past_certificate",
+    ) {
+        return rejected_operation();
+    }
+    dispatch_with_id(
+        caller.app_handle(),
+        &shell,
+        &id,
+        Command::ContinuePastCertificate,
+    )
 }
 
 #[tauri::command]

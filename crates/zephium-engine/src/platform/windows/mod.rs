@@ -25,9 +25,11 @@ mod agentic_semantic_probe;
 #[cfg(any(test, feature = "windows-cdp-spike"))]
 #[allow(dead_code)]
 mod cdp;
+mod certificates;
 mod content_filter;
 mod find;
 mod http_auth;
+pub(crate) use certificates::clear_certificate_decisions;
 pub(crate) use find::{find, FindReport, FindSession};
 pub(crate) use http_auth::BasicAuthResponder;
 mod automatic_pip;

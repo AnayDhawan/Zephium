@@ -363,6 +363,12 @@ mod permissions;
 pub use file_upload::{FileUploadRequest, FileUploadResponder};
 #[cfg(target_os = "macos")]
 pub use http_auth::{HttpAuthChallenge, HttpAuthResponder};
+
+#[cfg(target_os = "macos")]
+pub(crate) struct ServerTrustExceptions {
+  pub(crate) covers: Box<dyn Fn(&str, &str, u16) -> bool>,
+  pub(crate) allows: Box<dyn Fn(&str, &str, u16, &[u8; 32]) -> bool>,
+}
 mod proxy;
 #[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
 mod util;
@@ -1934,6 +1940,10 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   #[cfg(target_os = "macos")]
   http_auth_handler: Option<Box<http_auth::HttpAuthHandler>>,
   #[cfg(target_os = "macos")]
+  certificate_failure_handler: Option<Box<dyn Fn(CertificateFailure)>>,
+  #[cfg(target_os = "macos")]
+  server_trust_exceptions: Option<ServerTrustExceptions>,
+  #[cfg(target_os = "macos")]
   native_download_handler: Option<Box<dyn Fn(&objc2_web_kit::WKDownload)>>,
   #[cfg(target_os = "macos")]
   context_menu_handler: Option<
@@ -1967,6 +1977,10 @@ impl Default for PlatformSpecificWebViewAttributes {
       file_upload_handler: None,
       #[cfg(target_os = "macos")]
       http_auth_handler: None,
+      #[cfg(target_os = "macos")]
+      certificate_failure_handler: None,
+      #[cfg(target_os = "macos")]
+      server_trust_exceptions: None,
       #[cfg(target_os = "macos")]
       native_download_handler: None,
       #[cfg(target_os = "macos")]
@@ -2068,6 +2082,20 @@ pub trait WebViewBuilderExtMacos {
     self,
     handler: impl Fn(HttpAuthChallenge, HttpAuthResponder) + 'static,
   ) -> Self;
+  /// Reports a main-frame load refused for its server certificate, with the
+  /// presented leaf's digest, before its navigation failure is reported.
+  /// Classification evaluates a copy of the chain without network access.
+  fn with_certificate_failure_handler(self, handler: impl Fn(CertificateFailure) + 'static)
+    -> Self;
+  /// Lets a server-trust challenge that fails system evaluation proceed
+  /// when `allows` accepts its exact `(scheme, host, port, leaf SHA-256)`.
+  /// `covers` is asked first so ordinary connections never read their chain.
+  /// Without this every challenge keeps the system's default handling.
+  fn with_server_trust_exceptions(
+    self,
+    covers: impl Fn(&str, &str, u16) -> bool + 'static,
+    allows: impl Fn(&str, &str, u16, &[u8; 32]) -> bool + 'static,
+  ) -> Self;
   /// Merges browser-owned items into the native page context menu without
   /// serializing page metadata through Rust. The callback receives WebKit's
   /// already-created default menu and may replace or suppress it.
@@ -2124,6 +2152,26 @@ impl WebViewBuilderExtMacos for WebViewBuilder<'_> {
     handler: impl Fn(HttpAuthChallenge, HttpAuthResponder) + 'static,
   ) -> Self {
     self.platform_specific.http_auth_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_certificate_failure_handler(
+    mut self,
+    handler: impl Fn(CertificateFailure) + 'static,
+  ) -> Self {
+    self.platform_specific.certificate_failure_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_server_trust_exceptions(
+    mut self,
+    covers: impl Fn(&str, &str, u16) -> bool + 'static,
+    allows: impl Fn(&str, &str, u16, &[u8; 32]) -> bool + 'static,
+  ) -> Self {
+    self.platform_specific.server_trust_exceptions = Some(ServerTrustExceptions {
+      covers: Box::new(covers),
+      allows: Box::new(allows),
+    });
     self
   }
 
@@ -3342,8 +3390,35 @@ pub enum NavigationFailure {
   TimedOut,
   /// A secure connection could not be established or verified.
   Insecure,
+  /// The server's certificate was refused, and what the engine could tell
+  /// about why.
+  Certificate(CertificateProblem),
   /// Any other failure.
   Other,
+}
+
+/// Why a server certificate was refused, as a category; never native text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CertificateProblem {
+  /// Expired, or not valid yet.
+  Expired,
+  /// Self-signed, or from an issuer the system does not trust.
+  Untrusted,
+  /// Issued for a different name.
+  NameMismatch,
+  Revoked,
+  Other,
+}
+
+/// A main-frame load whose server certificate was refused.
+#[cfg(target_os = "macos")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CertificateFailure {
+  /// The address that failed, bounded.
+  pub url: String,
+  pub problem: CertificateProblem,
+  /// SHA-256 of the presented leaf certificate's DER encoding.
+  pub leaf_sha256: Option<[u8; 32]>,
 }
 
 /// Identity-bearing observation of a main-frame navigation.

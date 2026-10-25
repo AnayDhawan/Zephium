@@ -7,6 +7,8 @@ mod download;
 mod drag_drop;
 #[cfg(target_os = "macos")]
 pub(crate) mod http_auth;
+#[cfg(target_os = "macos")]
+pub(crate) mod server_trust;
 mod navigation;
 #[cfg(target_os = "macos")]
 mod script_dialog;
@@ -885,6 +887,10 @@ impl InnerWebView {
         attributes.credential_challenge_denied_handler,
         #[cfg(target_os = "macos")]
         pl_attrs.http_auth_handler,
+        #[cfg(target_os = "macos")]
+        pl_attrs.certificate_failure_handler,
+        #[cfg(target_os = "macos")]
+        pl_attrs.server_trust_exceptions,
         download_delegate.clone(),
         attributes.on_page_load_handler,
         attributes.navigation_event_handler,

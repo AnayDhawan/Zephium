@@ -452,6 +452,29 @@ reach WebKit as a session-only `NSURLCredential` or WebView2's response user
 name and password; an empty username cancels so WebView2 cannot fall back to its
 own dialog.
 
+**Certificate errors.** A refused server certificate keeps the engine's hard fail.
+The error page says whether it expired or is not valid yet, is not trusted
+(self-signed or unknown issuer), names another host, was revoked, or other; macOS
+classifies by evaluating a copy of the presented chain with network fetches off, so
+it never waits on a page-chosen URL, Windows from WebView2's error status, and
+no native error text is shown. Only an https address whose host is loopback, an
+RFC 1918, CGNAT, ULA or link-local literal, a single-label name, or under `.local`,
+`.lan`, `.internal`, `.home.arpa`, `.test` or `.localhost` gets "Continue (unsafe)",
+behind Show details and a warning; public names, including lookalikes such as
+`local.example.com` or `192.168.1.1.nip.io`, never do. Continuing records an
+exception keyed by scheme, host, port and the SHA-256 of the leaf the engine itself
+refused (chrome never supplies it), in memory for that profile only until quit;
+private-profile exceptions never reach another profile and are dropped, with
+WebView2's remembered decisions (`ClearServerCertificateErrorActions`), when its
+session ends. On macOS a server-trust challenge is accepted with that trust only
+when the exception matches the presented leaf and system evaluation still fails;
+otherwise default handling applies. On Windows a matching leaf gets AlwaysAllow and
+anything else stays Cancel. WebView2 remembers AlwaysAllow per host and certificate,
+so another port on the same host with the same certificate may load without asking
+until the exception is dropped. A page from an excepted origin always shows the
+address field's not-secure warning. Agent, extension and bootstrap views are built
+without exceptions and keep the hard fail.
+
 **Human downloads on macOS.** Raw human views explicitly opt into a WKDownload
 broker; the native network request retains its WebKit profile, cookies, POST body,
 and blob ownership. No URL is replayed through a separate HTTP client. At most
@@ -1142,7 +1165,8 @@ safe.
 Same-Origin Policy, CORS, CSP enforcement, cookie semantics, certificate validation,
 HSTS, mixed-content behavior, renderer sandboxing, and process allocation are supplied
 by the installed native engine. Zephium does not reimplement them and must not disable
-them. It also does not currently install a certificate-bypass callback.
+them. Its only certificate bypass is the per-profile exception for hosts on the person's
+own network described under Certificate errors.
 
 These inherited properties must not be overstated:
 
@@ -1150,9 +1174,10 @@ These inherited properties must not be overstated:
   full site isolation. WebView2, WKWebView, and WebKitGTK have different process models,
   and their behavior can change with the installed runtime. Profile data partitioning
   is not proof of renderer/site isolation.
-- TLS errors use the engine's default behavior. There is no Zephium certificate
-  interstitial, HTTPS-only mode, certificate pinning, or independently tested TLS
-  policy yet.
+- TLS errors fail with the engine's default evaluation. Zephium's error page names
+  the problem where the engine can tell, and offers a way past only for a host on the
+  person's own network. There is no HTTPS-only mode, certificate pinning, or
+  independently tested TLS policy yet.
 - Cookies, cache, service workers, storage quotas, and clearing semantics are chiefly
   engine-owned. Per-profile partition construction and a verified engine-store
   retirement primitive are implemented. A crash-resumable coordinator now spans
@@ -1742,7 +1767,7 @@ The following are roadmap items or disabled backends, not current security guara
 - continuously maintained online blocker sources or full EasyList semantics: the usable
   network-only release seed is bundled, but production TUF trust is unprovisioned and
   packaged enforcement/endurance proof is still a release gate;
-- a custom certificate-error interstitial or anti-phishing service;
+- an anti-phishing service, or any way past a certificate error for a public site;
 - rollback-resistant update metadata: the updater (`desktop/src/updates.rs`) verifies a
   minisign signature on artifacts referenced by HTTPS `latest.json`, including the
   exact bytes consumed at installation. Metadata is not independently signed, and

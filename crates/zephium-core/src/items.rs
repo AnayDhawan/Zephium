@@ -685,10 +685,12 @@ impl Items {
     /// Remembers why the address the person asked for, or the one a view was
     /// opened for, did not load, so chrome can say so and offer it again. A
     /// page's own navigation away from a shown document is left alone.
+    /// `refused` is the address the engine itself refused, when it names one.
     pub fn record_navigation_failure(
         &mut self,
         id: ItemId,
         reason: crate::ports::engine::NavigationFailureReason,
+        refused: Option<Url>,
     ) -> bool {
         let Some(url) = self
             .pending_navigations
@@ -698,6 +700,7 @@ impl Items {
         else {
             return false;
         };
+        let url = refused.unwrap_or(url);
         let Some(tab) = self.tab_mut(id) else {
             return false;
         };
@@ -914,7 +917,7 @@ mod tests {
         assert!(items.insert_unloaded_tab(id(1), today(), url.clone(), "Dev app"));
         assert_eq!(items.ensure_view(id(1)).len(), 1);
 
-        assert!(items.record_navigation_failure(id(1), Reason::Unreachable));
+        assert!(items.record_navigation_failure(id(1), Reason::Unreachable, None));
         items.view_creation_failed(id(1));
 
         let tab = items.tab(id(1)).unwrap();
@@ -933,7 +936,7 @@ mod tests {
         items.navigate(id(1), "example.com");
         assert!(items.set_committed_url_str(id(1), "https://example.com/"));
 
-        assert!(!items.record_navigation_failure(id(1), Reason::Offline));
+        assert!(!items.record_navigation_failure(id(1), Reason::Offline, None));
         assert!(items.tab(id(1)).unwrap().failure.is_none());
     }
 

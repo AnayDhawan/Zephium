@@ -484,8 +484,11 @@ impl Shell {
             view.failure = view.url.clone().map(|url| zephium_ipc::TabFailure {
                 url,
                 reason: zephium_ipc::TabFailureReason::Crashed,
+                certificate: None,
+                can_continue: false,
             });
         }
+        view.certificate_exception = self.under_certificate_exception(id, tab);
         view.availability = self.capacity_presentation(id).or_else(|| {
             (!tab.has_view()
                 && tab.url.is_some()
@@ -682,7 +685,19 @@ fn tab_view(
         }),
         availability: None,
         failure: tab.failure.as_ref().map(|failure| {
+            use zephium_core::certificates::CertificateProblem as Problem;
             use zephium_core::ports::engine::NavigationFailureReason as Reason;
+            use zephium_ipc::TabCertificateProblem as View;
+            let certificate = match failure.reason {
+                Reason::Certificate(problem) => Some(match problem {
+                    Problem::Expired => View::Expired,
+                    Problem::Untrusted => View::Untrusted,
+                    Problem::NameMismatch => View::NameMismatch,
+                    Problem::Revoked => View::Revoked,
+                    Problem::Other => View::Other,
+                }),
+                _ => None,
+            };
             zephium_ipc::TabFailure {
                 url: failure.url.to_string(),
                 reason: match failure.reason {
@@ -690,11 +705,17 @@ fn tab_view(
                     Reason::HostNotFound => zephium_ipc::TabFailureReason::HostNotFound,
                     Reason::Unreachable => zephium_ipc::TabFailureReason::Unreachable,
                     Reason::TimedOut => zephium_ipc::TabFailureReason::TimedOut,
-                    Reason::Insecure => zephium_ipc::TabFailureReason::Insecure,
+                    Reason::Insecure | Reason::Certificate(_) => {
+                        zephium_ipc::TabFailureReason::Insecure
+                    }
                     Reason::Other => zephium_ipc::TabFailureReason::Other,
                 },
+                can_continue: certificate.is_some()
+                    && zephium_core::certificates::may_continue(&failure.url),
+                certificate,
             }
         }),
+        certificate_exception: false,
         can_go_back: tab.can_go_back,
         can_go_forward: tab.can_go_forward,
         icon,
