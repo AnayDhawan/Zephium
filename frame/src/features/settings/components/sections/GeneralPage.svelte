@@ -11,6 +11,7 @@
   import LanguageRow from "../LanguageRow.svelte";
   import StartupPages from "../StartupPages.svelte";
   import HomePageRow from "../HomePageRow.svelte";
+  import ProxyRows from "../ProxyRows.svelte";
   import { preferences } from "$domain/preferences";
   import SettingsGroup from "$shared/ui/SettingsGroup";
   import Checkbox from "$shared/ui/Checkbox";
@@ -67,6 +68,7 @@
   />{#if preferences.value("tabs.startup") === "pages"}<StartupPages />{/if}<HomePageRow
   /></SettingsGroup
 >
+<SettingsGroup title={m.network_group()}><ProxyRows /></SettingsGroup>
 <SettingsGroup title={m.section_languages()}><LanguageRow /></SettingsGroup>
 <SettingsGroup title={m.general_data_group()}>
   <ImportBrowserData />

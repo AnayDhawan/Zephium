@@ -3688,5 +3688,15 @@
   "pref_general_home": "Ana sayfa",
   "pref_general_home_help": "Ana sayfa komutunun gittiği yer. Boş bırakırsanız yeni bir sekme açılır.",
   "command_nav_home": "Ana sayfa",
-  "native_home_page": "Ana Sayfa"
+  "native_home_page": "Ana Sayfa",
+  "network_group": "Ağ",
+  "pref_network_proxy": "Proxy",
+  "pref_network_proxy_help_mac": "Bundan sonra açılan sekmelere, gizli olanlar dahil, uygulanır. Zaten açık olan sekmeler yeniden yüklenene kadar bağlantılarını korur.",
+  "pref_network_proxy_help_windows": "Zephium’u yeniden başlattıktan sonra uygulanır.",
+  "network_proxy_system": "Sistem proxy’sini kullan",
+  "network_proxy_http": "HTTP(S) proxy",
+  "network_proxy_socks5": "SOCKS5 proxy",
+  "pref_network_proxy_address": "Proxy adresi",
+  "pref_network_proxy_address_help": "proxy.example.com:3128 gibi ana makine ve bağlantı noktası. Geçerli bir adres yoksa Zephium sistem proxy’sini kullanır.",
+  "network_proxy_address_invalid": "proxy.example.com:3128 gibi ana makine:bağlantı noktası biçimini kullanın."
 }

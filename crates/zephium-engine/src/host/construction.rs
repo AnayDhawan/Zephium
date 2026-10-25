@@ -1008,6 +1008,19 @@ impl EngineHost {
                 Partition::Default(profile) | Partition::Persistent(profile) => {
                     use wry::WebViewBuilderExtMacos;
                     let configuration = self.webext.configuration(profile, &self.sink);
+                    if crate::platform::imp::proxy::apply(
+                        &configuration,
+                        crate::network::current().as_ref(),
+                    )
+                    .is_err()
+                    {
+                        eprintln!("network: the proxy could not be applied; no view was made");
+                        if report_failure {
+                            event_permit
+                                .emit(&self.sink, EngineEvent::ViewCreationFailed { id: id.get() });
+                        }
+                        return None;
+                    }
                     (builder.with_webview_configuration(configuration), None)
                 }
             }
@@ -1336,7 +1349,7 @@ impl EngineHost {
                 // Wry disables SmartScreen in its default argument set. Keep
                 // only the browser-UI suppressions so content protection stays
                 // enabled in the WebView2 runtime.
-                .with_additional_browser_args("--disable-features=msWebOOUI,msPdfOOUI")
+                .with_additional_browser_args(crate::network::browser_arguments())
                 .with_browser_accelerator_keys(false)
                 // Ctrl and the wheel zoom a person's page; the zoom listener
                 // brings what they do into the site's remembered level. Keys
@@ -2698,7 +2711,7 @@ impl EngineHost {
                 .with_page_close_policy(wry::PageClosePolicy::Ignore);
             use wry::WebViewBuilderExtWindows;
             let builder = builder
-                .with_additional_browser_args("--disable-features=msWebOOUI,msPdfOOUI")
+                .with_additional_browser_args(crate::network::browser_arguments())
                 .with_browser_accelerator_keys(false)
                 .with_environment_created_handler(move |environment| {
                     let Ok(mut slot) = observed.try_borrow_mut() else {

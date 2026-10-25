@@ -151,6 +151,23 @@ export const fields = {
     description: m.pref_general_startup_pages_help,
     initial: "",
   },
+  "network.proxy": {
+    section: "general",
+    label: m.pref_network_proxy,
+    description: m.pref_network_proxy_help_mac,
+    initial: "system",
+    options: [
+      { value: "system", label: m.network_proxy_system },
+      { value: "http", label: m.network_proxy_http },
+      { value: "socks5", label: m.network_proxy_socks5 },
+    ],
+  },
+  "network.proxy-address": {
+    section: "general",
+    label: m.pref_network_proxy_address,
+    description: m.pref_network_proxy_address_help,
+    initial: "",
+  },
   "general.home": {
     section: "general",
     label: m.pref_general_home,

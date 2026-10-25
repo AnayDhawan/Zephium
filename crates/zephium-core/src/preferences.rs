@@ -30,6 +30,8 @@ pub const KEYS: &[&str] = &[
     "tabs.startup",
     "tabs.startup-pages",
     "tabs.home",
+    "network.proxy",
+    "network.proxy-address",
     "time.track",
     "time.retention",
     "focus.minutes",
@@ -222,6 +224,9 @@ pub fn value_allowed(key: &str, value: &str) -> bool {
                     })
                 })
         }
+        // The system's proxy, or one proxy of a kind at one address.
+        "network.proxy" => matches!(value, "system" | "http" | "socks5"),
+        "network.proxy-address" => value.is_empty() || crate::proxy::parse_address(value).is_some(),
         "tabs.home" => value.is_empty() || home_page(value).is_some(),
         // Native writes `pending` on a fresh install; chrome only ever
         // finishes it, or asks for it again to replay.
@@ -660,5 +665,32 @@ mod tests {
             Some("https://example.com/")
         );
         assert_eq!(home_page(""), None);
+    }
+
+    #[test]
+    fn the_proxy_is_the_systems_or_one_validated_address() {
+        for mode in ["system", "http", "socks5"] {
+            assert!(value_allowed("network.proxy", mode));
+        }
+        for mode in ["", "manual", "SOCKS5", "https"] {
+            assert!(!value_allowed("network.proxy", mode));
+        }
+        assert!(value_allowed("network.proxy-address", ""));
+        assert!(value_allowed(
+            "network.proxy-address",
+            "Proxy.Example.com:3128"
+        ));
+        assert!(value_allowed("network.proxy-address", "[::1]:1080"));
+        for refused in [
+            "proxy.example.com",
+            "http://proxy.example.com:80",
+            "user@proxy.example.com:80",
+            "proxy.example.com:80 --disable-web-security",
+        ] {
+            assert!(
+                !value_allowed("network.proxy-address", refused),
+                "{refused:?}"
+            );
+        }
     }
 }

@@ -18,6 +18,7 @@ mod favicon_probe;
 mod favicons;
 mod fullscreen;
 mod history;
+mod network;
 mod operations;
 mod page_permissions;
 mod page_requests;
@@ -225,6 +226,7 @@ pub struct Shell {
     bookmarks: bookmarks::BookmarkState,
     search: SearchState,
     tab_preferences: tabs::TabPreferences,
+    proxy: network::ProxyPreference,
     presentation: PresentationState,
     zoom: ZoomState,
     /// Tabs gone quiet whose speaker is still held.
@@ -470,6 +472,7 @@ impl Shell {
                 ..SearchState::default()
             },
             tab_preferences: tabs::TabPreferences::load(&*store),
+            proxy: network::ProxyPreference::load(&*store),
             presentation: PresentationState::default(),
             zoom: ZoomState::load(&*store),
             audio_quiet: std::collections::HashSet::new(),

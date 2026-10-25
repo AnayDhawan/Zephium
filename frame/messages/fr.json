@@ -3688,5 +3688,15 @@
   "pref_general_home": "Page d’accueil",
   "pref_general_home_help": "Où mène la commande Accueil. Laissez vide pour ouvrir un nouvel onglet.",
   "command_nav_home": "Page d’accueil",
-  "native_home_page": "Page d’accueil"
+  "native_home_page": "Page d’accueil",
+  "network_group": "Réseau",
+  "pref_network_proxy": "Proxy",
+  "pref_network_proxy_help_mac": "S’applique aux onglets ouverts à partir de maintenant, y compris privés. Les onglets déjà ouverts gardent leur connexion jusqu’à leur rechargement.",
+  "pref_network_proxy_help_windows": "S’applique après le redémarrage de Zephium.",
+  "network_proxy_system": "Utiliser le proxy du système",
+  "network_proxy_http": "Proxy HTTP(S)",
+  "network_proxy_socks5": "Proxy SOCKS5",
+  "pref_network_proxy_address": "Adresse du proxy",
+  "pref_network_proxy_address_help": "Hôte et port, par exemple proxy.example.com:3128. Sans adresse valide, Zephium utilise le proxy du système.",
+  "network_proxy_address_invalid": "Utilisez la forme hôte:port, par exemple proxy.example.com:3128."
 }

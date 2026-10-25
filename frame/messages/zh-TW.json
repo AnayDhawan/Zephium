@@ -3688,5 +3688,15 @@
   "pref_general_home": "首頁",
   "pref_general_home_help": "「首頁」指令前往的網頁。留空則改為開啟新分頁。",
   "command_nav_home": "首頁",
-  "native_home_page": "首頁"
+  "native_home_page": "首頁",
+  "network_group": "網路",
+  "pref_network_proxy": "Proxy",
+  "pref_network_proxy_help_mac": "適用於此後開啟的分頁(包括私密分頁)。已開啟的分頁在重新載入前會保持原有連線。",
+  "pref_network_proxy_help_windows": "重新啟動 Zephium 後生效。",
+  "network_proxy_system": "使用系統 Proxy",
+  "network_proxy_http": "HTTP(S) Proxy",
+  "network_proxy_socks5": "SOCKS5 Proxy",
+  "pref_network_proxy_address": "Proxy 位址",
+  "pref_network_proxy_address_help": "主機與連接埠,例如 proxy.example.com:3128。沒有有效位址時,Zephium 會使用系統 Proxy。",
+  "network_proxy_address_invalid": "請使用「主機:連接埠」的格式,例如 proxy.example.com:3128。"
 }

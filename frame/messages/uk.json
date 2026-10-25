@@ -3688,5 +3688,15 @@
   "pref_general_home": "Домашня сторінка",
   "pref_general_home_help": "Куди веде команда «Домашня сторінка». Залиште порожнім, щоб відкривалася нова вкладка.",
   "command_nav_home": "Домашня сторінка",
-  "native_home_page": "Домашня сторінка"
+  "native_home_page": "Домашня сторінка",
+  "network_group": "Мережа",
+  "pref_network_proxy": "Проксі",
+  "pref_network_proxy_help_mac": "Застосовується до вкладок, відкритих відтепер, зокрема приватних. Уже відкриті вкладки зберігають з’єднання до перезавантаження.",
+  "pref_network_proxy_help_windows": "Застосовується після перезапуску Zephium.",
+  "network_proxy_system": "Використовувати системний проксі",
+  "network_proxy_http": "HTTP(S)-проксі",
+  "network_proxy_socks5": "SOCKS5-проксі",
+  "pref_network_proxy_address": "Адреса проксі",
+  "pref_network_proxy_address_help": "Хост і порт, наприклад proxy.example.com:3128. Без дійсної адреси Zephium використовує системний проксі.",
+  "network_proxy_address_invalid": "Використовуйте формат хост:порт, наприклад proxy.example.com:3128."
 }

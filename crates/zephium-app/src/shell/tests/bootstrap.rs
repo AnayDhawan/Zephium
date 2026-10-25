@@ -52,6 +52,43 @@ fn restart_preserves_ids_actives_and_splits() {
 }
 
 #[test]
+fn the_engine_learns_the_proxy_before_any_view_and_whenever_it_changes() {
+    let store = Arc::new(FakeStore::default());
+    store.settings.lock().unwrap().extend([
+        ("network.proxy".to_owned(), "http".to_owned()),
+        (
+            "network.proxy-address".to_owned(),
+            "proxy.example.com:3128".to_owned(),
+        ),
+    ]);
+    let (mut shell, engine, _screen) = setup_with(store);
+    shell.handle(Command::Bootstrap);
+    assert_eq!(
+        engine.proxies(),
+        [Some(
+            "--proxy-server=http://proxy.example.com:3128".to_owned()
+        )]
+    );
+
+    shell.handle(Command::SetAppSetting {
+        key: "network.proxy".into(),
+        value: "socks5".into(),
+    });
+    shell.handle(Command::SetAppSetting {
+        key: "network.proxy-address".into(),
+        value: "".into(),
+    });
+    assert_eq!(
+        engine.proxies(),
+        [
+            Some("--proxy-server=http://proxy.example.com:3128".to_owned()),
+            Some("--proxy-server=socks5://proxy.example.com:3128".to_owned()),
+            None,
+        ]
+    );
+}
+
+#[test]
 fn starting_with_pages_opens_the_list_in_front_and_loads_no_restored_tab() {
     let store = Arc::new(FakeStore::default());
     let (mut shell, _engine, screen) = setup_with(store.clone());

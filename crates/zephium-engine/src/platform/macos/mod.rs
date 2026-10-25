@@ -48,6 +48,7 @@ mod find;
 mod native;
 mod navigation;
 pub mod private_api;
+pub(crate) mod proxy;
 pub(crate) use apps::{external_app_name, open_external_app};
 mod paint;
 pub(crate) use paint::{PageSnapshot, PaintCover};
@@ -416,6 +417,7 @@ pub(crate) fn new_configuration_with_data_store(
     if Retained::as_ptr(&configured_store) != Retained::as_ptr(store) {
         return Err("WKWebViewConfiguration did not retain the requested website data store");
     }
+    proxy::apply(&configuration, crate::network::current().as_ref())?;
     Ok(configuration)
 }
 

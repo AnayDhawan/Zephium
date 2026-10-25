@@ -3688,5 +3688,15 @@
   "pref_general_home": "Home page",
   "pref_general_home_help": "Where the Home command goes. Leave it empty to open a new tab instead.",
   "command_nav_home": "Home page",
-  "native_home_page": "Home Page"
+  "native_home_page": "Home Page",
+  "network_group": "Network",
+  "pref_network_proxy": "Proxy",
+  "pref_network_proxy_help_mac": "Applies to tabs opened from now on, private ones included. Tabs already open keep their connection until they reload.",
+  "pref_network_proxy_help_windows": "Applies after you restart Zephium.",
+  "network_proxy_system": "Use system proxy",
+  "network_proxy_http": "HTTP(S) proxy",
+  "network_proxy_socks5": "SOCKS5 proxy",
+  "pref_network_proxy_address": "Proxy address",
+  "pref_network_proxy_address_help": "Host and port, like proxy.example.com:3128. Without a valid address Zephium uses the system proxy.",
+  "network_proxy_address_invalid": "Use the form host:port, like proxy.example.com:3128."
 }

@@ -3688,5 +3688,15 @@
   "pref_general_home": "主页",
   "pref_general_home_help": "“主页”命令前往的网页。留空则改为打开新标签页。",
   "command_nav_home": "主页",
-  "native_home_page": "主页"
+  "native_home_page": "主页",
+  "network_group": "网络",
+  "pref_network_proxy": "代理",
+  "pref_network_proxy_help_mac": "适用于此后打开的标签页(包括隐私标签页)。已打开的标签页在重新载入前保持原有连接。",
+  "pref_network_proxy_help_windows": "重新启动 Zephium 后生效。",
+  "network_proxy_system": "使用系统代理",
+  "network_proxy_http": "HTTP(S) 代理",
+  "network_proxy_socks5": "SOCKS5 代理",
+  "pref_network_proxy_address": "代理地址",
+  "pref_network_proxy_address_help": "主机和端口,例如 proxy.example.com:3128。没有有效地址时,Zephium 会使用系统代理。",
+  "network_proxy_address_invalid": "请使用“主机:端口”的格式,例如 proxy.example.com:3128。"
 }

@@ -300,6 +300,7 @@ pub(crate) struct FakeEngine {
     hold_picker: std::sync::atomic::AtomicBool,
     held_picker: Mutex<Option<zephium_core::blocker::ElementPickerCompletion>>,
     calls: Mutex<Vec<String>>,
+    proxies: Mutex<Vec<Option<String>>>,
     previews: Mutex<Vec<Option<zephium_core::ports::engine::DropPreview>>>,
     extension_browser_surfaces: Mutex<Vec<ExtensionBrowserSurface>>,
     extension_action_requests: Mutex<Vec<(ProfileId, ItemId, ExtensionBrowserSurfaceGeneration)>>,
@@ -350,6 +351,9 @@ pub(crate) struct FakeEngine {
 impl FakeEngine {
     fn calls(&self) -> Vec<String> {
         self.calls.lock().unwrap().clone()
+    }
+    fn proxies(&self) -> Vec<Option<String>> {
+        self.proxies.lock().unwrap().clone()
     }
     fn previews(&self) -> Vec<Option<zephium_core::ports::engine::DropPreview>> {
         self.previews.lock().unwrap().clone()
@@ -687,6 +691,12 @@ impl Engine for FakeEngine {
     fn reload(&self, id: ItemId) -> NativeDispatch {
         self.log(format!("reload {id}"));
         self.native_admission()
+    }
+    fn set_proxy(&self, proxy: Option<zephium_core::proxy::ProxyServer>) {
+        self.proxies
+            .lock()
+            .unwrap()
+            .push(proxy.map(|proxy| proxy.browser_argument()));
     }
     fn hard_reload(&self, id: ItemId) -> NativeDispatch {
         self.log(format!("hard-reload {id}"));

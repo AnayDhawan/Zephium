@@ -24,6 +24,7 @@ pub mod notes;
 pub mod permissions;
 pub mod ports;
 pub mod profiles;
+pub mod proxy;
 pub mod runtime_security;
 pub mod search;
 pub mod session;

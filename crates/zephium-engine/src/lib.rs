@@ -20,6 +20,7 @@ mod layout_queue;
 #[cfg(any(target_os = "windows", test))]
 mod motion_curve;
 mod navigation_epoch;
+mod network;
 #[cfg(feature = "agentic-browser")]
 pub mod page_reader;
 mod pane_geometry;
@@ -3237,6 +3238,10 @@ impl Engine for WebviewEngine {
         // dropped. No logical/native state changed, and this synchronous
         // return is therefore authoritative rather than a fatal split.
         NativeDispatch::from_scheduled(dispatched)
+    }
+
+    fn set_proxy(&self, proxy: Option<zephium_core::proxy::ProxyServer>) {
+        network::set(proxy);
     }
 
     fn set_shortcuts(&self, shortcuts: Vec<Shortcut>) {

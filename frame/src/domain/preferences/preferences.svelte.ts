@@ -32,6 +32,8 @@ const defaults = {
   "tabs.startup": "continue",
   "tabs.startup-pages": "",
   "tabs.home": "",
+  "network.proxy": "system",
+  "network.proxy-address": "",
   "time.track": "true",
   "time.retention": "90",
   "focus.minutes": "25",

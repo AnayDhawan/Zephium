@@ -3688,5 +3688,15 @@
   "pref_general_home": "Página inicial",
   "pref_general_home_help": "Para onde o comando Página inicial leva. Deixe vazio para abrir uma nova aba.",
   "command_nav_home": "Página inicial",
-  "native_home_page": "Página Inicial"
+  "native_home_page": "Página Inicial",
+  "network_group": "Rede",
+  "pref_network_proxy": "Proxy",
+  "pref_network_proxy_help_mac": "Vale para as abas abertas a partir de agora, inclusive as privadas. As abas já abertas mantêm a conexão até serem recarregadas.",
+  "pref_network_proxy_help_windows": "Vale depois de reiniciar o Zephium.",
+  "network_proxy_system": "Usar o proxy do sistema",
+  "network_proxy_http": "Proxy HTTP(S)",
+  "network_proxy_socks5": "Proxy SOCKS5",
+  "pref_network_proxy_address": "Endereço do proxy",
+  "pref_network_proxy_address_help": "Host e porta, como proxy.example.com:3128. Sem um endereço válido, o Zephium usa o proxy do sistema.",
+  "network_proxy_address_invalid": "Use o formato host:porta, como proxy.example.com:3128."
 }

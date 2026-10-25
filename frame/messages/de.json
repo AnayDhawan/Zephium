@@ -3688,5 +3688,15 @@
   "pref_general_home": "Startseite",
   "pref_general_home_help": "Dorthin führt der Befehl „Startseite“. Leer lassen, um stattdessen einen neuen Tab zu öffnen.",
   "command_nav_home": "Startseite",
-  "native_home_page": "Startseite"
+  "native_home_page": "Startseite",
+  "network_group": "Netzwerk",
+  "pref_network_proxy": "Proxy",
+  "pref_network_proxy_help_mac": "Gilt für Tabs, die ab jetzt geöffnet werden, auch private. Bereits geöffnete Tabs behalten ihre Verbindung, bis sie neu geladen werden.",
+  "pref_network_proxy_help_windows": "Gilt nach einem Neustart von Zephium.",
+  "network_proxy_system": "System-Proxy verwenden",
+  "network_proxy_http": "HTTP(S)-Proxy",
+  "network_proxy_socks5": "SOCKS5-Proxy",
+  "pref_network_proxy_address": "Proxy-Adresse",
+  "pref_network_proxy_address_help": "Host und Port, zum Beispiel proxy.example.com:3128. Ohne gültige Adresse verwendet Zephium den System-Proxy.",
+  "network_proxy_address_invalid": "Verwenden Sie die Form Host:Port, zum Beispiel proxy.example.com:3128."
 }

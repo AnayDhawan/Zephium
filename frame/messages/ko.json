@@ -3688,5 +3688,15 @@
   "pref_general_home": "홈 페이지",
   "pref_general_home_help": "홈 페이지 명령이 이동하는 곳입니다. 비워 두면 새 탭이 열립니다.",
   "command_nav_home": "홈 페이지",
-  "native_home_page": "홈 페이지"
+  "native_home_page": "홈 페이지",
+  "network_group": "네트워크",
+  "pref_network_proxy": "프록시",
+  "pref_network_proxy_help_mac": "지금부터 여는 탭(비공개 탭 포함)에 적용됩니다. 이미 열린 탭은 새로고침할 때까지 기존 연결을 유지합니다.",
+  "pref_network_proxy_help_windows": "Zephium을 다시 시작하면 적용됩니다.",
+  "network_proxy_system": "시스템 프록시 사용",
+  "network_proxy_http": "HTTP(S) 프록시",
+  "network_proxy_socks5": "SOCKS5 프록시",
+  "pref_network_proxy_address": "프록시 주소",
+  "pref_network_proxy_address_help": "proxy.example.com:3128처럼 호스트와 포트를 입력하세요. 올바른 주소가 없으면 시스템 프록시를 사용합니다.",
+  "network_proxy_address_invalid": "proxy.example.com:3128처럼 호스트:포트 형식으로 입력하세요."
 }

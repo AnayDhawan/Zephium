@@ -3688,5 +3688,15 @@
   "pref_general_home": "ホームページ",
   "pref_general_home_help": "「ホームページ」コマンドで開くページです。空のままにすると、代わりに新しいタブを開きます。",
   "command_nav_home": "ホームページ",
-  "native_home_page": "ホームページ"
+  "native_home_page": "ホームページ",
+  "network_group": "ネットワーク",
+  "pref_network_proxy": "プロキシ",
+  "pref_network_proxy_help_mac": "これから開くタブ(プライベートも含む)に適用されます。すでに開いているタブは、再読み込みするまで接続が変わりません。",
+  "pref_network_proxy_help_windows": "Zephium を再起動すると適用されます。",
+  "network_proxy_system": "システムのプロキシを使う",
+  "network_proxy_http": "HTTP(S) プロキシ",
+  "network_proxy_socks5": "SOCKS5 プロキシ",
+  "pref_network_proxy_address": "プロキシのアドレス",
+  "pref_network_proxy_address_help": "ホストとポートを proxy.example.com:3128 の形式で入力します。有効なアドレスがない場合は、システムのプロキシを使います。",
+  "network_proxy_address_invalid": "proxy.example.com:3128 のように「ホスト:ポート」の形式で入力してください。"
 }

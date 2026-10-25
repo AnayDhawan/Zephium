@@ -11,6 +11,8 @@ impl Shell {
         if self.profile_deletion.failed_closed {
             return;
         }
+        // Before any view exists: none may start out on the wrong route.
+        self.engine.set_proxy(self.proxy.server());
         // Runtime update state is independent of session recovery and chrome
         // reloads. Querying the sticky engine state also repairs a callback
         // that arrived before the shell callback ingress was installed.

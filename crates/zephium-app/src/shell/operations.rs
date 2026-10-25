@@ -890,6 +890,9 @@ impl Shell {
             self.search.include_history = value == "true";
         }
         self.tab_preferences.apply(&key, &value);
+        if self.proxy.apply(&key, &value) {
+            self.engine.set_proxy(self.proxy.server());
+        }
         if key == "tabs.automatic-pip" && value == "false" {
             self.engine.cancel_automatic_pip();
         }
