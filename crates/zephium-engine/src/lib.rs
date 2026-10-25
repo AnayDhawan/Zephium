@@ -1127,6 +1127,8 @@ impl RetirementGate {
             | event @ EngineEvent::MediaCaptureChanged { id, .. }
             | event @ EngineEvent::FullscreenChanged { id, .. }
             | event @ EngineEvent::FaviconPixels { id, .. }
+            | event @ EngineEvent::FaviconRasterFailed { id, .. }
+            | event @ EngineEvent::FaviconCandidates { id, .. }
             | event @ EngineEvent::DiscardSafety { id, .. }
             | event @ EngineEvent::NavState { id, .. }
             | event @ EngineEvent::NativeTabCloseRequested { id }
@@ -2933,6 +2935,14 @@ impl Engine for WebviewEngine {
         self.run_for_active_item(id, move |h| h.discover_favicon(id))
     }
 
+    fn rasterize_favicon(&self, id: ItemId, url: &str) -> NativeDispatch {
+        if url.len() > zephium_core::icon::MAX_CANDIDATE_URL_BYTES {
+            return NativeDispatch::Rejected;
+        }
+        let url = url.to_owned();
+        self.run_for_active_item(id, move |h| h.rasterize_favicon(id, url))
+    }
+
     fn probe_discard_safety(&self, id: ItemId, probe: DiscardProbeId) -> bool {
         let Some(active) = lock_retirement_gate(&self.retirement).active_item(id) else {
             return false;
@@ -3907,6 +3917,10 @@ mod tests {
         assert_eq!(engine.capture(id), NativeDispatch::Unsupported);
         assert_eq!(engine.extract_html(id), NativeDispatch::Rejected);
         assert_eq!(engine.discover_favicon(id), NativeDispatch::Rejected);
+        assert_eq!(
+            engine.rasterize_favicon(id, "https://late.invalid/i.png"),
+            NativeDispatch::Rejected
+        );
         assert_eq!(engine.print(id), NativeDispatch::Rejected);
         assert_eq!(
             engine.set_content(1, None, None),
@@ -4261,6 +4275,17 @@ mod tests {
                 id,
                 page_url: "https://late.invalid".into(),
                 rgba: vec![0; zephium_core::icon::RGBA32_BYTES],
+            },
+            EngineEvent::FaviconRasterFailed {
+                id,
+                page_url: "https://late.invalid".into(),
+                url: "https://late.invalid/i.png".into(),
+            },
+            EngineEvent::FaviconCandidates {
+                id,
+                page_url: "https://late.invalid".into(),
+                complete: true,
+                candidates: Vec::new(),
             },
             EngineEvent::DiscardSafety {
                 id,

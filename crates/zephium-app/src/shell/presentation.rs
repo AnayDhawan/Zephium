@@ -226,15 +226,8 @@ impl Shell {
             self.cancel_exact_pending_presentation(id, navigation);
             return;
         };
-        let projection = self.presentation_tab_view(
-            id,
-            tab,
-            self.icon_ref(
-                zephium_ipc::IconSurface::Chrome,
-                tab,
-                self.profile_of_item(id),
-            ),
-        );
+        let projection =
+            self.presentation_tab_view(id, tab, self.tab_icon(id, tab, self.profile_of_item(id)));
         let projection_revision = projection.projection_revision.clone();
         self.record_tab_projection_revision(id, &projection_revision);
         self.remember_tab_view(id, &projection);

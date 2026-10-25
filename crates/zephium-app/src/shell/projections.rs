@@ -429,11 +429,7 @@ impl Shell {
     }
 
     fn generic_tab_view(&self, id: ItemId, tab: &TabState, profile: Option<ProfileId>) -> TabView {
-        let mut view = self.presentation_tab_view(
-            id,
-            tab,
-            self.icon_ref(zephium_ipc::IconSurface::Chrome, tab, profile),
-        );
+        let mut view = self.presentation_tab_view(id, tab, self.tab_icon(id, tab, profile));
         if self
             .presentation
             .deferred_first_content_layout
@@ -525,6 +521,20 @@ impl Shell {
             // own; no other subdomain does.
             self.icon_ref_for(surface, profile, &super::favicons::apex_pair(&origin)?)
         })
+    }
+
+    /// The icon a live tab wears. A tab loading another page of the site it
+    /// was just on keeps that icon until the new page's is known, and a tab
+    /// that moved to another site shows no stale mark at all, only that it
+    /// is loading.
+    pub(super) fn tab_icon(
+        &self,
+        id: ItemId,
+        tab: &TabState,
+        profile: Option<ProfileId>,
+    ) -> Option<zephium_ipc::IconRef> {
+        let icon = self.icon_ref(zephium_ipc::IconSurface::Chrome, tab, profile);
+        self.keep_or_hold_icon(id, tab, profile?, icon)
     }
 
     /// The icon a page wears: its own when it has one, else its origin's.

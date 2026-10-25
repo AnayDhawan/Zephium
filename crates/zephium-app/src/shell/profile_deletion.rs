@@ -245,12 +245,6 @@ impl Shell {
             .collect();
         favicon_items.extend(
             self.favicons
-                .icon_load_completion_pending
-                .iter()
-                .filter_map(|(id, target)| (target.profile == profile).then_some(*id)),
-        );
-        favicon_items.extend(
-            self.favicons
                 .store_reads
                 .iter()
                 .filter_map(|(id, pending)| (pending.target.profile == profile).then_some(*id)),
@@ -306,6 +300,11 @@ impl Shell {
         self.favicons
             .icons_checked
             .retain(|(item_profile, _)| *item_profile != profile);
+        self.favicons
+            .icon_sources
+            .retain(|(item_profile, _), _| *item_profile != profile);
+        self.favicons.failed.forget_profile(profile);
+        self.favicons.unfetched.forget_profile(profile);
         self.favicons
             .icon_values
             .retain(|(item_profile, _), _| *item_profile != profile);

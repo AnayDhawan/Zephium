@@ -557,23 +557,35 @@ non-persistence must be proved before `remember_enabled` is switched on.
 
 Session restore state (§7) rides on lifecycle (`opts` carries restore state).
 
-The built favicon path deliberately has no second Rust HTTP stack or native
-image decoder. The exact site renderer scans a bounded set of same-origin icon
-links plus `/favicon.ico`, decodes there, and returns only canonical 32x32 RGBA
-for the current view generation/navigation epoch. A page whose icon differs
-from its origin's wears its own, so each new page of an origin is looked up once
-(at most one per second per tab). Seven timed polls are followed by at most one
-fresh pass at document completion when the initial budget expired during
-loading. Cross-origin/CDN icons are not fetched until a
-profile-scoped broker can share the engine's exact cookies, proxy, DNS, and
-shutdown policy; affected sites may show the fallback rather than their
-declared icon.
+The favicon path never polls. When a page commits, the shell asks the engine
+to watch that document's icon links: one host-initiated evaluation waits inside
+the page, answers with the addresses its `icon`, `apple-touch-icon` and
+`mask-icon` links name (cross-origin included) as soon as its head has any, and
+again if they change until a moment after load, then stops. The page names
+addresses only; it never supplies an image. The shell ranks them (kind first,
+then the side nearest 32 px without upscaling, the site's own `/favicon.ico`
+last) and asks the desktop prober for the best three. The prober is the one
+anonymous client the Work origin probe already used: HTTPS to public addresses
+only, resolved by a resolver that refuses private ones, no cookie store, no
+credentials, no referrer and nothing of the page, two redirects, five seconds,
+256 KiB. Its decoders are the bounded memory-safe ones; only a fixed 32x32
+RGBA raster leaves it, so a page-controlled image is still never parsed by the
+chrome. What the prober cannot use (vectors, plain-http or private hosts, icons
+that need the page's cookies) is decoded by the page itself from one address
+the host names, same-origin first. A private profile never asks the prober for a
+page's addresses: all of its icon fetching stays inside its own partition and is
+kept in memory only. A tab shows its page's icon, then its origin's, then the
+other spelling of its host (`www` and apex only). While a page of the site it
+was just on loads it keeps the icon it had until the new one is known or thirty
+seconds pass; a tab that moved to another site shows its loading state. An
+address that gave nothing is not asked for again for an hour, and the oldest of
+those give way first, so a new site always gets its turn.
 
 Future application-owned downloads, such as maintained filter lists or signed
 updates, are not page-derived browsing traffic. Each must use a purpose-built,
 bounded component with its own source allowlist, redirect, proxy, integrity,
-retention, and shutdown policy. A generic native fetch seam must not be
-reintroduced for page-controlled URLs.
+retention, and shutdown policy. Apart from the icon prober above, a generic
+native fetch seam must not be reintroduced for page-controlled URLs.
 
 ---
 

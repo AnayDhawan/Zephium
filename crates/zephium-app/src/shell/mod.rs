@@ -40,9 +40,9 @@ mod zoom;
 use effects::{mutation_result, operation_result, NativeWork};
 use extension_actions::ExtensionActionState;
 use extension_browser_surface::ExtensionBrowserSurfaceState;
-use favicons::{origin_of, FaviconState};
 #[cfg(test)]
-use favicons::{FAVICON_POLL_DELAYS, ICON_CACHE_CAPACITY};
+use favicons::ICON_CACHE_CAPACITY;
+use favicons::{origin_of, FaviconState};
 use page_permissions::PagePermissionPromptState;
 #[cfg(test)]
 use presentation::PendingPresentation;
@@ -952,6 +952,12 @@ impl Shell {
                 origin,
                 rgba,
             } => self.favicon_probed(profile, origin, rgba),
+            Command::FaviconFetched {
+                ticket,
+                rgba,
+                source,
+                failed,
+            } => self.favicon_fetched(ticket, rgba, source, failed),
             Command::AttachNotes(attachment) => {
                 self.notes.get_or_insert(attachment.0);
             }

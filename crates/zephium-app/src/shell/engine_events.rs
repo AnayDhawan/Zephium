@@ -402,6 +402,15 @@ impl Shell {
             EngineEvent::FaviconPixels { id, page_url, rgba } => {
                 self.favicon_pixels(id, &page_url, rgba);
             }
+            EngineEvent::FaviconRasterFailed { id, page_url, url } => {
+                self.favicon_raster_failed(id, &page_url, url);
+            }
+            EngineEvent::FaviconCandidates {
+                id,
+                page_url,
+                complete,
+                candidates,
+            } => self.favicon_candidates(id, &page_url, complete, candidates),
             EngineEvent::DiscardSafety {
                 id,
                 probe,
@@ -668,6 +677,8 @@ impl Shell {
             | EngineEvent::NativeActionFailed { id, .. }
             | EngineEvent::LoadingChanged { id, .. }
             | EngineEvent::FaviconPixels { id, .. }
+            | EngineEvent::FaviconRasterFailed { id, .. }
+            | EngineEvent::FaviconCandidates { id, .. }
             | EngineEvent::DiscardSafety { id, .. }
             | EngineEvent::NavState { id, .. }
             | EngineEvent::NativeTabCloseRequested { id }

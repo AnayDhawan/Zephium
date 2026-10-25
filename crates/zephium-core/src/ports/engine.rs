@@ -773,10 +773,16 @@ pub trait Engine {
     fn capture(&self, id: ItemId) -> NativeDispatch;
     /// Result arrives as `EngineEvent::HtmlExtracted`.
     fn extract_html(&self, id: ItemId) -> NativeDispatch;
-    /// Asks the sandboxed page renderer to fetch and decode its best icon;
-    /// an exact 32x32 RGBA result arrives as `EngineEvent::FaviconPixels`.
-    /// Repeated calls poll the renderer-owned asynchronous decode state.
+    /// Starts watching the committed document's icon links: what they name
+    /// arrives as `EngineEvent::FaviconCandidates` when the head first has
+    /// icons and whenever they change until the page has loaded. One call per
+    /// committed document; a later call replaces the earlier watch. Nothing is
+    /// polled.
     fn discover_favicon(&self, id: ItemId) -> NativeDispatch;
+    /// Asks the sandboxed page renderer to fetch and decode one icon address
+    /// the page declared. An exact 32x32 RGBA result arrives as
+    /// `EngineEvent::FaviconPixels`, a failure as `FaviconRasterFailed`.
+    fn rasterize_favicon(&self, id: ItemId, url: &str) -> NativeDispatch;
     /// Asynchronously asks the exact live native-view generation and its
     /// current committed navigation whether it is safe to discard. A missing
     /// or malformed response is deliberately not a positive result. Callers
@@ -1309,6 +1315,20 @@ pub enum EngineEvent {
         id: ItemId,
         page_url: String,
         rgba: Vec<u8>,
+    },
+    /// The page renderer could not decode the address it was asked to.
+    FaviconRasterFailed {
+        id: ItemId,
+        page_url: String,
+        url: String,
+    },
+    /// The icon addresses a committed document's head names. Every report is
+    /// a full snapshot; `complete` marks the last one the watch makes.
+    FaviconCandidates {
+        id: ItemId,
+        page_url: String,
+        complete: bool,
+        candidates: Vec<crate::icon::IconCandidate>,
     },
     /// The same renderer-side discovery as [`EngineEvent::FaviconPixels`],
     /// run on a Work page the agent read. It names no item: the icon is

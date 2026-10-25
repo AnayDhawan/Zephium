@@ -23,6 +23,7 @@ mod element_picker;
 #[cfg(target_os = "macos")]
 mod extension_action;
 mod extension_browser_surface;
+mod favicon;
 #[cfg(target_os = "macos")]
 mod file_uploads;
 mod focus;
@@ -163,6 +164,9 @@ struct ObservedView {
         objc2::rc::Retained<crate::platform::macos::fullscreen::FullscreenObserver>,
     #[cfg(target_os = "windows")]
     _fullscreen_observer: crate::platform::imp::FullscreenObserver,
+    // Which icon watch of this view's document is current; an older watch's
+    // reports are ignored.
+    favicon_watch: Cell<u64>,
     replay_safety: Rc<discard::ReplaySafety>,
     discard_probe_lease: std::cell::RefCell<Option<discard::ProbeLease>>,
     #[cfg(target_os = "macos")]

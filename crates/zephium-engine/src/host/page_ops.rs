@@ -1,10 +1,7 @@
 use zephium_core::ids::ItemId;
-use zephium_core::navigation as navigation_policy;
 use zephium_core::ports::engine::{EngineEvent, FindRequest, ZoomRequestId};
 
-use super::scripts::{
-    decode_favicon_eval_result, EXTRACT_HTML_JS, FAVICON_JS, MAX_HTML_CHARS, MAX_HTML_RESULT_BYTES,
-};
+use super::scripts::{EXTRACT_HTML_JS, MAX_HTML_CHARS, MAX_HTML_RESULT_BYTES};
 use super::EngineHost;
 
 fn settled_zoom_scale(previous: f64, requested: f64, succeeded: bool) -> f64 {
@@ -73,41 +70,6 @@ impl EngineHost {
                         id,
                         html: html.to_owned(),
                         truncated,
-                    },
-                );
-            });
-        }
-    }
-
-    pub(crate) fn discover_favicon(&self, id: ItemId) {
-        if let Some(view) = self.views.get(&id) {
-            let Some((epoch, page_url)) = view.navigation.committed_snapshot() else {
-                return;
-            };
-            if !navigation_policy::is_allowed_str(&page_url) {
-                return;
-            }
-            let sink = self.sink.clone();
-            let permit = view.event_permit.clone();
-            let navigation = view.navigation.clone();
-            let _ = view.evaluate_script_with_callback(FAVICON_JS, move |result| {
-                if !navigation.matches_committed_snapshot(epoch, &page_url) {
-                    return;
-                }
-                // Native engines JSON-serialize the primitive callback value.
-                // The bounded decoder accepts both ordinary JSON and
-                // Foundation's escaped-solidus spelling, then requires one
-                // canonical 5464-byte base64 value and exact 32x32 RGBA
-                // output. No page object/toJSON hook is traversed.
-                let Some(rgba) = decode_favicon_eval_result(&result) else {
-                    return;
-                };
-                permit.emit(
-                    &sink,
-                    EngineEvent::FaviconPixels {
-                        id,
-                        page_url: page_url.clone(),
-                        rgba,
                     },
                 );
             });

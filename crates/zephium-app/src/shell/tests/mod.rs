@@ -769,6 +769,10 @@ impl Engine for FakeEngine {
         self.log(format!("discover {id}"));
         self.native_admission()
     }
+    fn rasterize_favicon(&self, id: ItemId, url: &str) -> NativeDispatch {
+        self.log(format!("rasterize {id} {url}"));
+        self.native_admission()
+    }
     fn probe_discard_safety(&self, id: ItemId, probe: DiscardProbeId) -> bool {
         self.log(format!("probe-discard {id} {}", probe.0));
         true

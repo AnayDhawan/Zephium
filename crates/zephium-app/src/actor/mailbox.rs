@@ -25,6 +25,7 @@ enum CoalescedKey {
     Url(ItemId),
     Loading(ItemId),
     Favicon(ItemId),
+    FaviconCandidates(ItemId),
     PageMemory(ItemId),
     FaviconPoll(ItemId),
     Presentation(ItemId),
@@ -75,7 +76,10 @@ impl CoalescedKey {
             EngineEvent::TitleChanged { id, .. } => Self::Title(*id),
             EngineEvent::UrlChanged { id, .. } => Self::Url(*id),
             EngineEvent::LoadingChanged { id, .. } => Self::Loading(*id),
-            EngineEvent::FaviconPixels { id, .. } => Self::Favicon(*id),
+            EngineEvent::FaviconPixels { id, .. } | EngineEvent::FaviconRasterFailed { id, .. } => {
+                Self::Favicon(*id)
+            }
+            EngineEvent::FaviconCandidates { id, .. } => Self::FaviconCandidates(*id),
             EngineEvent::PageMemory { id, .. } => Self::PageMemory(*id),
             EngineEvent::PresentationPending { id, .. }
             | EngineEvent::PresentationReady { id, .. } => Self::Presentation(*id),

@@ -2229,6 +2229,7 @@ impl EngineHost {
         Some(ObservedView {
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             automatic_pip_sequence: Rc::new(Cell::new(0)),
+            favicon_watch: Cell::new(0),
             #[cfg(target_os = "macos")]
             _capture_observer: capture_observer,
             #[cfg(any(target_os = "macos", target_os = "windows"))]

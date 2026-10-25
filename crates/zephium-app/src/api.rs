@@ -674,7 +674,17 @@ pub enum Command {
         origin: String,
         rgba: Option<Vec<u8>>,
     },
-    /// Bounded retry for the renderer-owned asynchronous favicon decode.
+    /// The prober's single answer for one page's icon: the raster, the
+    /// address it came from, and the addresses that gave nothing.
+    FaviconFetched {
+        ticket: u64,
+        rgba: Option<Vec<u8>>,
+        source: Option<String>,
+        failed: Vec<String>,
+    },
+    /// One-shot deadline for a tab's icon work: attempt 0 is a lost store
+    /// read, the maximum is a deferred page check, and the one below it ends
+    /// the wait that keeps the previous icon on show.
     FaviconPoll {
         id: ItemId,
         attempt: u8,
@@ -780,9 +790,33 @@ impl fmt::Debug for ResourceCompletion {
     }
 }
 
-/// Fetches one origin's icon anonymously and answers exactly once with
-/// [`Command::FaviconProbed`] for the same profile and origin.
-pub type FaviconProber = Arc<dyn Fn(ProfileId, String) + Send + Sync>;
+/// Where an icon comes from, for a request the prober answers with
+/// [`Command::FaviconFetched`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FaviconPageSource {
+    /// Icon addresses the page declared, best first. Each is fetched without
+    /// cookies, credentials or referrer; the first that decodes wins.
+    Addresses(Vec<String>),
+}
+
+/// One request to the prober.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FaviconProbe {
+    /// An origin's icon, answered exactly once with [`Command::FaviconProbed`]
+    /// for the same profile and origin.
+    Origin { profile: ProfileId, origin: String },
+    /// A page's icon, answered exactly once with [`Command::FaviconFetched`]
+    /// for the same ticket.
+    Page {
+        ticket: u64,
+        profile: ProfileId,
+        origin: String,
+        source: FaviconPageSource,
+    },
+}
+
+/// Fetches icons anonymously and decodes them into the fixed raster.
+pub type FaviconProber = Arc<dyn Fn(FaviconProbe) + Send + Sync>;
 
 #[derive(Clone)]
 pub struct FaviconProberAttachment(pub FaviconProber);
