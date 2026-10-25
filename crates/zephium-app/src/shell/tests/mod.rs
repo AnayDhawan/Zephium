@@ -688,6 +688,10 @@ impl Engine for FakeEngine {
         self.log(format!("reload {id}"));
         self.native_admission()
     }
+    fn hard_reload(&self, id: ItemId) -> NativeDispatch {
+        self.log(format!("hard-reload {id}"));
+        self.native_admission()
+    }
     fn stop(&self, _id: ItemId) -> NativeDispatch {
         self.native_admission()
     }

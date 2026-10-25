@@ -358,6 +358,11 @@ fn validate_data_store_postcondition(
     Ok(())
 }
 
+/// WebKit revalidates the page and its subresources against the origin.
+pub fn reload_ignoring_cache(view: &wry::WebView) -> bool {
+    unsafe { webkit(view).reloadFromOrigin() }.is_some()
+}
+
 pub fn stop_loading(view: &wry::WebView) {
     unsafe { webkit(view).stopLoading() };
 }

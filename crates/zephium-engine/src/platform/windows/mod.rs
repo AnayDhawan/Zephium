@@ -2000,6 +2000,24 @@ pub fn resume(view: &wry::WebView) {
     let _ = unsafe { v3.Resume() };
 }
 
+/// The DevTools protocol's reload with the cache ignored is what Edge's own
+/// hard reload does, and it leaves cookies and site data alone.
+pub fn reload_ignoring_cache(view: &wry::WebView) -> bool {
+    let controller = view.controller();
+    let Ok(core) = (unsafe { controller.CoreWebView2() }) else {
+        return false;
+    };
+    let handler = CallDevToolsProtocolMethodCompletedHandler::create(Box::new(|_, _| Ok(())));
+    unsafe {
+        core.CallDevToolsProtocolMethod(
+            &HSTRING::from("Page.reload"),
+            &HSTRING::from(r#"{"ignoreCache":true}"#),
+            &handler,
+        )
+    }
+    .is_ok()
+}
+
 pub fn stop_loading(view: &wry::WebView) {
     let controller = view.controller();
     if let Ok(core) = unsafe { controller.CoreWebView2() } {

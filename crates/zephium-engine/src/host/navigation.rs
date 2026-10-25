@@ -770,6 +770,10 @@ impl EngineHost {
         self.invoke_navigation_action(id, NativeAction::Reload);
     }
 
+    pub(crate) fn hard_reload(&mut self, id: ItemId) {
+        self.invoke_navigation_action(id, NativeAction::HardReload);
+    }
+
     pub(crate) fn stop(&self, id: ItemId) {
         #[cfg(target_os = "macos")]
         if self.webext.navigate_page(id, 3) {
@@ -802,16 +806,13 @@ impl EngineHost {
             // The user has taken control of this tab even if the native
             // reload/history call fails. Auth cleanup cannot take it back.
             view.navigation.release_auth_cleanup();
-            let result = match action {
-                NativeAction::Reload => view.reload(),
-                NativeAction::GoBack => view.go_back(),
-                NativeAction::GoForward => view.go_forward(),
+            let failed = match action {
+                NativeAction::Reload => view.reload().is_err(),
+                NativeAction::HardReload => !crate::platform::imp::reload_ignoring_cache(view),
+                NativeAction::GoBack => view.go_back().is_err(),
+                NativeAction::GoForward => view.go_forward().is_err(),
             };
-            (
-                view.event_permit.clone(),
-                view.navigation.clone(),
-                result.is_err(),
-            )
+            (view.event_permit.clone(), view.navigation.clone(), failed)
         }) else {
             return;
         };

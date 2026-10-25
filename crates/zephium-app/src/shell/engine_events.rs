@@ -517,6 +517,7 @@ impl Shell {
                 if self.items.tab(id).is_some_and(TabState::has_view) {
                     let action = match action {
                         NativeAction::Reload => "reload",
+                        NativeAction::HardReload => "hard reload",
                         NativeAction::GoBack => "back",
                         NativeAction::GoForward => "forward",
                     };

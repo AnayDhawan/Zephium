@@ -629,6 +629,10 @@ impl Shell {
     }
 
     pub(super) fn operation_reload(&mut self, id: ItemId) -> OperationDisposition {
+        self.operation_reload_with(id, false)
+    }
+
+    fn operation_reload_with(&mut self, id: ItemId, ignoring_cache: bool) -> OperationDisposition {
         if !self.item_in_focused_scope(id) {
             return operation_result(OperationOutcome::Rejected, OperationReason::InvalidScope);
         }
@@ -657,7 +661,11 @@ impl Shell {
             return mutation_result(self.commit(effects));
         }
         let mut native = NativeWork::default();
-        native.record(self.engine.reload(id));
+        native.record(if ignoring_cache {
+            self.engine.hard_reload(id)
+        } else {
+            self.engine.reload(id)
+        });
         mutation_result(native)
     }
 
@@ -956,6 +964,10 @@ impl Shell {
             "nav.reload" => active.map_or_else(
                 || operation_result(OperationOutcome::NoOp, OperationReason::NoFocusedWindow),
                 |id| self.operation_reload(id),
+            ),
+            "nav.hardReload" => active.map_or_else(
+                || operation_result(OperationOutcome::NoOp, OperationReason::NoFocusedWindow),
+                |id| self.operation_reload_with(id, true),
             ),
             "nav.stop" => active.map_or_else(
                 || operation_result(OperationOutcome::NoOp, OperationReason::NoFocusedWindow),

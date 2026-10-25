@@ -736,6 +736,11 @@ pub trait Engine {
         NativeDispatch::Unsupported
     }
     fn reload(&self, id: ItemId) -> NativeDispatch;
+    /// Reloads without using the cache, where the engine offers it; a plain
+    /// reload where it does not.
+    fn hard_reload(&self, id: ItemId) -> NativeDispatch {
+        self.reload(id)
+    }
     fn stop(&self, id: ItemId) -> NativeDispatch;
     fn go_back(&self, id: ItemId) -> NativeDispatch;
     fn go_forward(&self, id: ItemId) -> NativeDispatch;
@@ -1091,6 +1096,7 @@ pub enum NavigationFailureReason {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NativeAction {
     Reload,
+    HardReload,
     GoBack,
     GoForward,
 }

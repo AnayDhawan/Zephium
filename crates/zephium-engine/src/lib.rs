@@ -2767,6 +2767,10 @@ impl Engine for WebviewEngine {
         self.run_for_active_item(id, move |h| h.reload(id))
     }
 
+    fn hard_reload(&self, id: ItemId) -> NativeDispatch {
+        self.run_for_active_item(id, move |h| h.hard_reload(id))
+    }
+
     fn stop(&self, id: ItemId) -> NativeDispatch {
         self.run_for_active_item(id, move |h| h.stop(id))
     }

@@ -693,6 +693,11 @@ fn validate_storage_postcondition(
     Ok(())
 }
 
+pub fn reload_ignoring_cache(view: &wry::WebView) -> bool {
+    view.webview().reload_bypass_cache();
+    true
+}
+
 pub fn stop_loading(view: &wry::WebView) {
     view.webview().stop_loading();
 }

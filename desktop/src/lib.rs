@@ -3498,6 +3498,7 @@ fn execute_command(app: &tauri::AppHandle, id: &str) -> zephium_ipc::OperationAd
     if shutdown_started(app) {
         return rejected_operation();
     }
+    let id = zephium_core::commands::runs_as(id);
     // A feature switched off has no way in, from any menu, key or launcher.
     if !app
         .try_state::<keymap::Keymap>()
@@ -3507,6 +3508,27 @@ fn execute_command(app: &tauri::AppHandle, id: &str) -> zephium_ipc::OperationAd
     }
     if id == help::DIAGNOSTICS {
         return execute_command(app, "settings.about");
+    }
+    if id == "settings.clearData" {
+        let _ = try_emit_to_privileged(app, MAIN_LABEL, EVENT_UI, &"settings.section.privacy");
+        return execute_command(app, "browser.settings");
+    }
+    // A page that holds the screen is left with its own controls.
+    if id == "window.fullscreen" {
+        let Some(window) = app.get_webview_window(MAIN_LABEL) else {
+            return rejected_operation();
+        };
+        return if !content_fullscreen::held()
+            && app
+                .run_on_main_thread(move || {
+                    let _ = window.set_fullscreen(!window.is_fullscreen().unwrap_or(false));
+                })
+                .is_ok()
+        {
+            accepted_ui_operation()
+        } else {
+            rejected_operation()
+        };
     }
     if matches!(
         id,
@@ -5361,6 +5383,7 @@ fn build_menu(
         .build()?;
     let view = SubmenuBuilder::new(handle, menu_text::label("View"))
         .item(&item("nav.reload")?)
+        .item(&item("nav.hardReload")?)
         .item(&item("nav.stop")?)
         .separator()
         .item(&item("zoom.in")?)

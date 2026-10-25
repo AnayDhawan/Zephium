@@ -23,6 +23,17 @@ const TITLES: Record<string, () => string> = {
   "find.previous": m.command_find_previous,
   "sidebar.toggleCompact": m.command_sidebar_compact,
   "nav.reload": m.command_nav_reload,
+  "nav.hardReload": m.command_nav_hard_reload,
+  "nav.reload.alt": m.command_nav_reload_alternate,
+  "nav.hardReload.alt": m.command_nav_hard_reload_alternate,
+  "nav.hardReload.alt2": m.command_nav_hard_reload_alternate_2,
+  "page.devtools.alt": m.command_page_devtools_alternate,
+  "window.fullscreen": m.command_window_fullscreen,
+  "nav.back.alt": m.command_nav_back_alternate,
+  "nav.forward.alt": m.command_nav_forward_alternate,
+  "tab.next.alt": m.command_tab_next_alternate,
+  "tab.previous.alt": m.command_tab_previous_alternate,
+  "settings.clearData": m.command_settings_clear_data,
   "nav.stop": m.command_nav_stop,
   "url.focus": m.command_url_focus,
   "zoom.in": m.command_zoom_in,
@@ -62,6 +73,16 @@ export function commandTitle(entry: Pick<KeymapEntry, "id" | "title">): string {
 export type KeymapSection = { id: string; title: string; entries: KeymapEntry[] };
 
 const tabCommand = (entry: KeymapEntry) => entry.id.startsWith("tab.");
+const viewKey = (entry: KeymapEntry) =>
+  entry.group === "keys" &&
+  /^(nav\.(reload|hardReload)|page\.devtools|window\.fullscreen)/u.test(entry.id);
+const historyKey = (entry: KeymapEntry) => /^nav\.(back|forward)\.alt$/u.test(entry.id);
+
+/** A second key, or a window key, the platform has no default for is not offered. */
+const absentHere = (entry: KeymapEntry) =>
+  (/\.alt\d?$/u.test(entry.id) || entry.id === "window.fullscreen") &&
+  !entry.default_accelerator &&
+  !entry.accelerator;
 
 const SECTIONS: { id: string; title: () => string; holds: (entry: KeymapEntry) => boolean }[] = [
   {
@@ -69,7 +90,8 @@ const SECTIONS: { id: string; title: () => string; holds: (entry: KeymapEntry) =
     title: m.keymap_group_browser,
     holds: (entry) =>
       ["app", "file", "edit", "bookmarks", "help"].includes(entry.group) ||
-      (entry.group === "window" && !tabCommand(entry)),
+      (entry.group === "window" && !tabCommand(entry)) ||
+      entry.id === "settings.clearData",
   },
   {
     id: "tabs",
@@ -77,8 +99,16 @@ const SECTIONS: { id: string; title: () => string; holds: (entry: KeymapEntry) =
     holds: (entry) => (entry.group === "window" || entry.group === "keys") && tabCommand(entry),
   },
   { id: "spaces", title: m.keymap_group_spaces, holds: (entry) => entry.id.startsWith("space.") },
-  { id: "view", title: m.keymap_group_view, holds: (entry) => entry.group === "view" },
-  { id: "history", title: m.keymap_group_history, holds: (entry) => entry.group === "history" },
+  {
+    id: "view",
+    title: m.keymap_group_view,
+    holds: (entry) => entry.group === "view" || viewKey(entry),
+  },
+  {
+    id: "history",
+    title: m.keymap_group_history,
+    holds: (entry) => entry.group === "history" || historyKey(entry),
+  },
   { id: "work", title: m.keymap_group_work, holds: (entry) => entry.id.startsWith("work.") },
   {
     id: "appearance",
@@ -98,7 +128,8 @@ export function keymapSections(
     id: section.id,
     title: section.title(),
     entries: entries.filter(
-      (entry) => entry.customizable && section.holds(entry) && offered(entry.id),
+      (entry) =>
+        entry.customizable && section.holds(entry) && offered(entry.id) && !absentHere(entry),
     ),
   })).filter((section) => section.entries.length > 0);
 }
