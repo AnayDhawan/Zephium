@@ -154,7 +154,7 @@ use webview2_com::{
     HistoryChangedEventHandler, LaunchingExternalUriSchemeEventHandler,
     NavigationStartingEventHandler, NewBrowserVersionAvailableEventHandler,
     ProcessFailedEventHandler, ServerCertificateErrorDetectedEventHandler,
-    SourceChangedEventHandler,
+    SourceChangedEventHandler, ZoomFactorChangedEventHandler,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetKeyState, VK_CONTROL, VK_ESCAPE, VK_MENU, VK_SHIFT,
@@ -1912,6 +1912,53 @@ pub fn install_accelerators(
     let mut token = Default::default();
     unsafe { controller.add_AcceleratorKeyPressed(&handler, &mut token)? };
     Ok(Some(AcceleratorRegistration { controller, token }))
+}
+
+/// Tells the engine when the person zooms the page itself, with Ctrl and the
+/// mouse wheel. `applied` holds what this view was last asked for, so a change
+/// the engine made on request is not taken for the person's.
+pub struct ZoomRegistration {
+    controller: ICoreWebView2Controller,
+    token: i64,
+}
+
+impl Drop for ZoomRegistration {
+    fn drop(&mut self) {
+        let _ = unsafe { self.controller.remove_ZoomFactorChanged(self.token) };
+    }
+}
+
+pub fn install_zoom_listener(
+    view: &wry::WebView,
+    applied: std::rc::Rc<std::cell::Cell<f64>>,
+    sink: Arc<dyn Fn(EngineEvent) + Send + Sync>,
+    item: impl Fn() -> zephium_core::ids::ItemId + 'static,
+) -> windows_core::Result<ZoomRegistration> {
+    let controller = view.controller();
+    let handler = ZoomFactorChangedEventHandler::create(Box::new(move |controller, _| {
+        let Some(controller) = controller else {
+            return Ok(());
+        };
+        let mut factor = 0.0;
+        unsafe { controller.ZoomFactor(&mut factor)? };
+        if !factor.is_finite() || (factor - applied.get()).abs() < 0.001 {
+            return Ok(());
+        }
+        let adopted = factor.clamp(crate::MIN_PAGE_ZOOM, crate::MAX_PAGE_ZOOM);
+        applied.set(adopted);
+        // WebView2 keeps a zoom made in the page for that page alone and drops
+        // it on the next navigation. Making it the view's own zoom lets it
+        // last, as one asked for does.
+        let _ = unsafe { controller.SetZoomFactor(adopted) };
+        sink(EngineEvent::ZoomGesture {
+            id: item(),
+            scale: adopted,
+        });
+        Ok(())
+    }));
+    let mut token = Default::default();
+    unsafe { controller.add_ZoomFactorChanged(&handler, &mut token)? };
+    Ok(ZoomRegistration { controller, token })
 }
 
 // Edge's sleeping-tabs primitive: a suspended view frees most of its

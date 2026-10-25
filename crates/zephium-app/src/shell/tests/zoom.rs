@@ -656,3 +656,87 @@ fn a_sleeping_tab_carries_no_zoom() {
     shell.project_tab(id);
     assert_eq!(shown_zoom(&screen, id), None);
 }
+
+fn gesture(shell: &mut Shell, id: ItemId, scale: f64) {
+    shell.handle(Command::Engine(EngineEvent::ZoomGesture { id, scale }));
+}
+
+#[test]
+fn a_zoom_made_in_the_page_is_remembered_like_a_command() {
+    let store = Arc::new(FakeStore::default());
+    let (mut shell, engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    navigate_and_commit(&mut shell, id, "github.com");
+    let sibling = open_and_browse(&mut shell, &screen, "gist.github.com");
+
+    gesture(&mut shell, id, 0.6666666666666666);
+
+    let profile = shell.profile_of_item(id).unwrap();
+    assert_eq!(shell.items.tab(id).unwrap().zoom, 0.6666666666666666);
+    assert_eq!(persisted_zoom(&store, id), 0.6666666666666666);
+    assert_eq!(saved(&store, profile), [("github.com".to_owned(), 67)]);
+    assert_eq!(shown_zoom(&screen, id), Some(67));
+    assert_eq!(requests_for(&engine, sibling), [0.67]);
+    // The tab that was zoomed already shows it; it is not asked again.
+    assert!(requests_for(&engine, id).is_empty());
+}
+
+#[test]
+fn a_zoom_made_in_the_page_replaces_a_request_in_flight() {
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    navigate_and_commit(&mut shell, id, "github.com");
+    shell.handle(Command::Run("zoom.in".into()));
+    let (_, _, request) = engine.last_zoom_request();
+
+    gesture(&mut shell, id, 1.5);
+    assert!(!shell.zoom.pending.contains_key(&id));
+
+    // The settlement of what was asked before is stale and changes nothing.
+    shell.handle(Command::Engine(EngineEvent::ZoomSettled {
+        id,
+        request,
+        applied_scale: 1.1,
+        succeeded: true,
+    }));
+    assert_eq!(shell.items.tab(id).unwrap().zoom, 1.5);
+    let profile = shell.profile_of_item(id).unwrap();
+    assert_eq!(shell.zoom.saved[&profile]["github.com"].percent, 150);
+}
+
+#[test]
+fn a_zoom_made_in_the_page_back_to_the_default_forgets_the_level() {
+    let store = Arc::new(FakeStore::default());
+    let (mut shell, engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    navigate_and_commit(&mut shell, id, "github.com");
+    let profile = shell.profile_of_item(id).unwrap();
+    zoom_in_and_settle(&mut shell, &engine, id);
+    assert_eq!(saved(&store, profile).len(), 1);
+
+    gesture(&mut shell, id, 1.0);
+    assert!(saved(&store, profile).is_empty());
+}
+
+#[test]
+fn a_page_zoom_for_a_tab_with_no_view_or_a_malformed_scale_changes_nothing() {
+    let store = Arc::new(FakeStore::default());
+    let (mut shell, _engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    navigate_and_commit(&mut shell, id, "github.com");
+    let profile = shell.profile_of_item(id).unwrap();
+
+    for scale in [f64::NAN, f64::INFINITY, 0.0, 0.25, 4.0] {
+        gesture(&mut shell, id, scale);
+    }
+    shell.items.view_creation_failed(id);
+    gesture(&mut shell, id, 1.5);
+    gesture(&mut shell, ItemId::from(99_999), 1.5);
+
+    assert_eq!(shell.items.tab(id).unwrap().zoom, 1.0);
+    assert!(saved(&store, profile).is_empty());
+}

@@ -51,6 +51,7 @@ enum CoalescedKey {
     StoreFaviconBatch,
     Navigation(ItemId),
     Zoom(ItemId),
+    ZoomGesture(ItemId),
     NativeAction(ItemId),
     ExtensionActions(ProfileId),
     ExtensionPageClosed(ItemId),
@@ -87,6 +88,7 @@ impl CoalescedKey {
             | EngineEvent::PresentationReady { id, .. } => Self::Presentation(*id),
             EngineEvent::NavState { id, .. } => Self::Navigation(*id),
             EngineEvent::ZoomSettled { id, .. } => Self::Zoom(*id),
+            EngineEvent::ZoomGesture { id, .. } => Self::ZoomGesture(*id),
             EngineEvent::NativeActionFailed { id, .. }
             | EngineEvent::PageOpenBlocked { id, .. } => Self::NativeAction(*id),
             EngineEvent::ExtensionActionsInvalidated { profile } => {

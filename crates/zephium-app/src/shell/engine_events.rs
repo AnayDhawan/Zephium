@@ -510,6 +510,7 @@ impl Shell {
                 applied_scale,
                 succeeded,
             } => self.on_zoom_settled(id, request, applied_scale, succeeded),
+            EngineEvent::ZoomGesture { id, scale } => self.on_zoom_gesture(id, scale),
             EngineEvent::NativeActionFailed { id, action } => {
                 if self.items.tab(id).is_some_and(TabState::has_view) {
                     let action = match action {
@@ -698,6 +699,7 @@ impl Shell {
             | EngineEvent::NavigationFailed { id, .. }
             | EngineEvent::NavigationFailureReported { id, .. }
             | EngineEvent::ZoomSettled { id, .. }
+            | EngineEvent::ZoomGesture { id, .. }
             | EngineEvent::NativeActionFailed { id, .. }
             | EngineEvent::LoadingChanged { id, .. }
             | EngineEvent::FaviconPixels { id, .. }

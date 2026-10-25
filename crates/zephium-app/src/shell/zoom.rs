@@ -26,7 +26,7 @@ pub(super) struct PendingZoom {
 
 #[derive(Clone, Copy)]
 pub(super) struct Level {
-    percent: u16,
+    pub(super) percent: u16,
     set_at: i64,
 }
 
@@ -312,6 +312,35 @@ impl Shell {
         }
         // Whatever changed while this was in flight, such as a navigation to
         // another site, is caught up with now.
+        self.reconcile_zoom(id);
+    }
+
+    /// A zoom the person made in the page itself, such as with Ctrl and the
+    /// mouse wheel, which the view already shows. The site remembers it like
+    /// one made with the keys.
+    pub(super) fn on_zoom_gesture(&mut self, id: ItemId, applied_scale: f64) {
+        if !applied_scale.is_finite() || !(0.3..=3.0).contains(&applied_scale) {
+            crate::diagnostic!("engine: rejected malformed native zoom gesture");
+            return;
+        }
+        if self.items.tab(id).is_none_or(|tab| !tab.has_view()) {
+            return;
+        }
+        // What the person did supersedes anything still being asked of the view.
+        self.zoom.pending.remove(&id);
+        if self
+            .items
+            .tab(id)
+            .is_some_and(|tab| tab.zoom != applied_scale)
+        {
+            self.items.set_zoom(id, applied_scale);
+            self.schedule_persist();
+        }
+        self.project_tab(id);
+        if let Some((profile, site)) = self.zoom_owner(id) {
+            self.remember_zoom(profile, site, applied_scale);
+        }
+        // A level outside the range the page may hold is brought inside it.
         self.reconcile_zoom(id);
     }
 

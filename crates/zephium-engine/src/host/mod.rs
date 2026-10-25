@@ -219,7 +219,10 @@ struct ObservedView {
     // platform call succeeds and is returned with every settlement, making a
     // newest-per-item result authoritative even if intermediate results are
     // coalesced before the shell processes them.
-    applied_zoom: f64,
+    //
+    // Shared with the Windows zoom listener, which tells a zoom made in the
+    // page from one this engine applied by comparing against it.
+    applied_zoom: Rc<Cell<f64>>,
     // False until privileged chrome has applied and verified this exact
     // committed main-frame URL/revision and the shell returns the same opaque
     // epoch. It is reset
@@ -242,6 +245,8 @@ struct ObservedView {
     _crash_observer: crate::platform::imp::CrashObserver,
     #[cfg(target_os = "windows")]
     _accelerator_registration: Option<crate::platform::imp::AcceleratorRegistration>,
+    #[cfg(target_os = "windows")]
+    _zoom_registration: crate::platform::imp::ZoomRegistration,
     #[cfg(target_os = "windows")]
     _security_policy: crate::platform::imp::SecurityPolicy,
     // `AllowAll` also has an explicit no-op registration. An absent field is

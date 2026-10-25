@@ -1319,6 +1319,13 @@ pub enum EngineEvent {
         applied_scale: f64,
         succeeded: bool,
     },
+    /// The person zoomed the page itself, such as with Ctrl and the mouse
+    /// wheel, and the view already shows `scale`. It carries no request:
+    /// nothing was asked of the engine.
+    ZoomGesture {
+        id: ItemId,
+        scale: f64,
+    },
     /// A reload/history platform call returned an error. An `Ok` call is only
     /// native invocation success, never a claim that navigation completed.
     NativeActionFailed {

@@ -16,8 +16,9 @@ impl EngineHost {
     pub(crate) fn zoom(&mut self, id: ItemId, scale: f64, request: ZoomRequestId) {
         let Some((permit, applied_scale, succeeded)) = self.views.get_mut(&id).map(|view| {
             let succeeded = view.zoom(scale).is_ok();
-            view.applied_zoom = settled_zoom_scale(view.applied_zoom, scale, succeeded);
-            (view.event_permit.clone(), view.applied_zoom, succeeded)
+            let applied = settled_zoom_scale(view.applied_zoom.get(), scale, succeeded);
+            view.applied_zoom.set(applied);
+            (view.event_permit.clone(), applied, succeeded)
         }) else {
             return;
         };

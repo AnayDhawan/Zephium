@@ -1338,6 +1338,10 @@ impl EngineHost {
                 // enabled in the WebView2 runtime.
                 .with_additional_browser_args("--disable-features=msWebOOUI,msPdfOOUI")
                 .with_browser_accelerator_keys(false)
+                // Ctrl and the wheel zoom a person's page; the zoom listener
+                // brings what they do into the site's remembered level. Keys
+                // stay Zephium's own: browser accelerators are off above.
+                .with_hotkeys_zoom(true)
                 // Runs after the exact environment exists and before Wry
                 // starts controller construction. This closes the opaque-build
                 // gap: even a later Wry error leaves a retained Environment5,
@@ -2190,6 +2194,29 @@ impl EngineHost {
                 return None;
             }
         };
+        let applied_zoom = Rc::new(Cell::new(1.0));
+        #[cfg(target_os = "windows")]
+        let zoom_registration = {
+            let zoom_item = id.clone();
+            let zoom_permit = event_permit.clone();
+            let zoom_sink = self.sink.clone();
+            match crate::platform::imp::install_zoom_listener(
+                &view,
+                applied_zoom.clone(),
+                Arc::new(move |event| zoom_permit.emit(&zoom_sink, event)),
+                move || zoom_item.get(),
+            ) {
+                Ok(registration) => registration,
+                Err(error) => {
+                    eprintln!("engine: required zoom registration failed: {error}");
+                    if report_failure {
+                        event_permit
+                            .emit(&self.sink, EngineEvent::ViewCreationFailed { id: id.get() });
+                    }
+                    return None;
+                }
+            }
+        };
         #[cfg(any(target_os = "macos", all(unix, not(target_os = "macos"))))]
         for script in scripts
             .iter()
@@ -2407,7 +2434,7 @@ impl EngineHost {
             event_permit,
             navigation,
             presentation_permit,
-            applied_zoom: 1.0,
+            applied_zoom,
             presentable: false,
             presentation_announced: None,
             #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -2418,6 +2445,8 @@ impl EngineHost {
             _crash_observer: crash_observer,
             #[cfg(target_os = "windows")]
             _accelerator_registration: accelerator_registration,
+            #[cfg(target_os = "windows")]
+            _zoom_registration: zoom_registration,
             #[cfg(target_os = "windows")]
             _security_policy: security_policy,
             content_policy_registration: Some(content_policy_registration),
