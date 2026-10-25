@@ -62,7 +62,7 @@ use zoom::ZoomState;
 
 use persistence::PersistenceState;
 #[cfg(test)]
-use persistence::{PERSIST_DEBOUNCE, PERSIST_MAX_AGE, URL_CHECKPOINT_INTERVAL};
+use persistence::{PERSIST_DEBOUNCE, PERSIST_MAX_AGE, URL_CHECKPOINT_DELAY};
 
 #[cfg(test)]
 use crate::actor::{spawn, Handle, TryPushError};

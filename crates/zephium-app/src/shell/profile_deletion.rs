@@ -332,8 +332,6 @@ impl Shell {
         // The authorization transaction already published the exact session.
         // An older debounce must never later overwrite that barrier.
         self.persistence.persist_first_dirty = None;
-        self.persistence.url_checkpoint_dirty.clear();
-        self.persistence.last_url_checkpoint = std::time::Instant::now();
         if let Some(queue) = &self.self_queue {
             queue.cancel_persist();
         }
