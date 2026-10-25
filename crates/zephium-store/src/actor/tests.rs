@@ -1042,6 +1042,7 @@ fn recently_closed_tabs_roundtrip_in_the_authoritative_bounded_snapshot() {
         zoom: 1.25,
         session_id: Some(zephium_core::ids::ClosedSessionId::from(42)),
         closed_at_ms: Some(1_700_000_000_123),
+        position: None,
     });
     store.save_session(session.clone());
     assert_eq!(loaded(&store), session);

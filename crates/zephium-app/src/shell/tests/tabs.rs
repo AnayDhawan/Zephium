@@ -74,7 +74,7 @@ fn recently_closed_tab_restores_with_a_fresh_identity_and_durable_metadata() {
     assert_eq!(shell.recently_closed.len(), 1);
     let profile = shell.windows.focused().unwrap().profile;
     let (restored, native) = shell
-        .restore_recently_closed_tab(profile)
+        .restore_recently_closed_tab(profile, None)
         .expect("recent tab must restore in its original focused space");
     assert_ne!(restored, closed);
     assert!(!native.rejected);
@@ -108,7 +108,7 @@ fn legacy_closed_tab_without_identity_still_reopens() {
     shell.recently_closed[0].session_id = None;
     shell.recently_closed[0].closed_at_ms = None;
 
-    assert!(shell.restore_recently_closed_tab(profile).is_some());
+    assert!(shell.restore_recently_closed_tab(profile, None).is_some());
 }
 
 #[test]

@@ -3613,5 +3613,8 @@
   "assist_step_refused": "Zephium non scrive nelle password né segue link verso altri siti",
   "assist_step_unsuitable": "Questo passaggio non può usare quell'elemento",
   "assist_step_page_changed": "La pagina è cambiata prima",
-  "assist_step_no_effect": "Eseguito, ma non è cambiato nulla"
+  "assist_step_no_effect": "Eseguito, ma non è cambiato nulla",
+  "native_recently_closed": "Chiuse di recente",
+  "history_recently_closed": "Chiuse di recente",
+  "history_closed_fewer": "Mostra meno"
 }

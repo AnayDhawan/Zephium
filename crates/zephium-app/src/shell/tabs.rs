@@ -225,27 +225,10 @@ impl Shell {
         self.native_openers.remove(&id);
         // An Essential is kept, not closed: the page ends and the site stays.
         let kept = self.kept_slot(id);
-        let closed_at_ms = unix_millis();
         let closed = kept
             .is_none()
-            .then(|| self.windows.focused())
-            .flatten()
-            .and_then(|window| {
-                self.items.tab(id).and_then(|tab| {
-                    tab.url
-                        .as_ref()
-                        .map(|url| zephium_core::session::PersistedClosedTab {
-                            profile: window.profile,
-                            space: window.space,
-                            url: url.to_string(),
-                            title: tab.title.clone(),
-                            zoom: tab.zoom,
-                            session_id: closed_at_ms
-                                .map(|_| zephium_core::ids::ClosedSessionId::generate()),
-                            closed_at_ms,
-                        })
-                })
-            });
+            .then(|| self.closed_record(id, unix_millis()))
+            .flatten();
         self.cancel_page_permission_for_item(id);
         self.cancel_pending_presentation(id);
         self.cancel_favicon_attempt(id);
@@ -284,10 +267,7 @@ impl Shell {
             .position(|x| *x == id);
         let mut fx = self.items.remove(id);
         if let Some(closed) = closed {
-            if self.recently_closed.len() == zephium_core::session::MAX_RECENTLY_CLOSED_TABS {
-                self.recently_closed.remove(0);
-            }
-            self.recently_closed.push(closed);
+            self.remember_closed(closed);
         }
         if was_active {
             fx.extend(self.take_over(profile, space, pos));
@@ -510,34 +490,87 @@ impl Shell {
         }
     }
 
-    /// Restores the newest closed tab owned by the focused profile and space.
-    /// A fresh item/native identity is always allocated; the closed record is
-    /// removed only after the logical item has been inserted successfully.
+    /// What a closed tab leaves in Recently Closed. None for what is never
+    /// reopened from there: a private tab, an Essential, a page without an
+    /// address.
+    pub(super) fn closed_record(
+        &self,
+        id: ItemId,
+        now: Option<u64>,
+    ) -> Option<zephium_core::session::PersistedClosedTab> {
+        let item = self.items.get(id)?;
+        let Placement::Space { space, section } = item.placement else {
+            return None;
+        };
+        let profile = self.spaces.get(space)?.profile;
+        if self.incognito_profile(profile) {
+            return None;
+        }
+        let tab = item.tab()?;
+        let position = (section == SpaceSection::Today && item.parent.is_none())
+            .then(|| {
+                self.items
+                    .roots(item.placement)
+                    .iter()
+                    .position(|root| *root == id)
+            })
+            .flatten()
+            .and_then(|at| u32::try_from(at).ok());
+        Some(zephium_core::session::PersistedClosedTab {
+            profile,
+            space,
+            url: tab.url.as_ref()?.to_string(),
+            title: tab.title.clone(),
+            zoom: tab.zoom,
+            session_id: now.map(|_| zephium_core::ids::ClosedSessionId::generate()),
+            closed_at_ms: now,
+            position,
+        })
+    }
+
+    pub(super) fn remember_closed(&mut self, record: zephium_core::session::PersistedClosedTab) {
+        if self.recently_closed.len() == zephium_core::session::MAX_RECENTLY_CLOSED_TABS {
+            self.recently_closed.remove(0);
+        }
+        self.recently_closed.push(record);
+    }
+
+    /// Reopens a closed tab of `profile`: the one named, else the newest, from
+    /// whichever of its spaces it was in. It returns to that space when it
+    /// still exists (the window follows it), else lands in the current one,
+    /// and takes its old place among the open tabs when that place is still
+    /// there. A fresh item/native identity is always allocated; the closed
+    /// record is removed only after the logical item has been inserted.
     pub(super) fn restore_recently_closed_tab(
         &mut self,
         profile: ProfileId,
+        named: Option<zephium_core::ids::ClosedSessionId>,
     ) -> Option<(ItemId, NativeWork)> {
-        let space = self
+        let current = self
             .windows
             .focused()
             .filter(|window| window.profile == profile)
             .map(|window| window.space)?;
-        let position = self
-            .recently_closed
-            .iter()
-            .rposition(|entry| entry.profile == profile && entry.space == space)?;
+        let position = self.recently_closed.iter().rposition(|entry| {
+            entry.profile == profile && named.is_none_or(|id| entry.session_id == Some(id))
+        })?;
         let entry = self.recently_closed[position].clone();
+        let space = if self
+            .spaces
+            .get(entry.space)
+            .is_some_and(|owner| owner.profile == profile)
+        {
+            entry.space
+        } else {
+            current
+        };
+        let today = Placement::Space {
+            space,
+            section: SpaceSection::Today,
+        };
         let id = (0..8).find_map(|_| {
             let candidate = ItemId::generate();
-            self.items
-                .insert_tab(
-                    candidate,
-                    Placement::Space {
-                        space,
-                        section: SpaceSection::Today,
-                    },
-                )
-                .then_some(candidate)
+            self.items.insert_tab(candidate, today).then_some(candidate)
         })?;
         if !self.items.set_committed_url_str(id, &entry.url) {
             let _ = self.items.remove(id);
@@ -546,8 +579,34 @@ impl Shell {
         self.items.set_title(id, entry.title.clone());
         self.items.set_zoom(id, entry.zoom);
         self.recently_closed.remove(position);
-        let effects = self.focus_tab(id);
-        Some((id, self.commit(effects)))
+        if let Some(before) = entry
+            .position
+            .and_then(|at| self.items.roots(today).get(at as usize).copied())
+            .filter(|root| *root != id)
+        {
+            self.items.move_tab_to_root(id, today, Some(before));
+        }
+        // A New Tab that was only there to keep the space from being empty
+        // gives way to the page that comes back.
+        let stand_in = self
+            .regular_tabs(space)
+            .into_iter()
+            .find(|tab| *tab != id)
+            .filter(|tab| self.is_untouched_new_tab(*tab))
+            .filter(|_| self.regular_tabs(space).len() == 2);
+        let mut left_behind = None;
+        let effects = if space == current {
+            self.focus_tab(id)
+        } else {
+            let (effects, blank) = self.show_space_at(space, id);
+            left_behind = blank;
+            effects
+        };
+        let native = self.commit(effects);
+        for stale in left_behind.into_iter().chain(stand_in) {
+            self.close_in_any_space(stale);
+        }
+        Some((id, native))
     }
 
     /// Removes a failed native leaf from the retained split immediately. A

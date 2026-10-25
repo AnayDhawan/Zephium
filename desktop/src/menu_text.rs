@@ -141,6 +141,7 @@ mod tests {
             include_str!("lib.rs"),
             include_str!("spaces.rs"),
             include_str!("help.rs"),
+            include_str!("recently_closed.rs"),
         ];
         let labels = sources.iter().flat_map(|source| {
             source

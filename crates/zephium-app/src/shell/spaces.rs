@@ -292,6 +292,16 @@ impl Shell {
         mutation_result(native)
     }
 
+    /// `show_space` arriving on `tab`, not on what the space last had in front.
+    pub(super) fn show_space_at(
+        &mut self,
+        space: SpaceId,
+        tab: ItemId,
+    ) -> (Vec<Effect>, Option<ItemId>) {
+        self.space_memory.left_at.insert(space, tab);
+        self.show_space(space)
+    }
+
     /// Also returns the untouched new tab left behind, for the caller to
     /// close once the window shows the new space.
     fn show_space(&mut self, space: SpaceId) -> (Vec<Effect>, Option<ItemId>) {
@@ -395,6 +405,7 @@ impl Shell {
             self.close_in_any_space(root);
         }
         self.recently_closed.retain(|entry| entry.space != id);
+        self.project_recently_closed_if_changed();
         self.spaces.remove(id);
         self.space_memory.left_at.remove(&id);
         self.space_memory.last.retain(|_, space| *space != id);

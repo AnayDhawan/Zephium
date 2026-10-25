@@ -3613,5 +3613,8 @@
   "assist_step_refused": "Zephium не вводить паролі й не переходить за посиланнями на інші сайти",
   "assist_step_unsuitable": "Цей крок не може це використати",
   "assist_step_page_changed": "Сторінка встигла змінитися",
-  "assist_step_no_effect": "Виконано, але нічого не змінилося"
+  "assist_step_no_effect": "Виконано, але нічого не змінилося",
+  "native_recently_closed": "Нещодавно закриті",
+  "history_recently_closed": "Нещодавно закриті",
+  "history_closed_fewer": "Показати менше"
 }

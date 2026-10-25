@@ -582,6 +582,12 @@ pub enum HistoryCall {
     Clear {
         range: HistoryRange,
     },
+    /// The tabs most recently closed in this profile, newest first.
+    ClosedTabs,
+    /// Reopens one of them, named by the id `ClosedTabs` gave.
+    ReopenClosed {
+        id: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -632,7 +638,9 @@ impl HistoryCall {
                         .iter()
                         .all(|url| zephium_core::navigation::is_allowed_str(url))
             }
-            Self::Clear { .. } => true,
+            Self::Clear { .. } | Self::ClosedTabs => true,
+            Self::ReopenClosed { id } => zephium_core::ids::ClosedSessionId::parse(id)
+                .is_some_and(|parsed| parsed.to_string() == *id),
         }
     }
 }
@@ -648,6 +656,15 @@ pub struct HistoryVisitView {
     pub icon: Option<IconRef>,
 }
 
+/// A closed tab that can be reopened.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct ClosedTabView {
+    pub id: String,
+    pub url: String,
+    pub title: String,
+    pub icon: Option<IconRef>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum HistoryResponse {
@@ -659,6 +676,10 @@ pub enum HistoryResponse {
     Removed {
         count: u32,
     },
+    ClosedTabs {
+        tabs: Vec<ClosedTabView>,
+    },
+    Reopened,
     Error {
         error: HistoryError,
     },
@@ -1388,6 +1409,9 @@ pub enum Projection {
     Focus(FocusStatus),
     OperationProcessed(OperationDisposition),
     Profiles(ProfilesView),
+    /// The newest tabs the focused profile can reopen by name, for the menus.
+    /// Sent only when that list changes; icons are not part of it.
+    RecentlyClosed(Vec<ClosedTabView>),
 }
 
 /// Shared Rust-owned Notes/Tasks wire model.

@@ -3613,5 +3613,8 @@
   "assist_step_refused": "Zephium은 비밀번호를 입력하거나 다른 사이트로 가는 링크를 따라가지 않아요",
   "assist_step_unsuitable": "이 단계에서 사용할 수 없는 요소예요",
   "assist_step_page_changed": "그 전에 페이지가 바뀌었어요",
-  "assist_step_no_effect": "실행했지만 아무것도 바뀌지 않았어요"
+  "assist_step_no_effect": "실행했지만 아무것도 바뀌지 않았어요",
+  "native_recently_closed": "최근에 닫은 탭",
+  "history_recently_closed": "최근에 닫은 탭",
+  "history_closed_fewer": "접기"
 }

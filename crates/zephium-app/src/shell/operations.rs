@@ -926,7 +926,15 @@ impl Shell {
                 || operation_result(OperationOutcome::NoOp, OperationReason::StateUnchanged),
                 |id| self.operation_activate(id),
             ),
-            "tab.reopen" => self.operation_reopen_closed_tab(),
+            "tab.reopen" => self.operation_reopen_closed_tab(None),
+            _ if id.starts_with("tab.reopen=") => {
+                match zephium_core::ids::ClosedSessionId::parse(&id["tab.reopen=".len()..]) {
+                    Some(named) => self.operation_reopen_closed_tab(Some(named)),
+                    None => {
+                        operation_result(OperationOutcome::Rejected, OperationReason::InvalidInput)
+                    }
+                }
+            }
             "tab.next" | "tab.below" => self.operation_cycle_tab(1),
             "tab.previous" | "tab.above" => self.operation_cycle_tab(-1),
             "nav.back" => active.map_or_else(
@@ -1009,17 +1017,23 @@ impl Shell {
         }
     }
 
-    /// Restores the newest tab closed in the focused window's space. Nothing
-    /// to restore is a no-op, not a failure.
-    fn operation_reopen_closed_tab(&mut self) -> OperationDisposition {
+    /// Reopens the newest closed tab of the focused profile, or the one named,
+    /// in the space it came from. Nothing to restore is a no-op, not a
+    /// failure.
+    pub(super) fn operation_reopen_closed_tab(
+        &mut self,
+        named: Option<zephium_core::ids::ClosedSessionId>,
+    ) -> OperationDisposition {
         if self.active_browser_page().is_some() {
-            self.browser_after_return = Some(Box::new(Command::Run("tab.reopen".into())));
+            let command =
+                named.map_or_else(|| "tab.reopen".into(), |id| format!("tab.reopen={id}"));
+            self.browser_after_return = Some(Box::new(Command::Run(command)));
             return self.operation_show_browser_page(None);
         }
         let Some(profile) = self.windows.focused().map(|window| window.profile) else {
             return operation_result(OperationOutcome::Rejected, OperationReason::NoFocusedWindow);
         };
-        match self.restore_recently_closed_tab(profile) {
+        match self.restore_recently_closed_tab(profile, named) {
             Some((_, native)) => mutation_result(native),
             None => operation_result(OperationOutcome::NoOp, OperationReason::MutationApplied),
         }

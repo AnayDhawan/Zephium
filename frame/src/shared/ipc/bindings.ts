@@ -1158,6 +1158,14 @@ export type ChangedNote = {
 	revision: string | null,
 };
 
+/**  A closed tab that can be reopened. */
+export type ClosedTabView = {
+	id: string,
+	url: string,
+	title: string,
+	icon: IconRef | null,
+};
+
 export type DefaultBrowserStatus = {
 	is_default: boolean,
 	/**
@@ -1469,7 +1477,11 @@ export type HistoryCall =
  *  How far back the list reaches. The same scope Clear operates on,
  *  so clearing removes exactly what the reader is looking at.
  */
-range: HistoryRange; before: string | null; limit: number } | { kind: "forget"; urls: string[] } | { kind: "clear"; range: HistoryRange };
+range: HistoryRange; before: string | null; limit: number } | { kind: "forget"; urls: string[] } | { kind: "clear"; range: HistoryRange } |
+/**  The tabs most recently closed in this profile, newest first. */
+{ kind: "closed_tabs" } |
+/**  Reopens one of them, named by the id `ClosedTabs` gave. */
+{ kind: "reopen_closed"; id: string };
 
 export type HistoryError = "invalid" | "unavailable" | "capacity";
 
@@ -1477,7 +1489,7 @@ export type HistoryRange = "hour" | "day" | "week" | "everything";
 
 export type HistoryResponse = { kind: "page"; visits: HistoryVisitView[];
 /**  Cursor for the following page, absent once the list is exhausted. */
-next: string | null } | { kind: "removed"; count: number } | { kind: "error"; error: HistoryError };
+next: string | null } | { kind: "removed"; count: number } | { kind: "closed_tabs"; tabs: ClosedTabView[] } | { kind: "reopened" } | { kind: "error"; error: HistoryError };
 
 /**
  *  One recorded visit. Visits are not deduplicated by address: a history list

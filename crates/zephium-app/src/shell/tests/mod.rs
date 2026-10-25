@@ -1739,6 +1739,7 @@ fn apply_projection(view: &mut ItemsState, p: Projection) {
         Projection::Focus(_) => {}
         Projection::OperationProcessed(_) => {}
         Projection::Profiles(_) => {}
+        Projection::RecentlyClosed(_) => {}
         Projection::OpenNote { .. } => {}
     }
 }

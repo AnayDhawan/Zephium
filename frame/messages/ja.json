@@ -3613,5 +3613,8 @@
   "assist_step_refused": "Zephiumはパスワード欄への入力や、他のサイトへのリンクの移動はしません",
   "assist_step_unsuitable": "この手順では使えない要素でした",
   "assist_step_page_changed": "先にページが変わりました",
-  "assist_step_no_effect": "実行しましたが、何も変わりませんでした"
+  "assist_step_no_effect": "実行しましたが、何も変わりませんでした",
+  "native_recently_closed": "最近閉じたタブ",
+  "history_recently_closed": "最近閉じたタブ",
+  "history_closed_fewer": "表示を減らす"
 }

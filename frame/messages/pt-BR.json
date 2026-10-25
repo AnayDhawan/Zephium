@@ -3613,5 +3613,8 @@
   "assist_step_refused": "O Zephium não digita em senhas nem segue links para outros sites",
   "assist_step_unsuitable": "Essa etapa não consegue usar isso",
   "assist_step_page_changed": "A página mudou antes",
-  "assist_step_no_effect": "Foi executada, mas nada mudou"
+  "assist_step_no_effect": "Foi executada, mas nada mudou",
+  "native_recently_closed": "Fechadas Recentemente",
+  "history_recently_closed": "Fechadas recentemente",
+  "history_closed_fewer": "Mostrar menos"
 }

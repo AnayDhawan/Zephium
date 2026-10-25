@@ -857,6 +857,11 @@ fn run_with(
                         None => StoreReadResult::HistorySurfaceFailed { token, profile },
                     }
                 }
+                // The shell answers these itself; the store holds nothing of them.
+                zephium_ipc::HistoryCall::ClosedTabs
+                | zephium_ipc::HistoryCall::ReopenClosed { .. } => {
+                    StoreReadResult::HistorySurfaceFailed { token, profile }
+                }
             },
             Request::Bookmarks {
                 token,

@@ -228,6 +228,8 @@ pub struct Shell {
     divider: Option<GrabbedDivider>,
     private: Option<private::PrivateSession>,
     private_projected: (bool, Option<u32>),
+    /// The Recently Closed entries the menus were last told of.
+    closed_projected: Vec<(ProfileId, zephium_core::ids::ClosedSessionId)>,
     roster: profile_roster::RosterState,
     space_memory: spaces::SpaceMemory,
     /// Sites allowed to open a kind of application link without asking,
@@ -465,6 +467,7 @@ impl Shell {
             divider: None,
             private: None,
             private_projected: (false, None),
+            closed_projected: Vec::new(),
             roster: profile_roster::RosterState::default(),
             space_memory: spaces::SpaceMemory::default(),
             external_apps_allowed: std::collections::HashSet::new(),

@@ -3613,5 +3613,8 @@
   "assist_step_refused": "Zephium parola alanlarına yazmaz ve başka sitelere giden bağlantıları izlemez",
   "assist_step_unsuitable": "Bu adım bunu kullanamıyor",
   "assist_step_page_changed": "Sayfa daha önce değişti",
-  "assist_step_no_effect": "Çalıştı ama hiçbir şey değişmedi"
+  "assist_step_no_effect": "Çalıştı ama hiçbir şey değişmedi",
+  "native_recently_closed": "Son Kapatılanlar",
+  "history_recently_closed": "Son kapatılanlar",
+  "history_closed_fewer": "Daha az göster"
 }

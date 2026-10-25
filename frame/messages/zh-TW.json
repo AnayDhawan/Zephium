@@ -3613,5 +3613,8 @@
   "assist_step_refused": "Zephium 不會在密碼欄位中輸入，也不會開啟指向其他網站的連結",
   "assist_step_unsuitable": "這一步無法使用該元素",
   "assist_step_page_changed": "網頁已先變更",
-  "assist_step_no_effect": "已執行，但沒有任何變化"
+  "assist_step_no_effect": "已執行，但沒有任何變化",
+  "native_recently_closed": "最近關閉",
+  "history_recently_closed": "最近關閉",
+  "history_closed_fewer": "收合"
 }

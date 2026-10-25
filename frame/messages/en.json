@@ -3613,5 +3613,8 @@
   "assist_step_refused": "Zephium doesn’t type into passwords or follow links to other sites",
   "assist_step_unsuitable": "That isn’t something this step can use",
   "assist_step_page_changed": "The page changed first",
-  "assist_step_no_effect": "It ran, but nothing changed"
+  "assist_step_no_effect": "It ran, but nothing changed",
+  "native_recently_closed": "Recently Closed",
+  "history_recently_closed": "Recently closed",
+  "history_closed_fewer": "Show fewer"
 }

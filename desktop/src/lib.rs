@@ -107,6 +107,7 @@ mod private_window;
 #[cfg(target_os = "windows")]
 mod privileged_runtime_windows;
 mod profiles;
+mod recently_closed;
 #[cfg(any(target_os = "windows", test))]
 mod renderer_recovery;
 mod resource_close;
@@ -3637,6 +3638,13 @@ fn execute_command(app: &tauri::AppHandle, id: &str) -> zephium_ipc::OperationAd
         }
         return rejected_operation();
     }
+    if id.starts_with(recently_closed::ITEM) {
+        return app
+            .try_state::<Handle>()
+            .map_or_else(rejected_operation, |shell| {
+                dispatch_operation(app, &shell, Command::Run(id.to_string()))
+            });
+    }
     if zephium_core::commands::get(id).is_some() {
         if let Some(shell) = app.try_state::<Handle>() {
             return dispatch_operation(app, &shell, Command::Run(id.to_string()));
@@ -5258,6 +5266,7 @@ fn build_menu(
         .item(&item("nav.forward")?)
         .separator()
         .item(&item("tab.reopen")?)
+        .item(&recently_closed::build_menu_section(handle)?)
         .item(&item("browser.history")?)
         .build()?;
     let bookmarks = SubmenuBuilder::new(handle, menu_text::label("Bookmarks"))
@@ -6507,6 +6516,7 @@ pub fn run() {
                     private_window::follow(&emit_handle, &view);
                     emit_to_privileged(&emit_handle, MAIN_LABEL, "zephium:profiles", &view)
                 }
+                Projection::RecentlyClosed(tabs) => recently_closed::follow(&emit_handle, &tabs),
 
             });
 
