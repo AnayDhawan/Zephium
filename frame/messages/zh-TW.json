@@ -3616,5 +3616,9 @@
   "assist_step_no_effect": "已執行，但沒有任何變化",
   "native_recently_closed": "最近關閉",
   "history_recently_closed": "最近關閉",
-  "history_closed_fewer": "收合"
+  "history_closed_fewer": "收合",
+  "native_unsaved_changes": "有未儲存的變更",
+  "native_unsaved_changes_message": "備忘錄、待辦事項或工作中的部分變更無法儲存。你可以返回重試或解決衝突，也可以直接結束並捨棄這些變更。其他設定檔中的變更只能在該設定檔中儲存。",
+  "native_quit_anyway": "仍要結束",
+  "native_cancel": "取消"
 }

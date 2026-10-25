@@ -3616,5 +3616,9 @@
   "assist_step_no_effect": "Exécutée, mais rien n'a changé",
   "native_recently_closed": "Fermés récemment",
   "history_recently_closed": "Fermés récemment",
-  "history_closed_fewer": "Afficher moins"
+  "history_closed_fewer": "Afficher moins",
+  "native_unsaved_changes": "Modifications non enregistrées",
+  "native_unsaved_changes_message": "Certaines modifications dans Notes, Tâches ou Travail n’ont pas pu être enregistrées. Revenez-y pour réessayer ou résoudre un conflit, ou quittez quand même et perdez-les. Les modifications d’un autre profil ne peuvent être enregistrées que depuis ce profil.",
+  "native_quit_anyway": "Quitter quand même",
+  "native_cancel": "Annuler"
 }

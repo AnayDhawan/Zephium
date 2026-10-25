@@ -10,6 +10,7 @@ import {
   type ProfilesView,
 } from "$shared/ipc/bindings";
 import { events } from "$shared/ipc/native-events";
+import { forgetDrafts } from "$shared/lib/drafts";
 import { observe } from "$shared/lib/observe";
 import { settle, type Settlement } from "$domain/operations";
 
@@ -82,7 +83,9 @@ export const setAvatar = async (id: string, avatar: AvatarDraft) =>
 /** Deletion settles once its native and durable phases both finish. */
 export const remove = async (id: string) => {
   const result = await settle(commands.profilesDelete(id), 30_000);
-  return applied(result) || result.outcome === "deferred";
+  const removed = applied(result) || result.outcome === "deferred";
+  if (removed) forgetDrafts(id);
+  return removed;
 };
 
 export type PhotoPick = { token: string } | "cancelled" | "unsupported" | "unavailable";

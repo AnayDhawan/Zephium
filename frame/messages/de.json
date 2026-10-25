@@ -3616,5 +3616,9 @@
   "assist_step_no_effect": "Ausgeführt, aber nichts hat sich geändert",
   "native_recently_closed": "Kürzlich geschlossen",
   "history_recently_closed": "Kürzlich geschlossen",
-  "history_closed_fewer": "Weniger anzeigen"
+  "history_closed_fewer": "Weniger anzeigen",
+  "native_unsaved_changes": "Nicht gesicherte Änderungen",
+  "native_unsaved_changes_message": "Einige Änderungen in Notizen, Aufgaben oder Arbeit konnten nicht gespeichert werden. Gehe zurück, um es erneut zu versuchen oder einen Konflikt zu lösen, oder beende trotzdem und verliere sie. Änderungen in einem anderen Profil lassen sich nur aus diesem Profil speichern.",
+  "native_quit_anyway": "Trotzdem beenden",
+  "native_cancel": "Abbrechen"
 }

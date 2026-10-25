@@ -3616,5 +3616,9 @@
   "assist_step_no_effect": "已执行，但没有任何变化",
   "native_recently_closed": "最近关闭",
   "history_recently_closed": "最近关闭",
-  "history_closed_fewer": "收起"
+  "history_closed_fewer": "收起",
+  "native_unsaved_changes": "有未保存的更改",
+  "native_unsaved_changes_message": "备忘录、任务或工作中的部分更改未能保存。你可以返回重试或解决冲突，也可以直接退出并丢弃这些更改。其他个人资料中的更改只能在该个人资料中保存。",
+  "native_quit_anyway": "仍要退出",
+  "native_cancel": "取消"
 }

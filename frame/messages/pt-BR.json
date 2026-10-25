@@ -3616,5 +3616,9 @@
   "assist_step_no_effect": "Foi executada, mas nada mudou",
   "native_recently_closed": "Fechadas Recentemente",
   "history_recently_closed": "Fechadas recentemente",
-  "history_closed_fewer": "Mostrar menos"
+  "history_closed_fewer": "Mostrar menos",
+  "native_unsaved_changes": "Alterações não salvas",
+  "native_unsaved_changes_message": "Algumas alterações em Notas, Tarefas ou Trabalho não puderam ser salvas. Volte para tentar de novo ou resolver um conflito, ou saia mesmo assim e perca-as. As alterações de outro perfil só podem ser salvas a partir desse perfil.",
+  "native_quit_anyway": "Sair mesmo assim",
+  "native_cancel": "Cancelar"
 }

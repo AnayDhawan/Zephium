@@ -3616,5 +3616,9 @@
   "assist_step_no_effect": "Eseguito, ma non è cambiato nulla",
   "native_recently_closed": "Chiuse di recente",
   "history_recently_closed": "Chiuse di recente",
-  "history_closed_fewer": "Mostra meno"
+  "history_closed_fewer": "Mostra meno",
+  "native_unsaved_changes": "Modifiche non salvate",
+  "native_unsaved_changes_message": "Alcune modifiche in Note, Attività o Lavoro non sono state salvate. Torna indietro per riprovare o risolvere un conflitto, oppure esci comunque e perdile. Le modifiche di un altro profilo si possono salvare solo da quel profilo.",
+  "native_quit_anyway": "Esci comunque",
+  "native_cancel": "Annulla"
 }

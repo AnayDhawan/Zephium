@@ -1,4 +1,5 @@
 import { listenAll } from "$shared/lib/lifecycle";
+import { forgetDrafts } from "$shared/lib/drafts";
 import { flushSync } from "svelte";
 import type { ItemsState, SpaceLookInputV1, TabMenuContext, TabView } from "$shared/ipc/bindings";
 import { settle } from "$domain/operations";
@@ -213,7 +214,13 @@ export const createSpace = (name: string, look: SpaceLookInputV1) =>
   settle(commands.spacesCreate(name, look));
 export const updateSpace = (id: string, name: string, look: SpaceLookInputV1) =>
   settle(commands.spacesUpdate(id, name, look));
-export const deleteSpace = (id: string) => settle(commands.spacesDelete(id));
+export async function deleteSpace(id: string) {
+  const owner = state.profile?.id;
+  const result = await settle(commands.spacesDelete(id));
+  if (owner && (result.outcome === "applied" || result.outcome === "deferred"))
+    forgetDrafts(owner, id);
+  return result;
+}
 export const reorderSpace = (id: string, before: string | null) =>
   settle(commands.spacesReorder(id, before));
 export const moveTabToSpace = (tab: string, space: string) =>

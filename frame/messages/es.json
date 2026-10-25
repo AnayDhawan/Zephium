@@ -3616,5 +3616,9 @@
   "assist_step_no_effect": "Se ejecutó, pero nada cambió",
   "native_recently_closed": "Cerradas recientemente",
   "history_recently_closed": "Cerradas recientemente",
-  "history_closed_fewer": "Mostrar menos"
+  "history_closed_fewer": "Mostrar menos",
+  "native_unsaved_changes": "Cambios sin guardar",
+  "native_unsaved_changes_message": "No se pudieron guardar algunos cambios en Notas, Tareas o Trabajo. Vuelve para reintentarlo o resolver un conflicto, o sal de todos modos y piérdelos. Los cambios de otro perfil solo se pueden guardar desde ese perfil.",
+  "native_quit_anyway": "Salir de todos modos",
+  "native_cancel": "Cancelar"
 }

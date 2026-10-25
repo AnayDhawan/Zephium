@@ -3616,5 +3616,9 @@
   "assist_step_no_effect": "実行しましたが、何も変わりませんでした",
   "native_recently_closed": "最近閉じたタブ",
   "history_recently_closed": "最近閉じたタブ",
-  "history_closed_fewer": "表示を減らす"
+  "history_closed_fewer": "表示を減らす",
+  "native_unsaved_changes": "未保存の変更",
+  "native_unsaved_changes_message": "メモ、タスク、ワークの一部の変更を保存できませんでした。戻って再試行するか競合を解決するか、このまま終了して変更を破棄できます。別のプロファイルの変更は、そのプロファイルからのみ保存できます。",
+  "native_quit_anyway": "このまま終了",
+  "native_cancel": "キャンセル"
 }

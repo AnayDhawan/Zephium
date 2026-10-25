@@ -3616,5 +3616,9 @@
   "assist_step_no_effect": "실행했지만 아무것도 바뀌지 않았어요",
   "native_recently_closed": "최근에 닫은 탭",
   "history_recently_closed": "최근에 닫은 탭",
-  "history_closed_fewer": "접기"
+  "history_closed_fewer": "접기",
+  "native_unsaved_changes": "저장되지 않은 변경 사항",
+  "native_unsaved_changes_message": "메모, 할 일 또는 작업의 일부 변경 사항을 저장하지 못했어요. 돌아가서 다시 시도하거나 충돌을 해결하거나, 그대로 종료하고 변경 사항을 버릴 수 있어요. 다른 프로필의 변경 사항은 해당 프로필에서만 저장할 수 있어요.",
+  "native_quit_anyway": "그래도 종료",
+  "native_cancel": "취소"
 }

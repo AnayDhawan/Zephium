@@ -3616,5 +3616,9 @@
   "assist_step_no_effect": "Çalıştı ama hiçbir şey değişmedi",
   "native_recently_closed": "Son Kapatılanlar",
   "history_recently_closed": "Son kapatılanlar",
-  "history_closed_fewer": "Daha az göster"
+  "history_closed_fewer": "Daha az göster",
+  "native_unsaved_changes": "Kaydedilmemiş değişiklikler",
+  "native_unsaved_changes_message": "Notlar, Görevler veya Çalışma içindeki bazı değişiklikler kaydedilemedi. Yeniden denemek ya da bir çakışmayı çözmek için geri dönün; ya da yine de çıkıp bunları kaybedin. Başka bir profildeki değişiklikler yalnızca o profilden kaydedilebilir.",
+  "native_quit_anyway": "Yine de Çık",
+  "native_cancel": "İptal"
 }
