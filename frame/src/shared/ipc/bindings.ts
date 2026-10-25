@@ -630,6 +630,7 @@ export const commands = {
 	importCancel: () => __TAURI_INVOKE<boolean>("import_cancel"),
 	/**  Opens the system setting a source needs (Safari: Full Disk Access). */
 	importOpenPermission: (source: string) => __TAURI_INVOKE<boolean>("import_open_permission", { source }),
+	exportBrowserData: (kind: ExportKindView) => __TAURI_INVOKE<ExportOutcomeView>("export_browser_data", { kind }),
 	resourceCloseReady: (token: string, success: boolean) => __TAURI_INVOKE<boolean>("resource_close_ready", { token, success }),
 	tabDrop: (id: string, x: number | null, y: number | null) => __TAURI_INVOKE<OperationAdmission>("tab_drop", { id, x, y }),
 	dividerGrab: (x: number | null, y: number | null) => __TAURI_INVOKE<void>("divider_grab", { x, y }),
@@ -1372,6 +1373,14 @@ export type DownloadView = {
 export type DownloadsChanged = {
 	profile: string,
 };
+
+export type ExportKindView = "bookmarks" | "history";
+
+export type ExportOutcomeView = "saved" |
+/**  The person closed the save dialog. */
+"cancelled" |
+/**  A private window keeps no bookmarks or history. */
+"private" | "failed";
 
 export type ExtensionActionFailed = ExtensionActionFailedView;
 

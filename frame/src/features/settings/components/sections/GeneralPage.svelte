@@ -1,11 +1,8 @@
 <script lang="ts">
   import * as m from "$shared/i18n/messages";
-  import * as preview from "../../lib/preview.svelte";
-  import { showPreviews } from "../../lib/settings-model";
-  import PreviewNotice from "../PreviewNotice.svelte";
-  import PreviewAction from "../PreviewAction.svelte";
   import PreferenceSelect from "../PreferenceSelect.svelte";
   import ImportBrowserData from "../ImportBrowserData.svelte";
+  import ExportBrowserData from "../ExportBrowserData.svelte";
   import DownloadPreferences from "../DownloadPreferences.svelte";
   import LoginItemRow from "../LoginItemRow.svelte";
   import LanguageRow from "../LanguageRow.svelte";
@@ -14,8 +11,6 @@
   import ProxyRows from "../ProxyRows.svelte";
   import { preferences } from "$domain/preferences";
   import SettingsGroup from "$shared/ui/SettingsGroup";
-  import Checkbox from "$shared/ui/Checkbox";
-  import Select from "$shared/ui/Select";
   import Button from "$shared/ui/Button";
   import Icon from "$shared/ui/Icon";
   import { Tick02Icon } from "@hugeicons/core-free-icons";
@@ -72,26 +67,6 @@
 <SettingsGroup title={m.section_languages()}><LanguageRow /></SettingsGroup>
 <SettingsGroup title={m.general_data_group()}>
   <ImportBrowserData />
+  <ExportBrowserData />
 </SettingsGroup>
 <DownloadPreferences />
-{#if showPreviews}
-  <PreviewNotice />
-  <SettingsGroup title={m.general_data_group()}>
-    <PreviewAction id="general.export" actionLabel={m.general_export_button()}
-      ><Select
-        label={m.preview_export_format()}
-        value={preview.get("export.format", "HTML")}
-        options={["HTML", "JSON"].map((value) => ({ value, label: value }))}
-        onchange={(value) => preview.set("export.format", value)}
-      /><Checkbox
-        label={m.preview_bookmarks()}
-        checked={preview.get("export.bookmarks", true)}
-        onchange={(value) => preview.set("export.bookmarks", value)}
-      /><Checkbox
-        label={m.preview_history()}
-        checked={preview.get("export.history", false)}
-        onchange={(value) => preview.set("export.history", value)}
-      /></PreviewAction
-    >
-  </SettingsGroup>
-{/if}

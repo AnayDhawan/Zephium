@@ -2239,6 +2239,7 @@ mod blocker;
 mod bootstrap;
 mod browsing_data;
 mod engine_events;
+mod export;
 mod extension_actions;
 mod extension_browser_requests;
 mod extension_browser_surface;

@@ -71,6 +71,7 @@ mod blocker_service;
 mod browser_credentials;
 mod browser_import;
 mod content_fullscreen;
+mod data_export;
 mod default_browser;
 mod diagnostic_report;
 mod diagnostics;
@@ -1845,6 +1846,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             browser_import::import_start,
             browser_import::import_cancel,
             browser_import::import_open_permission,
+            data_export::export_browser_data,
             resource_close_ready,
             tab_drop,
             divider_grab,

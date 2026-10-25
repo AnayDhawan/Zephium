@@ -9,6 +9,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::Instant;
 
 use zephium_core::bookmarks::{BookmarkFailure, BookmarkNode, BookmarkReply, BookmarkRequest};
+use zephium_core::export::{ExportKind, HISTORY_CSV_HEADER, MAX_EXPORT_VISITS};
 use zephium_core::ids::{ItemId, ProfileId, SpaceId};
 use zephium_core::item::sanitize_page_title;
 use zephium_core::ports::store::HistoryHit;
@@ -154,6 +155,11 @@ pub enum StoreReadResult {
         token: u64,
         added: Option<u32>,
     },
+    /// The file an export produced, or None when the store could not read it.
+    Exported {
+        token: u64,
+        text: Option<String>,
+    },
 }
 
 /// Data read from another browser. Bookmarks and history are written in one
@@ -237,6 +243,11 @@ enum Request {
         token: u64,
         profile: ProfileId,
         work: ImportWork,
+    },
+    Export {
+        token: u64,
+        profile: ProfileId,
+        kind: ExportKind,
     },
 }
 
@@ -399,6 +410,27 @@ impl StoreReadQueue {
             token,
             profile,
             work,
+        });
+        self.inner.ready.notify_one();
+        true
+    }
+
+    pub(crate) fn request_export(&self, token: u64, profile: ProfileId, kind: ExportKind) -> bool {
+        let mut state = self
+            .inner
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if state.stopped
+            || !state.accepting
+            || state.surface_calls.len() >= MAX_PENDING_SURFACE_CALLS
+        {
+            return false;
+        }
+        state.surface_calls.push_back(Request::Export {
+            token,
+            profile,
+            kind,
         });
         self.inner.ready.notify_one();
         true
@@ -847,6 +879,43 @@ fn bookmark_work(
     result.unwrap_or_else(BookmarkSurfaceReply::Failed)
 }
 
+/// Visits fetched per store call, the most a history page returns.
+const EXPORT_PAGE: u32 = 200;
+
+/// The file for an export, or None when the store could not be read.
+fn export_text(
+    store: &dyn zephium_core::ports::store::Store,
+    profile: ProfileId,
+    kind: ExportKind,
+) -> Option<String> {
+    match kind {
+        ExportKind::Bookmarks => match store.bookmarks(profile, BookmarkRequest::All) {
+            BookmarkReply::Nodes(nodes) => Some(zephium_core::export::bookmarks_html(&nodes)),
+            _ => None,
+        },
+        ExportKind::History => {
+            let mut text = String::from(HISTORY_CSV_HEADER);
+            let (mut before, mut exported) = (None, 0);
+            while exported < MAX_EXPORT_VISITS {
+                let mut visits = store.history_page(profile, "", None, before, EXPORT_PAGE);
+                // The store answers a call it could not serve in time with no
+                // visits, which a real end also is. Ask once more before
+                // believing it, so a stall does not end the file early.
+                if visits.is_empty() {
+                    visits = store.history_page(profile, "", None, before, EXPORT_PAGE);
+                }
+                zephium_core::export::push_history_rows(&visits, &mut text);
+                exported += visits.len();
+                match visits.last() {
+                    Some(last) if visits.len() == EXPORT_PAGE as usize => before = Some(last.id),
+                    _ => break,
+                }
+            }
+            Some(text)
+        }
+    }
+}
+
 pub(crate) fn run(store: SharedStore, queue: StoreReadQueue, callback: CallbackHandle) {
     run_with(store, queue, move |result| {
         callback.dispatch(Command::StoreRead(result))
@@ -968,6 +1037,14 @@ fn run_with(
                     // The shell keeps these itself and never queues them.
                     ImportWork::Essentials(_) => None,
                 },
+            },
+            Request::Export {
+                token,
+                profile,
+                kind,
+            } => StoreReadResult::Exported {
+                token,
+                text: export_text(&*store, profile, kind),
             },
             Request::Favicon {
                 generation,

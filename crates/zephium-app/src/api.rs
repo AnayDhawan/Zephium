@@ -295,6 +295,11 @@ pub enum Command {
         call: Box<zephium_ipc::BookmarkCall>,
         done: BookmarkCompletion,
     },
+    /// The focused profile's bookmarks or history as the text of a file.
+    Export {
+        kind: zephium_core::export::ExportKind,
+        done: ExportCompletion,
+    },
     TimeCall {
         expected_profile: ProfileId,
         call: Box<zephium_ipc::TimeCall>,
@@ -1026,6 +1031,30 @@ impl BookmarkCompletion {
         if let Some(done) = done {
             done(response);
         }
+    }
+}
+#[derive(Clone)]
+pub struct ExportCompletion(Completion<Result<String, zephium_core::export::ExportRefusal>>);
+impl ExportCompletion {
+    pub fn new(
+        done: impl FnOnce(Result<String, zephium_core::export::ExportRefusal>) + Send + 'static,
+    ) -> Self {
+        Self(Arc::new(Mutex::new(Some(Box::new(done)))))
+    }
+    pub fn finish(self, reply: Result<String, zephium_core::export::ExportRefusal>) {
+        let done = self
+            .0
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take();
+        if let Some(done) = done {
+            done(reply);
+        }
+    }
+}
+impl fmt::Debug for ExportCompletion {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("ExportCompletion")
     }
 }
 #[derive(Clone)]

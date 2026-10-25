@@ -1005,6 +1005,7 @@ impl Shell {
                 done,
             } => self.bookmark_call(expected_profile, *call, done),
             Command::Import { work, done } => self.import_into_focused(*work, done),
+            Command::Export { kind, done } => self.export_from_focused(kind, done),
             Command::AttachFaviconProber(attachment) => self.attach_favicon_prober(attachment.0),
             Command::ProbeFavicons { profile, origins } => self.probe_favicons(profile, origins),
             Command::FaviconProbed {
@@ -2165,6 +2166,7 @@ impl Shell {
                 reply,
             } => self.on_bookmarks_read(token, profile, reply),
             StoreReadResult::Imported { token, added } => self.on_import_read(token, added),
+            StoreReadResult::Exported { token, text } => self.on_export_read(token, text),
         }
     }
 }

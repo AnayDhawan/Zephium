@@ -128,6 +128,16 @@ fn apply(conn: &mut Connection, request: BookmarkRequest) -> Outcome<BookmarkRep
                 .collect::<rusqlite::Result<_>>()?;
             Ok(Ok(BookmarkReply::Nodes(nodes)))
         }
+        BookmarkRequest::All => {
+            let mut rows = conn.prepare_cached(
+                "SELECT b.id, b.parent_id, b.url, b.title, 0 FROM bookmarks b
+                 ORDER BY b.parent_id, b.position, b.id LIMIT ?1",
+            )?;
+            let nodes = rows
+                .query_map(params![MAX_BOOKMARKS], node)?
+                .collect::<rusqlite::Result<_>>()?;
+            Ok(Ok(BookmarkReply::Nodes(nodes)))
+        }
         BookmarkRequest::AddLink {
             parent,
             title,
@@ -952,5 +962,37 @@ mod tests {
         );
         assert!(found(&mut hub, "rust missing").is_empty());
         assert!(found(&mut hub, "rust %").is_empty());
+    }
+
+    #[test]
+    fn all_lists_every_node_with_siblings_in_their_order() {
+        let (mut hub, profile) = hub();
+        let folder = added(hub.bookmarks(
+            profile,
+            BookmarkRequest::AddFolder {
+                parent: None,
+                title: "Folder".into(),
+            },
+        ));
+        added(hub.bookmarks(profile, link(Some(folder), "Inside", "https://in.example/")));
+        added(hub.bookmarks(profile, link(None, "Top", "https://top.example/")));
+        added(hub.bookmarks(
+            profile,
+            link(Some(folder), "Second", "https://two.example/"),
+        ));
+        let BookmarkReply::Nodes(all) = hub.bookmarks(profile, BookmarkRequest::All) else {
+            panic!("all");
+        };
+        assert_eq!(
+            all.iter()
+                .map(|node| (node.parent, node.title.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                (None, "Folder"),
+                (None, "Top"),
+                (Some(folder), "Inside"),
+                (Some(folder), "Second"),
+            ]
+        );
     }
 }

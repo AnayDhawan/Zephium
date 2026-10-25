@@ -181,7 +181,6 @@ export const fields = {
     initial: "",
   },
   "general.export": {
-    preview: true,
     section: "general",
     label: m.pref_general_export,
     description: m.pref_general_export_help,
