@@ -241,19 +241,25 @@ impl Shell {
             .favicons
             .icon_attempts
             .iter()
-            .filter_map(|(id, attempt)| (attempt.profile == profile).then_some(*id))
+            .filter_map(|(id, attempt)| (attempt.target.profile == profile).then_some(*id))
             .collect();
         favicon_items.extend(
             self.favicons
                 .icon_load_completion_pending
                 .iter()
-                .filter_map(|(id, (item_profile, _))| (*item_profile == profile).then_some(*id)),
+                .filter_map(|(id, target)| (target.profile == profile).then_some(*id)),
         );
         favicon_items.extend(
             self.favicons
                 .store_reads
                 .iter()
-                .filter_map(|(id, pending)| (pending.profile == profile).then_some(*id)),
+                .filter_map(|(id, pending)| (pending.target.profile == profile).then_some(*id)),
+        );
+        favicon_items.extend(
+            self.favicons
+                .settled
+                .iter()
+                .filter_map(|(id, target)| (target.profile == profile).then_some(*id)),
         );
         for id in favicon_items {
             self.cancel_favicon_attempt(id);

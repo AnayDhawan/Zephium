@@ -560,9 +560,11 @@ Session restore state (§7) rides on lifecycle (`opts` carries restore state).
 The built favicon path deliberately has no second Rust HTTP stack or native
 image decoder. The exact site renderer scans a bounded set of same-origin icon
 links plus `/favicon.ico`, decodes there, and returns only canonical 32x32 RGBA
-for the current view generation/navigation epoch. Seven timed polls are
-followed by at most one fresh pass at document completion when the initial
-budget expired during loading. Cross-origin/CDN icons are not fetched until a
+for the current view generation/navigation epoch. A page whose icon differs
+from its origin's wears its own, so each new page of an origin is looked up once
+(at most one per second per tab). Seven timed polls are followed by at most one
+fresh pass at document completion when the initial budget expired during
+loading. Cross-origin/CDN icons are not fetched until a
 profile-scoped broker can share the engine's exact cookies, proxy, DNS, and
 shutdown policy; affected sites may show the fallback rather than their
 declared icon.

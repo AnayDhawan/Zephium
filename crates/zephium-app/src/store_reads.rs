@@ -29,6 +29,56 @@ fn now_secs() -> i64 {
         .map_or(0, |elapsed| elapsed.as_secs() as i64)
 }
 
+/// Reads the icon of an origin and, when named, of one page of it. Both come
+/// with whether they are old enough to be asked of the renderer again.
+pub(crate) fn read_favicon(
+    store: &dyn zephium_core::ports::store::Store,
+    generation: u64,
+    id: ItemId,
+    profile: ProfileId,
+    origin: String,
+    page: Option<String>,
+) -> StoreReadResult {
+    let read = |key: &str| {
+        let stored = store
+            .favicon_raster_with_age(profile, key)
+            .filter(|(bytes, _)| icon::validated_rgba32(bytes).is_some());
+        StoredIcon {
+            stale: stored
+                .as_ref()
+                .is_none_or(|(_, age)| *age > FAVICON_CACHE_MAX_AGE_SECONDS),
+            rgba: stored.map(|(bytes, _)| bytes),
+        }
+    };
+    let icon = read(&origin);
+    let page = page.map(|key| {
+        let icon = read(&key);
+        Box::new(PageFavicon { key, icon })
+    });
+    StoreReadResult::Favicon {
+        generation,
+        id,
+        profile,
+        origin,
+        icon,
+        page,
+    }
+}
+
+/// A stored raster, and whether it is older than the refresh window or absent.
+#[derive(Clone, Debug)]
+pub struct StoredIcon {
+    pub rgba: Option<Vec<u8>>,
+    pub stale: bool,
+}
+
+/// What the store held for one page of an origin whose icon was asked for.
+#[derive(Clone, Debug)]
+pub struct PageFavicon {
+    pub key: String,
+    pub icon: StoredIcon,
+}
+
 #[derive(Clone, Debug)]
 pub enum StoreReadResult {
     History {
@@ -42,9 +92,9 @@ pub enum StoreReadResult {
         id: ItemId,
         profile: ProfileId,
         origin: String,
-        rgba: Option<Vec<u8>>,
-        /// The stored copy is older than the refresh window, or absent.
-        stale: bool,
+        icon: StoredIcon,
+        /// The page's own icon, when the request named a page.
+        page: Option<Box<PageFavicon>>,
     },
     FaviconBatch {
         generation: u64,
@@ -136,6 +186,7 @@ enum Request {
         id: ItemId,
         profile: ProfileId,
         origin: String,
+        page: Option<String>,
     },
     FaviconBatch {
         generation: u64,
@@ -333,6 +384,7 @@ impl StoreReadQueue {
         id: ItemId,
         profile: ProfileId,
         origin: String,
+        page: Option<String>,
     ) -> bool {
         let mut state = self
             .inner
@@ -350,6 +402,7 @@ impl StoreReadQueue {
                     id,
                     profile,
                     origin,
+                    page,
                 },
             );
         } else {
@@ -363,6 +416,7 @@ impl StoreReadQueue {
                     id,
                     profile,
                     origin,
+                    page,
                 },
             );
             state.favicon_order.push_back(id);
@@ -837,22 +891,8 @@ fn run_with(
                 id,
                 profile,
                 origin,
-            } => {
-                let stored = store
-                    .favicon_raster_with_age(profile, &origin)
-                    .filter(|(bytes, _)| icon::validated_rgba32(bytes).is_some());
-                let stale = stored
-                    .as_ref()
-                    .is_none_or(|(_, age)| *age > FAVICON_CACHE_MAX_AGE_SECONDS);
-                StoreReadResult::Favicon {
-                    generation,
-                    id,
-                    profile,
-                    origin,
-                    rgba: stored.map(|(bytes, _)| bytes),
-                    stale,
-                }
-            }
+                page,
+            } => read_favicon(&*store, generation, id, profile, origin, page),
             Request::FaviconBatch {
                 generation,
                 profile,
@@ -1003,20 +1043,23 @@ mod tests {
                 raw as u64,
                 ItemId::from(raw),
                 profile,
-                format!("https://{raw}.example")
+                format!("https://{raw}.example"),
+                None
             ));
         }
         assert!(queue.request_favicon(
             999,
             ItemId::from(1),
             profile,
-            "https://replacement.example".into()
+            "https://replacement.example".into(),
+            Some("https://replacement.example/page".into())
         ));
         assert!(!queue.request_favicon(
             1000,
             ItemId::from(999),
             profile,
-            "https://overflow.example".into()
+            "https://overflow.example".into(),
+            None
         ));
     }
 
@@ -1030,7 +1073,8 @@ mod tests {
                 generation,
                 id,
                 profile,
-                format!("https://{generation}.example")
+                format!("https://{generation}.example"),
+                None
             ));
             queue.cancel_favicon(id);
         }

@@ -2034,9 +2034,9 @@ impl Shell {
                 id,
                 profile,
                 origin,
-                rgba,
-                stale,
-            } => self.on_favicon_read(generation, id, profile, origin, rgba, stale),
+                icon,
+                page,
+            } => self.on_favicon_read(generation, id, profile, origin, icon, page),
             StoreReadResult::FaviconBatch {
                 generation,
                 profile,

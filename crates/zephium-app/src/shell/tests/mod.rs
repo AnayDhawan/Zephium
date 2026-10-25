@@ -1502,6 +1502,9 @@ impl Store for FakeStore {
                 )
             })
     }
+    fn forget_page_favicon(&self, _profile: ProfileId, page: String) {
+        self.icons.lock().unwrap().retain(|(key, _)| key != &page);
+    }
     fn favicon_raster_with_age(&self, profile: ProfileId, origin: &str) -> Option<(Vec<u8>, i64)> {
         let age = self.favicon_age(profile, origin)?;
         self.favicon_bytes(profile, origin)

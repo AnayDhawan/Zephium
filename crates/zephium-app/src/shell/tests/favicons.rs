@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::shell::favicons::DEFERRED_PAGE_CHECK;
+
 #[test]
 fn favicon_pipeline_accepts_only_fixed_renderer_rasters_for_current_origin() {
     let engine = Arc::new(FakeEngine::default());
@@ -103,8 +105,11 @@ fn stale_favicon_store_reply_cannot_cross_a_navigation_generation() {
         id,
         profile,
         origin: "https://first.example".into(),
-        rgba: Some(rgba.clone()),
-        stale: false,
+        icon: crate::store_reads::StoredIcon {
+            rgba: Some(rgba.clone()),
+            stale: false,
+        },
+        page: None,
     }));
     assert!(shell
         .icon_ref_for_url(
@@ -127,8 +132,17 @@ fn stale_favicon_store_reply_cannot_cross_a_navigation_generation() {
         id,
         profile,
         origin: "https://second.example".into(),
-        rgba: Some(rgba),
-        stale: false,
+        icon: crate::store_reads::StoredIcon {
+            rgba: Some(rgba),
+            stale: false,
+        },
+        page: Some(Box::new(crate::store_reads::PageFavicon {
+            key: "https://second.example/".into(),
+            icon: crate::store_reads::StoredIcon {
+                rgba: None,
+                stale: true,
+            },
+        })),
     }));
     assert!(shell
         .icon_ref_for_url(
@@ -247,8 +261,16 @@ fn slow_load_gets_one_fresh_bounded_favicon_pass_after_completion() {
     );
     assert!(!shell.favicons.icon_attempts.contains_key(&id));
     assert_eq!(
-        shell.favicons.icon_load_completion_pending.get(&id),
-        Some(&key)
+        shell
+            .favicons
+            .icon_load_completion_pending
+            .get(&id)
+            .map(|target| (
+                target.profile,
+                target.origin.as_str(),
+                target.page.as_deref()
+            )),
+        Some((key.0, key.1.as_str(), Some("https://slow-icon.example/")))
     );
     assert!(!shell.favicons.icons_checked.contains(&key));
     let discover = format!("discover {id}");
@@ -974,4 +996,491 @@ fn a_returning_profile_is_announced_even_when_every_icon_is_already_held() {
         .iter()
         .any(|view| view.profile_id == personal.to_string() && view.entries.is_empty());
     assert!(announced);
+}
+
+fn raster(fill: u8) -> Vec<u8> {
+    vec![fill; zephium_core::icon::RGBA32_BYTES]
+}
+
+fn tab_icon(screen: &Screen, id: ItemId) -> Option<zephium_ipc::IconRef> {
+    last(screen)
+        .tabs
+        .into_iter()
+        .find(|tab| tab.id == id.to_string())
+        .and_then(|tab| tab.icon)
+}
+
+/// Opens `url` in the tab and gives it the icon the page declares.
+fn open_page(shell: &mut Shell, id: ItemId, url: &str, icon: &[u8]) {
+    // The interval that spaces a tab's page lookups is not what these test.
+    shell.favicons.page_checks.clear();
+    navigate_and_commit(shell, id, url);
+    shell.handle(Command::Engine(EngineEvent::FaviconPixels {
+        id,
+        page_url: url.into(),
+        rgba: icon.to_vec(),
+    }));
+}
+
+#[test]
+fn pages_of_one_origin_each_wear_the_icon_they_declare() {
+    let store = Arc::new(FakeStore::default());
+    let (mut shell, _engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    let (docs, sheets) = (raster(10), raster(20));
+    let revision = |rgba: &[u8]| zephium_core::icon::revision(rgba).unwrap();
+
+    open_page(&mut shell, id, "https://example.com/docs/", &docs);
+    assert_eq!(
+        store.icons.lock().unwrap().as_slice(),
+        &[("https://example.com".to_owned(), docs.clone())],
+        "the first page's icon is the origin's"
+    );
+    let icon = tab_icon(&screen, id).unwrap();
+    assert_eq!(
+        (icon.origin.as_str(), icon.revision),
+        ("https://example.com", revision(&docs))
+    );
+
+    open_page(&mut shell, id, "https://example.com/sheets/", &sheets);
+    assert_eq!(
+        store.icons.lock().unwrap().last(),
+        Some(&("https://example.com/sheets/".to_owned(), sheets.clone()))
+    );
+    let icon = tab_icon(&screen, id).unwrap();
+    assert_eq!(
+        (icon.origin.as_str(), icon.revision),
+        ("https://example.com/sheets/", revision(&sheets))
+    );
+
+    let saved = store.icons.lock().unwrap().len();
+    open_page(&mut shell, id, "https://example.com/docs/", &docs);
+    assert_eq!(
+        store.icons.lock().unwrap().len(),
+        saved,
+        "nothing new to keep"
+    );
+    let icon = tab_icon(&screen, id).unwrap();
+    assert_eq!(
+        (icon.origin.as_str(), icon.revision),
+        ("https://example.com", revision(&docs))
+    );
+}
+
+#[test]
+fn a_page_declaring_its_origins_icon_costs_no_row_and_no_cache_entry() {
+    let store = Arc::new(FakeStore::default());
+    let (mut shell, _engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    let site = raster(10);
+
+    open_page(&mut shell, id, "https://example.com/a", &site);
+    for page in ["b", "c?q=1", "d#top", "e"] {
+        open_page(
+            &mut shell,
+            id,
+            &format!("https://example.com/{page}"),
+            &site,
+        );
+    }
+
+    assert_eq!(store.icons.lock().unwrap().len(), 1);
+    assert_eq!(shell.favicons.icon_values.len(), 1);
+    assert_eq!(tab_icon(&screen, id).unwrap().origin, "https://example.com");
+}
+
+#[test]
+fn an_icon_is_looked_up_by_page_then_origin_then_nothing_of_another_page() {
+    let (mut shell, _engine, _screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let profile = shell.windows.focused().unwrap().profile;
+    let key = |value: &str| (profile, value.to_owned());
+    assert!(shell.cache_icon(key("https://example.com"), &raster(1)));
+    assert!(shell.cache_icon(key("https://example.com/sheets/"), &raster(2)));
+    let origin_of = |shell: &Shell, url: &str| {
+        shell
+            .icon_ref_for_url(zephium_ipc::IconSurface::Chrome, profile, url)
+            .map(|icon| icon.origin)
+    };
+
+    assert_eq!(
+        origin_of(&shell, "https://example.com/sheets/?tab=2#cell"),
+        Some("https://example.com/sheets/".into())
+    );
+    assert_eq!(
+        origin_of(&shell, "https://example.com/docs/"),
+        Some("https://example.com".into())
+    );
+    assert_eq!(
+        origin_of(&shell, "https://example.com/sheets"),
+        Some("https://example.com".into()),
+        "another page, not the sheets one"
+    );
+    let long = format!("https://example.com/sheets/{}", "x".repeat(2100));
+    assert_eq!(origin_of(&shell, &long), Some("https://example.com".into()));
+    assert_eq!(origin_of(&shell, "https://other.example/sheets/"), None);
+}
+
+#[test]
+fn a_page_never_borrows_another_pages_icon_as_its_sites() {
+    let (mut shell, _engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    let profile = shell.windows.focused().unwrap().profile;
+    assert!(shell.cache_icon((profile, "https://example.com/sheets/".into()), &raster(2)));
+
+    navigate_and_commit(&mut shell, id, "https://app.example.com/inbox");
+
+    assert!(tab_icon(&screen, id).is_none());
+}
+
+#[test]
+fn a_private_pages_own_icon_is_drawn_but_never_written() {
+    let engine = Arc::new(FakeEngine::default());
+    let store = Arc::new(FakeStore::default());
+    let screen: Screen = Arc::new(Mutex::new(ItemsState {
+        projection_revision: String::new(),
+        profile: None,
+        spaces: Vec::new(),
+        active_space_id: None,
+        nodes: Vec::new(),
+        tabs: Vec::new(),
+        active: None,
+        split_group: None,
+    }));
+    let sink = screen.clone();
+    let mut shell = Shell::new(
+        engine,
+        store.clone(),
+        Arc::new(FakeChrome),
+        Box::new(move |projection| {
+            apply_projection(&mut sink.lock().unwrap(), projection);
+        }),
+    );
+    shell.handle(Command::SetWindowSize(Size::new(1200.0, 800.0)));
+    shell.handle(Command::Bootstrap);
+    let profile = ProfileId::from(9001);
+    let space = SpaceId::from(9002);
+    assert!(shell.profiles.insert(Profile {
+        id: profile,
+        name: "Private".into(),
+        kind: ProfileKind::Incognito,
+    }));
+    assert!(shell.initialize_new_blocker_profile(profile));
+    assert!(shell.spaces.insert(Space {
+        id: space,
+        profile,
+        name: "Private".into(),
+        look: Default::default(),
+    }));
+    shell
+        .windows
+        .create(WindowKind::Main, profile, space, Size::new(1200.0, 800.0));
+    shell.handle(Command::Open);
+    let id = active_id(&screen);
+
+    open_page(&mut shell, id, "https://private.example/docs/", &raster(10));
+    open_page(
+        &mut shell,
+        id,
+        "https://private.example/sheets/",
+        &raster(20),
+    );
+
+    assert!(store.icons.lock().unwrap().is_empty());
+    assert_eq!(
+        tab_icon(&screen, id).map(|icon| icon.origin),
+        Some("https://private.example/sheets/".to_owned())
+    );
+    assert!(shell
+        .favicons
+        .icon_values
+        .contains_key(&(profile, "https://private.example/sheets/".to_owned())));
+}
+
+#[test]
+fn restored_tabs_wear_their_stored_page_icon_before_any_page_loads() {
+    let store = Arc::new(FakeStore::default());
+    let (mut first, _engine, screen) = setup_with(store.clone());
+    first.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    navigate_and_commit(&mut first, id, "https://example.com/sheets/");
+    store.icons.lock().unwrap().extend([
+        ("https://example.com".to_owned(), raster(1)),
+        ("https://example.com/sheets/".to_owned(), raster(2)),
+    ]);
+    drop(first);
+
+    let (mut restored, engine, restored_screen) = setup_with(store);
+    restored.handle(Command::Bootstrap);
+
+    let tab = last(&restored_screen).tabs.into_iter().next().unwrap();
+    assert_eq!(
+        tab.icon.map(|icon| icon.origin),
+        Some("https://example.com/sheets/".to_owned())
+    );
+    assert!(engine
+        .calls()
+        .iter()
+        .all(|call| !call.starts_with("discover ")));
+}
+
+#[test]
+fn a_stored_page_icon_that_now_matches_its_origin_is_dropped() {
+    let store = Arc::new(FakeStore::default());
+    store.icons.lock().unwrap().extend([
+        ("https://example.com".to_owned(), raster(1)),
+        ("https://example.com/sheets/".to_owned(), raster(2)),
+    ]);
+    {
+        let mut ages = store.icon_ages.lock().unwrap();
+        ages.insert("https://example.com".to_owned(), 60);
+        ages.insert("https://example.com/sheets/".to_owned(), 400 * 24 * 3600);
+    }
+    let (mut shell, engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    navigate_and_commit(&mut shell, id, "https://example.com/sheets/");
+
+    // The old page icon is drawn while a newer one is fetched.
+    assert_eq!(
+        tab_icon(&screen, id).map(|icon| icon.origin),
+        Some("https://example.com/sheets/".to_owned())
+    );
+    assert!(engine
+        .calls()
+        .iter()
+        .any(|call| call == &format!("discover {id}")));
+
+    shell.handle(Command::Engine(EngineEvent::FaviconPixels {
+        id,
+        page_url: "https://example.com/sheets/".into(),
+        rgba: raster(1),
+    }));
+
+    assert_eq!(
+        tab_icon(&screen, id).map(|icon| icon.origin),
+        Some("https://example.com".to_owned())
+    );
+    assert!(store
+        .icons
+        .lock()
+        .unwrap()
+        .iter()
+        .all(|(key, _)| key != "https://example.com/sheets/"));
+}
+
+#[test]
+fn a_fresh_stored_page_icon_needs_no_renderer_pass() {
+    let store = Arc::new(FakeStore::default());
+    store.icons.lock().unwrap().extend([
+        ("https://example.com".to_owned(), raster(1)),
+        ("https://example.com/sheets/".to_owned(), raster(2)),
+    ]);
+    {
+        let mut ages = store.icon_ages.lock().unwrap();
+        ages.insert("https://example.com".to_owned(), 60);
+        ages.insert("https://example.com/sheets/".to_owned(), 60);
+    }
+    let (mut shell, engine, screen) = setup_with(store);
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    navigate_and_commit(&mut shell, id, "https://example.com/sheets/");
+
+    assert!(engine
+        .calls()
+        .iter()
+        .all(|call| call != &format!("discover {id}")));
+    for _ in 0..3 {
+        shell.handle(Command::Engine(EngineEvent::LoadingChanged {
+            id,
+            loading: false,
+        }));
+    }
+    assert!(engine
+        .calls()
+        .iter()
+        .all(|call| call != &format!("discover {id}")));
+}
+
+#[test]
+fn a_page_looked_up_once_is_not_looked_up_again_for_its_other_addresses() {
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    open_page(&mut shell, id, "https://example.com/docs/", &raster(10));
+    open_page(&mut shell, id, "https://example.com/sheets/", &raster(20));
+    let discovered = |engine: &FakeEngine| {
+        engine
+            .calls()
+            .iter()
+            .filter(|call| call.as_str() == format!("discover {id}"))
+            .count()
+    };
+    let before = discovered(&engine);
+
+    for url in [
+        "https://example.com/sheets/?tab=2",
+        "https://example.com/sheets/#cell",
+    ] {
+        commit_url(&mut shell, id, url);
+    }
+    shell.handle(Command::Engine(EngineEvent::LoadingChanged {
+        id,
+        loading: false,
+    }));
+
+    assert_eq!(discovered(&engine), before);
+}
+
+#[test]
+fn page_lookups_within_an_origin_are_spaced_and_the_last_address_wins() {
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    shell.self_queue = Some(CommandQueue::new());
+    let id = active_id(&screen);
+    open_page(&mut shell, id, "https://example.com/a", &raster(10));
+    let discovered = |engine: &FakeEngine| {
+        engine
+            .calls()
+            .iter()
+            .filter(|call| call.as_str() == format!("discover {id}"))
+            .count()
+    };
+    let before = discovered(&engine);
+
+    for page in ["b", "c", "d"] {
+        commit_url(&mut shell, id, &format!("https://example.com/{page}"));
+    }
+    assert_eq!(discovered(&engine), before, "held back inside the interval");
+    assert!(shell.favicons.icon_attempts.is_empty());
+
+    let (_, at) = shell.favicons.page_checks.get_mut(&id).unwrap();
+    *at = std::time::Instant::now()
+        .checked_sub(std::time::Duration::from_secs(5))
+        .unwrap();
+    shell.handle(Command::FaviconPoll {
+        id,
+        attempt: DEFERRED_PAGE_CHECK,
+    });
+
+    assert_eq!(discovered(&engine), before + 1);
+    let attempt = shell.favicons.icon_attempts.get(&id).unwrap();
+    assert_eq!(
+        attempt.target.page.as_deref(),
+        Some("https://example.com/d")
+    );
+}
+
+#[test]
+fn a_different_origin_is_never_held_back() {
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    shell.self_queue = Some(CommandQueue::new());
+    let id = active_id(&screen);
+    open_page(&mut shell, id, "https://example.com/a", &raster(10));
+    commit_url(&mut shell, id, "https://other.example/");
+
+    assert!(engine
+        .calls()
+        .iter()
+        .any(|call| call == &format!("discover {id}")));
+    assert!(shell.favicons.icon_attempts.contains_key(&id));
+}
+
+#[test]
+fn replacing_an_origins_icon_keeps_it_for_the_open_pages_that_wore_it() {
+    let store = Arc::new(FakeStore::default());
+    let (mut shell, _engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    let profile = shell.windows.focused().unwrap().profile;
+    let (docs, sheets) = (raster(10), raster(20));
+    open_page(&mut shell, id, "https://example.com/docs/", &docs);
+
+    assert!(shell.admit_origin_icon(profile, "https://example.com", &sheets));
+
+    let icon = tab_icon(&screen, id).unwrap();
+    assert_eq!(icon.origin, "https://example.com/docs/");
+    assert_eq!(icon.revision, zephium_core::icon::revision(&docs).unwrap());
+    let saved = store.icons.lock().unwrap().clone();
+    assert!(saved
+        .iter()
+        .any(|(key, bytes)| key == "https://example.com/docs/" && *bytes == docs));
+    assert!(saved
+        .iter()
+        .any(|(key, bytes)| key == "https://example.com" && *bytes == sheets));
+    assert_eq!(
+        shell
+            .icon_ref_for_url(
+                zephium_ipc::IconSurface::Chrome,
+                profile,
+                "https://example.com/other"
+            )
+            .map(|icon| icon.revision),
+        zephium_core::icon::revision(&sheets)
+    );
+}
+
+#[test]
+fn a_page_icon_that_leaves_the_cache_is_looked_up_again() {
+    let (mut shell, _engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    let profile = shell.windows.focused().unwrap().profile;
+    open_page(&mut shell, id, "https://example.com/docs/", &raster(10));
+    open_page(&mut shell, id, "https://example.com/sheets/", &raster(20));
+    assert!(shell.favicons.settled.contains_key(&id));
+
+    for index in 0..ICON_CACHE_CAPACITY {
+        assert!(shell.cache_icon(
+            (profile, format!("https://icon-{index}.example")),
+            &raster(3)
+        ));
+    }
+
+    assert!(!shell.favicons.settled.contains_key(&id));
+    assert!(!shell
+        .favicons
+        .icon_values
+        .contains_key(&(profile, "https://example.com/sheets/".to_owned())));
+}
+
+#[test]
+fn deleting_a_profile_forgets_its_page_icons_and_settled_tabs() {
+    let (mut shell, _engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    let profile = shell.windows.focused().unwrap().profile;
+    open_page(&mut shell, id, "https://example.com/docs/", &raster(10));
+    open_page(&mut shell, id, "https://example.com/sheets/", &raster(20));
+    assert!(shell.favicons.settled.contains_key(&id));
+
+    shell.apply_profile_tombstone(profile);
+
+    assert!(shell.favicons.settled.is_empty());
+    assert!(shell
+        .favicons
+        .icon_values
+        .keys()
+        .all(|(owner, _)| *owner != profile));
+}
+
+#[test]
+fn a_path_too_long_to_key_falls_back_to_its_origin_alone() {
+    let store = Arc::new(FakeStore::default());
+    let (mut shell, _engine, screen) = setup_with(store.clone());
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    let url = format!("https://example.com/{}", "a".repeat(2100));
+
+    open_page(&mut shell, id, &url, &raster(10));
+
+    assert_eq!(
+        store.icons.lock().unwrap().as_slice(),
+        &[("https://example.com".to_owned(), raster(10))]
+    );
+    assert!(shell.favicons.settled.is_empty());
 }

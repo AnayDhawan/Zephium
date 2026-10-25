@@ -2,10 +2,17 @@
 
 use super::*;
 
+use crate::store_reads::{PageFavicon, StoredIcon};
 use zephium_ipc::IconSurface;
 
 pub(super) const TRACKED_ICON_ORIGIN_CAPACITY: usize = 2048;
 pub(super) const ICON_CACHE_CAPACITY: usize = 512;
+/// A page script can change its address as fast as it likes. A tab looks up
+/// at most one page of an origin per interval, and the last address wins.
+pub(super) const PAGE_CHECK_GAP: std::time::Duration = std::time::Duration::from_secs(1);
+/// The timer attempt that re-examines a tab whose page lookup was deferred.
+pub(super) const DEFERRED_PAGE_CHECK: u8 = u8::MAX;
+const SETTLED_PAGE_CAPACITY: usize = 256;
 pub(super) const FAVICON_POLL_DELAYS: [std::time::Duration; 7] = [
     std::time::Duration::from_millis(100),
     std::time::Duration::from_millis(250),
@@ -17,18 +24,26 @@ pub(super) const FAVICON_POLL_DELAYS: [std::time::Duration; 7] = [
 ];
 pub(super) const STORE_READ_RESULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 
-#[derive(Clone)]
-pub(super) struct IconAttempt {
+/// What a tab's icon is looked up by: its origin, and its page when the
+/// address is short enough to key one. A page whose icon differs from its
+/// origin's wears its own; every other page falls back to the origin's.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct IconTarget {
     pub(super) profile: ProfileId,
     pub(super) origin: String,
+    pub(super) page: Option<String>,
+}
+
+#[derive(Clone)]
+pub(super) struct IconAttempt {
+    pub(super) target: IconTarget,
     pub(super) next_attempt: u8,
 }
 
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct PendingFaviconStoreRead {
     pub(super) generation: u64,
-    pub(super) profile: ProfileId,
-    pub(super) origin: String,
+    pub(super) target: IconTarget,
 }
 
 pub(super) struct PendingFaviconBatch {
@@ -62,7 +77,13 @@ pub(super) struct FaviconState {
     /// follow that profile.
     pub(super) announced: std::cell::RefCell<std::collections::HashMap<IconSurface, ProfileId>>,
     pub(super) icon_attempts: std::collections::HashMap<ItemId, IconAttempt>,
-    pub(super) icon_load_completion_pending: std::collections::HashMap<ItemId, (ProfileId, String)>,
+    pub(super) icon_load_completion_pending: std::collections::HashMap<ItemId, IconTarget>,
+    /// The page each tab's icon is settled for, so one page is looked up once
+    /// however often its address is reported.
+    pub(super) settled: std::collections::HashMap<ItemId, IconTarget>,
+    /// When each tab last began looking up a page of an origin. Only recent
+    /// entries are kept.
+    pub(super) page_checks: std::collections::HashMap<ItemId, (IconTarget, std::time::Instant)>,
     pub(super) store_reads: std::collections::HashMap<ItemId, PendingFaviconStoreRead>,
     pub(super) store_generation: u64,
     pub(super) pending_batch: Option<PendingFaviconBatch>,
@@ -71,21 +92,23 @@ pub(super) struct FaviconState {
 }
 
 impl Shell {
-    fn item_origin(&self, id: ItemId) -> Option<(ProfileId, String)> {
+    fn item_target(&self, id: ItemId) -> Option<IconTarget> {
         let profile = self.profile_of_item(id)?;
-        let origin = self
-            .items
-            .tab(id)
-            .and_then(|t| t.url.as_ref())
-            .and_then(origin_of)?;
-        Some((profile, origin))
+        let url = self.items.tab(id).and_then(|t| t.url.as_ref())?;
+        Some(IconTarget {
+            profile,
+            origin: origin_of(url)?,
+            page: zephium_core::icon::page_key(url),
+        })
     }
 
-    /// Every origin the sidebar is about to draw for this window: Favourites,
-    /// Pinned and Today, folder contents included.
+    /// Every origin the sidebar is about to draw for this window, then the
+    /// pages among them: Favourites, Pinned and Today, folder contents
+    /// included.
     fn sidebar_origins(&self, profile: ProfileId, space: SpaceId) -> Vec<String> {
         let mut seen = std::collections::HashSet::new();
         let mut origins = Vec::new();
+        let mut pages = Vec::new();
         let mut frontier: Vec<ItemId> = [
             Placement::Favorites { profile },
             Placement::Space {
@@ -106,16 +129,8 @@ impl Shell {
                 continue;
             }
             frontier.extend(self.items.children(id).iter().copied());
-            let Some(origin) = self
-                .items
-                .tab(id)
-                .and_then(|tab| tab.url.as_ref())
-                .and_then(origin_of)
-            else {
-                continue;
-            };
-            if seen.insert(origin.clone()) {
-                origins.push(origin);
+            if let Some(url) = self.items.tab(id).and_then(|tab| tab.url.as_ref()) {
+                note_sites(url, &mut seen, &mut origins, &mut pages);
             }
         }
         // The switcher stacks the first tabs' icons of the other spaces too.
@@ -129,18 +144,15 @@ impl Shell {
                 if origins.len() == MAX_FAVICON_BATCH_ORIGINS {
                     break;
                 }
-                let origin = self
-                    .items
-                    .tab(id)
-                    .and_then(|tab| tab.url.as_ref())
-                    .and_then(origin_of);
-                if let Some(origin) = origin {
-                    if seen.insert(origin.clone()) {
-                        origins.push(origin);
-                    }
+                if let Some(url) = self.items.tab(id).and_then(|tab| tab.url.as_ref()) {
+                    note_sites(url, &mut seen, &mut origins, &mut pages);
                 }
             }
         }
+        // Origins come first: they are every row's fallback.
+        origins.truncate(MAX_FAVICON_BATCH_ORIGINS);
+        pages.truncate(MAX_FAVICON_BATCH_ORIGINS - origins.len());
+        origins.extend(pages);
         origins
     }
 
@@ -190,37 +202,59 @@ impl Shell {
         id: ItemId,
         profile: ProfileId,
         origin: String,
-        rgba: Option<Vec<u8>>,
-        stale: bool,
+        icon: StoredIcon,
+        page: Option<Box<PageFavicon>>,
     ) {
-        let exact = self.favicons.store_reads.get(&id).is_some_and(|pending| {
-            pending.generation == generation
-                && pending.profile == profile
-                && pending.origin == origin
-        });
-        if !exact {
-            return;
-        }
+        let target = match self.favicons.store_reads.get(&id) {
+            Some(pending)
+                if pending.generation == generation
+                    && pending.target.profile == profile
+                    && pending.target.origin == origin
+                    && pending.target.page.as_deref()
+                        == page.as_ref().map(|page| page.key.as_str()) =>
+            {
+                pending.target.clone()
+            }
+            _ => return,
+        };
         self.favicons.store_reads.remove(&id);
         if let Some(queue) = &self.self_queue {
             queue.cancel_favicon(id);
         }
-        if self.item_origin(id) != Some((profile, origin.clone())) {
+        if self.item_target(id).as_ref() != Some(&target) {
             return;
         }
-        let key = (profile, origin.clone());
-        let shown = rgba
-            .as_deref()
-            .is_some_and(|bytes| self.cache_icon(key.clone(), bytes));
+        let key = (profile, origin);
+        let origin_known = self.favicons.icons_checked.contains(&key);
+        // A stored raster is drawn whatever its age; age only decides whether
+        // the renderer is asked for a newer one.
+        let mut shown = false;
+        let mut origin_fresh = false;
+        if let Some(bytes) = icon.rgba.as_deref().filter(|_| !origin_known) {
+            shown = self.cache_icon(key.clone(), bytes);
+            origin_fresh = shown && !icon.stale;
+        }
+        if let Some(page) = &page {
+            if let Some(bytes) = page.icon.rgba.as_deref() {
+                shown |= self.cache_icon((profile, page.key.clone()), bytes);
+            }
+        }
         if shown {
             self.project_tab(id);
         }
-        // A stored raster is drawn whatever its age; age only decides whether
-        // the renderer is asked for a newer one.
-        if stale {
-            self.start_favicon_discovery(id, profile, origin);
-        } else if shown {
+        if origin_fresh {
             self.favicons.icons_checked.insert(key);
+        }
+        // A page is judged by its own icon's age; its origin's is refreshed by
+        // whichever page matches it next.
+        let refresh = match &page {
+            Some(page) => page.icon.stale,
+            None => icon.stale && !origin_known,
+        };
+        if refresh {
+            self.start_favicon_discovery(id, target);
+        } else {
+            self.settle_page(id, target);
         }
     }
 
@@ -294,25 +328,29 @@ impl Shell {
     }
 
     pub(super) fn maybe_discover_favicon(&mut self, id: ItemId) {
-        let Some((profile, origin)) = self.item_origin(id) else {
+        let Some(target) = self.item_target(id) else {
             return;
         };
-        if self
+        let origin_known = self
             .favicons
             .icons_checked
-            .contains(&(profile, origin.clone()))
-        {
+            .contains(&(target.profile, target.origin.clone()));
+        let page_settled = target.page.is_none() || self.favicons.settled.get(&id) == Some(&target);
+        if origin_known && page_settled {
             return;
         }
-        if self.favicons.icons_checked.len() >= TRACKED_ICON_ORIGIN_CAPACITY {
+        if !origin_known && self.favicons.icons_checked.len() >= TRACKED_ICON_ORIGIN_CAPACITY {
+            return;
+        }
+        if self.defer_page_check(id, &target) {
             return;
         }
 
         // Persistent profiles can hydrate the already-decoded fixed raster.
         // Private profiles deliberately bypass SQLite but still use the same
         // renderer-side decoder and a bounded in-memory cache.
-        if self.incognito_profile(profile) {
-            self.start_favicon_discovery(id, profile, origin);
+        if self.incognito_profile(target.profile) {
+            self.start_favicon_discovery(id, target);
             return;
         }
 
@@ -320,7 +358,7 @@ impl Shell {
             .favicons
             .store_reads
             .get(&id)
-            .is_some_and(|pending| pending.profile == profile && pending.origin == origin);
+            .is_some_and(|pending| pending.target == target);
         if exact_pending {
             return;
         }
@@ -334,12 +372,17 @@ impl Shell {
             id,
             PendingFaviconStoreRead {
                 generation,
-                profile,
-                origin: origin.clone(),
+                target: target.clone(),
             },
         );
         if let Some(reads) = &self.store_reads {
-            if reads.request_favicon(generation, id, profile, origin.clone()) {
+            if reads.request_favicon(
+                generation,
+                id,
+                target.profile,
+                target.origin.clone(),
+                target.page.clone(),
+            ) {
                 if let Some(queue) = &self.self_queue {
                     queue.schedule_favicon(
                         id,
@@ -353,18 +396,15 @@ impl Shell {
         } else {
             #[cfg(test)]
             {
-                let stored = self.store.favicon_raster_with_age(profile, &origin);
-                let stale = stored
-                    .as_ref()
-                    .is_none_or(|(_, age)| *age > FAVICON_CACHE_MAX_AGE_SECONDS);
-                self.on_store_read(StoreReadResult::Favicon {
+                let read = crate::store_reads::read_favicon(
+                    &*self.store,
                     generation,
                     id,
-                    profile,
-                    origin,
-                    rgba: stored.map(|(bytes, _)| bytes),
-                    stale,
-                });
+                    target.profile,
+                    target.origin,
+                    target.page,
+                );
+                self.on_store_read(read);
                 return;
             }
             #[cfg(not(test))]
@@ -374,26 +414,49 @@ impl Shell {
         }
         // Store-read pressure must not make favicons permanently disappear;
         // fall back to the already-bounded renderer discovery pipeline.
-        if let Some((current_profile, current_origin)) = self.item_origin(id) {
-            self.start_favicon_discovery(id, current_profile, current_origin);
+        if let Some(current) = self.item_target(id) {
+            self.start_favicon_discovery(id, current);
         }
     }
 
-    fn start_favicon_discovery(&mut self, id: ItemId, profile: ProfileId, origin: String) {
+    /// A page script can change its address as fast as it likes, and each
+    /// address would cost a store read and a renderer pass. Within an origin a
+    /// tab starts at most one page lookup per interval; the lookup that was
+    /// held back runs when the interval ends, for whichever page the tab shows
+    /// by then.
+    fn defer_page_check(&mut self, id: ItemId, target: &IconTarget) -> bool {
+        if target.page.is_none() {
+            return false;
+        }
+        let now = std::time::Instant::now();
+        let checks = &mut self.favicons.page_checks;
+        let last = match checks.get(&id) {
+            Some((last, _)) if last == target => return false,
+            Some((last, at)) if last.origin == target.origin => Some(*at),
+            _ => None,
+        };
+        let Some(at) = last.filter(|at| now.duration_since(*at) < PAGE_CHECK_GAP) else {
+            checks.retain(|_, (_, at)| now.duration_since(*at) < PAGE_CHECK_GAP);
+            checks.insert(id, (target.clone(), now));
+            return false;
+        };
+        self.cancel_favicon_attempt(id);
+        if let Some(queue) = &self.self_queue {
+            queue.schedule_favicon(id, DEFERRED_PAGE_CHECK, at + PAGE_CHECK_GAP);
+        }
+        true
+    }
+
+    fn start_favicon_discovery(&mut self, id: ItemId, target: IconTarget) {
         if self
             .favicons
             .icon_attempts
             .get(&id)
-            .is_some_and(|attempt| attempt.profile == profile && attempt.origin == origin)
+            .is_some_and(|attempt| attempt.target == target)
         {
             return;
         }
-        if self
-            .favicons
-            .icon_load_completion_pending
-            .get(&id)
-            .is_some_and(|pending| pending == &(profile, origin.clone()))
-        {
+        if self.favicons.icon_load_completion_pending.get(&id) == Some(&target) {
             // The timed budget already expired while this exact document was
             // loading. Wait for its authoritative load-complete edge instead
             // of letting same-origin URL callbacks restart an unbounded loop.
@@ -403,8 +466,7 @@ impl Shell {
         self.favicons.icon_attempts.insert(
             id,
             IconAttempt {
-                profile,
-                origin,
+                target,
                 next_attempt: 1,
             },
         );
@@ -425,12 +487,29 @@ impl Shell {
         self.favicons.icon_attempts.remove(&id);
         self.favicons.icon_load_completion_pending.remove(&id);
         self.favicons.store_reads.remove(&id);
+        self.favicons.settled.remove(&id);
         if let Some(reads) = &self.store_reads {
             reads.cancel_favicon(id);
         }
         if let Some(queue) = &self.self_queue {
             queue.cancel_favicon(id);
         }
+    }
+
+    /// Notes that the tab's icon is final for its page, so repeated URL and
+    /// load callbacks for the same page start nothing.
+    fn settle_page(&mut self, id: ItemId, target: IconTarget) {
+        if target.page.is_none() {
+            return;
+        }
+        // Tabs leave without every path telling this map.
+        if self.favicons.settled.len() >= SETTLED_PAGE_CAPACITY {
+            let items = &self.items;
+            self.favicons
+                .settled
+                .retain(|id, _| items.tab(*id).is_some());
+        }
+        self.favicons.settled.insert(id, target);
     }
 
     pub(super) fn favicon_load_completed(&mut self, id: ItemId) {
@@ -447,6 +526,10 @@ impl Shell {
     }
 
     pub(super) fn poll_favicon(&mut self, id: ItemId, attempt: u8) {
+        if attempt == DEFERRED_PAGE_CHECK {
+            self.maybe_discover_favicon(id);
+            return;
+        }
         if attempt == 0 {
             let Some(pending) = self.favicons.store_reads.remove(&id) else {
                 return;
@@ -454,16 +537,15 @@ impl Shell {
             if let Some(reads) = &self.store_reads {
                 reads.cancel_favicon(id);
             }
-            if self.item_origin(id) == Some((pending.profile, pending.origin.clone())) {
-                self.start_favicon_discovery(id, pending.profile, pending.origin);
+            if self.item_target(id).as_ref() == Some(&pending.target) {
+                self.start_favicon_discovery(id, pending.target);
             }
             return;
         }
         let Some(current) = self.favicons.icon_attempts.get(&id).cloned() else {
             return;
         };
-        if current.next_attempt != attempt
-            || self.item_origin(id) != Some((current.profile, current.origin.clone()))
+        if current.next_attempt != attempt || self.item_target(id).as_ref() != Some(&current.target)
         {
             self.cancel_favicon_attempt(id);
             return;
@@ -478,61 +560,172 @@ impl Shell {
             self.schedule_favicon_poll(id, next);
         } else {
             self.favicons.icon_attempts.remove(&id);
+            let IconTarget {
+                profile,
+                origin,
+                page,
+            } = current.target.clone();
             if self.items.tab(id).is_some_and(|tab| tab.loading) {
                 self.favicons
                     .icon_load_completion_pending
-                    .insert(id, (current.profile, current.origin.clone()));
+                    .insert(id, current.target);
             } else {
                 // A fully loaded document with no pixels has conclusively
                 // consumed its bounded budget. Cache that negative result so
-                // repeated completion events cannot rebuild forever.
+                // repeated completion events cannot rebuild forever. A page
+                // with none of its own wears its origin's icon.
                 self.favicons.icon_load_completion_pending.remove(&id);
                 self.favicons
                     .icons_checked
-                    .insert((current.profile, current.origin.clone()));
+                    .insert((profile, origin.clone()));
+                if page.is_some() {
+                    self.settle_page(id, current.target);
+                }
             }
             // A page busy starting up can still be decoding its icon when the
             // budget runs out, and an icon on another origin is one it may
             // not read at all. Ask the anonymous origin probe as well, so a
             // tab is never left without an icon its site publishes. Private
             // profiles and recent failures are refused by the probe itself.
-            self.probe_favicons(current.profile, vec![current.origin]);
+            self.probe_favicons(profile, vec![origin]);
         }
     }
 
     pub(super) fn favicon_pixels(&mut self, id: ItemId, page_url: &str, rgba: Vec<u8>) {
-        let Some((profile, origin)) = self.item_origin(id) else {
+        let Some(target) = self.item_target(id) else {
             return;
         };
-        let Some(source_origin) = url::Url::parse(page_url)
-            .ok()
-            .and_then(|url| origin_of(&url))
-        else {
+        let Some(source) = url::Url::parse(page_url).ok() else {
             return;
         };
-        if source_origin != origin || zephium_core::icon::validated_rgba32(&rgba).is_none() {
-            return;
-        }
-        let key = (profile, origin.clone());
-        if self.favicons.icons_checked.len() >= TRACKED_ICON_ORIGIN_CAPACITY
-            && !self.favicons.icons_checked.contains(&key)
+        if origin_of(&source).as_deref() != Some(target.origin.as_str())
+            || zephium_core::icon::page_key(&source) != target.page
+            || zephium_core::icon::validated_rgba32(&rgba).is_none()
+            || !self.file_page_icon(&target, &rgba)
         {
             return;
         }
-        if !self.cache_icon(key.clone(), &rgba) {
-            return;
+        self.cancel_favicon_attempt(id);
+        self.settle_page(id, target);
+        self.project_items();
+    }
+
+    /// Files the raster a page declared. It becomes the page's own icon when
+    /// it differs from its origin's, which stays the fallback for the pages
+    /// that declare nothing; otherwise the origin's icon is the page's.
+    fn file_page_icon(&mut self, target: &IconTarget, rgba: &[u8]) -> bool {
+        let profile = target.profile;
+        let origin_key = (profile, target.origin.clone());
+        let Some(revision) = zephium_core::icon::revision(rgba) else {
+            return false;
+        };
+        let origin_icon = self.favicons.icon_values.get(&origin_key);
+        let origin_held =
+            origin_icon.is_some() && self.favicons.icons_checked.contains(&origin_key);
+        let matches_origin = origin_icon.is_some_and(|held| held.revision == revision);
+        let page = target.page.as_deref();
+        if origin_held && matches_origin {
+            // Nothing to write: the origin's row was settled this session.
+            if let Some(page) = page {
+                self.forget_page_icon(profile, page);
+            }
+            return true;
+        }
+        match page {
+            Some(page) if origin_held => {
+                if !self.cache_icon((profile, page.to_owned()), rgba) {
+                    return false;
+                }
+                self.persist_icon(profile, page, rgba);
+                true
+            }
+            page => {
+                if let Some(page) = page {
+                    self.forget_page_icon(profile, page);
+                }
+                self.set_origin_icon(profile, &target.origin, rgba)
+            }
+        }
+    }
+
+    /// Makes `rgba` the icon an origin falls back to. Open pages settled on
+    /// the icon it replaces keep that one as their own.
+    fn set_origin_icon(&mut self, profile: ProfileId, origin: &str, rgba: &[u8]) -> bool {
+        let key = (profile, origin.to_owned());
+        let Some(revision) = zephium_core::icon::revision(rgba) else {
+            return false;
+        };
+        if self.favicons.icons_checked.len() >= TRACKED_ICON_ORIGIN_CAPACITY
+            && !self.favicons.icons_checked.contains(&key)
+        {
+            return false;
+        }
+        if let Some(previous) = self
+            .favicons
+            .icon_values
+            .get(&key)
+            .filter(|held| held.revision != revision)
+            .cloned()
+        {
+            self.keep_replaced_icon(profile, origin, &previous);
+        }
+        if !self.cache_icon(key.clone(), rgba) {
+            return false;
         }
         self.favicons.icons_checked.insert(key);
-        self.cancel_favicon_attempt(id);
+        self.persist_icon(profile, origin, rgba);
+        true
+    }
+
+    fn keep_replaced_icon(&mut self, profile: ProfileId, origin: &str, previous: &IconRecord) {
+        let Some(bytes) = zephium_core::icon::decode_rgba32(&previous.encoded) else {
+            return;
+        };
+        let pages: std::collections::HashSet<String> = self
+            .favicons
+            .settled
+            .iter()
+            .filter(|(id, target)| {
+                target.profile == profile
+                    && target.origin == origin
+                    && self.item_target(**id).as_ref() == Some(*target)
+            })
+            .filter_map(|(_, target)| target.page.clone())
+            .filter(|page| {
+                !self
+                    .favicons
+                    .icon_values
+                    .contains_key(&(profile, page.clone()))
+            })
+            .collect();
+        for page in pages {
+            if self.cache_icon((profile, page.clone()), &bytes) {
+                self.persist_icon(profile, &page, &bytes);
+            }
+        }
+    }
+
+    fn forget_page_icon(&mut self, profile: ProfileId, page: &str) {
+        let key = (profile, page.to_owned());
+        if !self.favicons.icon_values.contains_key(&key) {
+            return;
+        }
+        self.favicons.icon_cache_order.retain(|held| held != &key);
+        self.uncache_icon(&key);
+        if !self.incognito_profile(profile) {
+            self.store.forget_page_favicon(profile, page.to_owned());
+        }
+    }
+
+    fn persist_icon(&self, profile: ProfileId, key: &str, rgba: &[u8]) {
         if !self.incognito_profile(profile) {
             self.store.save_favicon(
                 profile,
-                origin,
+                key.to_owned(),
                 Some(zephium_core::icon::RGBA32_MIME.to_owned()),
-                rgba,
+                rgba.to_vec(),
             );
         }
-        self.project_items();
     }
 
     /// A Work page the agent read discovered its icon: cache it by origin
@@ -558,22 +751,10 @@ impl Shell {
         origin: &str,
         rgba: &[u8],
     ) -> bool {
-        let key = (profile, origin.to_owned());
         if zephium_core::icon::validated_rgba32(rgba).is_none()
-            || (self.favicons.icons_checked.len() >= TRACKED_ICON_ORIGIN_CAPACITY
-                && !self.favicons.icons_checked.contains(&key))
-            || !self.cache_icon(key.clone(), rgba)
+            || !self.set_origin_icon(profile, origin, rgba)
         {
             return false;
-        }
-        self.favicons.icons_checked.insert(key);
-        if !self.incognito_profile(profile) {
-            self.store.save_favicon(
-                profile,
-                origin.to_owned(),
-                Some(zephium_core::icon::RGBA32_MIME.to_owned()),
-                rgba.to_vec(),
-            );
         }
         let _ = self.icon_ref_for(IconSurface::Chrome, profile, origin);
         self.project_items();
@@ -596,24 +777,35 @@ impl Shell {
             let Some(evicted) = self.favicons.icon_cache_order.pop_front() else {
                 break;
             };
-            self.favicons.icon_values.remove(&evicted);
-            self.favicons
-                .delivered
-                .borrow_mut()
-                .retain(|(_, profile, origin), _| {
-                    (*profile, origin.as_str()) != (evicted.0, evicted.1.as_str())
-                });
-            // `icons_checked` also carries terminal negative results. A
-            // positive entry that leaves the bounded raster cache must lose
-            // only its positive terminal marker so a later visit may hydrate
-            // it from SQLite (or rediscover it for a private profile).
-            self.favicons.icons_checked.remove(&evicted);
+            self.uncache_icon(&evicted);
         }
         self.favicons
             .icon_values
             .insert(key.clone(), IconRecord { revision, encoded });
         self.favicons.icon_cache_order.push_back(key);
         true
+    }
+
+    /// Drops one cached raster and what was known to depend on it.
+    fn uncache_icon(&mut self, evicted: &(ProfileId, String)) {
+        self.favicons.icon_values.remove(evicted);
+        self.favicons
+            .delivered
+            .borrow_mut()
+            .retain(|(_, profile, origin), _| {
+                (*profile, origin.as_str()) != (evicted.0, evicted.1.as_str())
+            });
+        // `icons_checked` also carries terminal negative results. A
+        // positive entry that leaves the bounded raster cache must lose
+        // only its positive terminal marker so a later visit may hydrate
+        // it from SQLite (or rediscover it for a private profile). A page
+        // that wore the raster is looked up again the same way.
+        self.favicons.icons_checked.remove(evicted);
+        if zephium_core::icon::names_page(&evicted.1) {
+            self.favicons.settled.retain(|_, target| {
+                target.profile != evicted.0 || target.page.as_deref() != Some(evicted.1.as_str())
+            });
+        }
     }
 
     /// Sends each surface the pixels behind every icon reference it does not
@@ -758,6 +950,25 @@ impl Shell {
         self.profiles
             .get(profile)
             .is_some_and(|profile| profile.kind == ProfileKind::Incognito)
+    }
+}
+
+fn note_sites(
+    url: &url::Url,
+    seen: &mut std::collections::HashSet<String>,
+    origins: &mut Vec<String>,
+    pages: &mut Vec<String>,
+) {
+    let Some(origin) = origin_of(url) else {
+        return;
+    };
+    if seen.insert(origin.clone()) {
+        origins.push(origin);
+    }
+    if let Some(page) = zephium_core::icon::page_key(url) {
+        if seen.insert(page.clone()) {
+            pages.push(page);
+        }
     }
 }
 

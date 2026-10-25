@@ -122,10 +122,12 @@ pub enum TabContentView {
 }
 
 /// Names a cached site icon without carrying its pixels. Chrome keeps rasters
-/// by origin and repaints only when `revision` changes, so a projection costs
+/// by key and repaints only when `revision` changes, so a projection costs
 /// a short string per tab instead of a five-kilobyte raster.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct IconRef {
+    /// A site's origin, or one page of it (origin and path) that wears an icon
+    /// of its own. Chrome treats it as an opaque key.
     pub origin: String,
     pub revision: String,
 }
@@ -134,6 +136,7 @@ pub struct IconRef {
 /// decodes a page-controlled image format.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct FaviconEntry {
+    /// The key an `IconRef` names the raster by.
     pub origin: String,
     pub revision: String,
     pub rgba: String,

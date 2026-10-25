@@ -1383,6 +1383,7 @@ export type ExtensionActionsView = {
  *  decodes a page-controlled image format.
  */
 export type FaviconEntry = {
+	/**  The key an `IconRef` names the raster by. */
 	origin: string,
 	revision: string,
 	rgba: string,
@@ -1490,10 +1491,14 @@ export type HistoryVisitView = {
 
 /**
  *  Names a cached site icon without carrying its pixels. Chrome keeps rasters
- *  by origin and repaints only when `revision` changes, so a projection costs
+ *  by key and repaints only when `revision` changes, so a projection costs
  *  a short string per tab instead of a five-kilobyte raster.
  */
 export type IconRef = {
+	/**
+	 *  A site's origin, or one page of it (origin and path) that wears an icon
+	 *  of its own. Chrome treats it as an opaque key.
+	 */
 	origin: string,
 	revision: string,
 };
