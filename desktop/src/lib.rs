@@ -102,6 +102,7 @@ mod page_assist;
 mod panel;
 mod platform;
 mod presence;
+mod private_window;
 #[cfg(target_os = "windows")]
 mod privileged_runtime_windows;
 mod profiles;
@@ -3597,6 +3598,9 @@ fn execute_command(app: &tauri::AppHandle, id: &str) -> zephium_ipc::OperationAd
     if let Some(admission) = spaces::execute(app, id) {
         return admission;
     }
+    if matches!(id, private_window::REGULAR | private_window::PRIVATE) {
+        private_window::settle_click(app);
+    }
     // Sidebar presentation is privileged-chrome state persisted through the
     // settings allowlist, not an actor mutation. Deliver the intent and let
     // the frame own it.
@@ -5255,6 +5259,13 @@ fn build_menu(
         .minimize_with_text(menu_text::label("Minimize"));
     #[cfg(target_os = "macos")]
     let window = window.fullscreen_with_text(menu_text::label("Enter Full Screen"));
+    let sides = private_window::items(handle, &resolved)?;
+    let window = window.separator().item(&item("window.togglePrivate")?);
+    let window = if sides.is_empty() {
+        window
+    } else {
+        window.items(&private_window::refs(&sides))
+    };
     let window = window
         .separator()
         .item(&item("tab.next")?)
@@ -5519,6 +5530,7 @@ fn build_chrome_menu(
         |id: &str, enabled: bool| build_command_menu_item_enabled(handle, &resolved, id, enabled);
     let new_tab = item("tab.new", true)?;
     let new_private = item("window.newPrivate", true)?;
+    let sides = private_window::items(handle, &resolved)?;
     let reopen = item("tab.reopen", true)?;
     let first = PredefinedMenuItem::separator(handle)?;
     let bookmark = item("bookmark.add", page)?;
@@ -5529,23 +5541,21 @@ fn build_chrome_menu(
     let third = PredefinedMenuItem::separator(handle)?;
     let bookmarks = item("tool.bookmarks", true)?;
     let settings = item("browser.settings", true)?;
-    Menu::with_items(
-        handle,
-        &[
-            &new_tab,
-            &new_private,
-            &reopen,
-            &first,
-            &bookmark,
-            &copy_link,
-            &second,
-            &split,
-            &compact,
-            &third,
-            &bookmarks,
-            &settings,
-        ],
-    )
+    let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = vec![&new_tab, &new_private];
+    items.extend(private_window::refs(&sides));
+    items.extend([
+        &reopen as &dyn tauri::menu::IsMenuItem<tauri::Wry>,
+        &first,
+        &bookmark,
+        &copy_link,
+        &second,
+        &split,
+        &compact,
+        &third,
+        &bookmarks,
+        &settings,
+    ]);
+    Menu::with_items(handle, &items)
 }
 
 fn build_tab_menu(
@@ -5667,6 +5677,7 @@ fn build_profile_menu(
     let first = PredefinedMenuItem::separator(handle)?;
     let new_tab = item("tab.new")?;
     let new_private = item("window.newPrivate")?;
+    let sides = private_window::items(handle, &resolved)?;
     let split =
         MenuItemBuilder::with_id("split.choose", menu_text::label("Split View…")).build(handle)?;
     let second = PredefinedMenuItem::separator(handle)?;
@@ -5681,28 +5692,24 @@ fn build_profile_menu(
     let third = PredefinedMenuItem::separator(handle)?;
     let settings = item("browser.settings")?;
     let quit = build_quit_menu_item(handle)?;
-    Menu::with_items(
-        handle,
-        &[
-            &profile,
-            &account,
-            &first,
-            &new_tab,
-            &new_private,
-            &split,
-            &second,
-            &notes,
-            &tasks,
-            &time,
-            &history,
-            &downloads,
-            &bookmarks,
-            &extensions,
-            &third,
-            &settings,
-            &quit,
-        ],
-    )
+    let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> =
+        vec![&profile, &account, &first, &new_tab, &new_private];
+    items.extend(private_window::refs(&sides));
+    items.extend([
+        &split as &dyn tauri::menu::IsMenuItem<tauri::Wry>,
+        &second,
+        &notes,
+        &tasks,
+        &time,
+        &history,
+        &downloads,
+        &bookmarks,
+        &extensions,
+        &third,
+        &settings,
+        &quit,
+    ]);
+    Menu::with_items(handle, &items)
 }
 
 fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
@@ -6487,6 +6494,7 @@ pub fn run() {
                     }
                 }
                 Projection::Profiles(view) => {
+                    private_window::follow(&emit_handle, &view);
                     emit_to_privileged(&emit_handle, MAIN_LABEL, "zephium:profiles", &view)
                 }
 

@@ -117,6 +117,27 @@ pub const REGISTRY: &[CommandSpec] = &[
         Keys::NONE,
         Group::File,
     ),
+    // The private window is a session the one window shows beside the regular
+    // one. Toggling starts it when there is none, so the key is never dead;
+    // the other two name a side, for the Window menu's checked entries.
+    command(
+        "window.togglePrivate",
+        "Toggle Private Window",
+        Keys::same("CmdOrCtrl+Shift+P"),
+        Group::Window,
+    ),
+    command(
+        "window.showRegular",
+        "Regular Window",
+        Keys::NONE,
+        Group::Window,
+    ),
+    command(
+        "window.showPrivate",
+        "Private Window",
+        Keys::NONE,
+        Group::Window,
+    ),
     // Ctrl+Alt is AltGr on many Windows and Linux layouts, so only macOS
     // gets a default here.
     command(
@@ -711,6 +732,27 @@ mod tests {
         assert_eq!(ask.keys.on(Platform::Mac), Some("CmdOrCtrl+E"));
         assert_eq!(ask.keys.on(Platform::Other), Some("CmdOrCtrl+E"));
         assert!(ask.customizable());
+    }
+
+    #[test]
+    fn the_private_window_keys_sit_beside_new_private_and_leave_the_system_cycle_alone() {
+        let new = get("window.newPrivate").expect("new private command");
+        assert_eq!(new.keys, Keys::same("CmdOrCtrl+Shift+N"));
+        let toggle = get("window.togglePrivate").expect("toggle command");
+        assert_eq!(toggle.keys, Keys::same("CmdOrCtrl+Shift+P"));
+        assert!(toggle.customizable());
+        for id in ["window.showRegular", "window.showPrivate"] {
+            let side = get(id).expect("side command");
+            assert_eq!(side.keys, Keys::NONE, "{id}");
+            assert_eq!(side.group, Group::Window, "{id}");
+        }
+        // Command-` and Command-Shift-` cycle the Mac's windows.
+        for command in REGISTRY {
+            for platform in PLATFORMS {
+                let keys = command.keys.on(platform).unwrap_or_default();
+                assert!(!keys.contains('`'), "{} takes {keys}", command.id);
+            }
+        }
     }
 
     #[test]

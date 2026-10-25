@@ -375,6 +375,11 @@ export const commands = {
 	profilesGet: () => typedError<{
 	current: string | null,
 	private: boolean,
+	/**
+	 *  The tabs of the private window while one exists, shown or set aside
+	 *  behind the regular tabs.
+	 */
+	private_tabs?: number | null,
 	profiles: ProfileEntryView[],
 } | null, null>(__TAURI_INVOKE("profiles_get")),
 	profilesCreate: (name: string, avatar: ProfileAvatarInputV1, andSwitch: boolean) => __TAURI_INVOKE<OperationAdmission>("profiles_create", { name, avatar, andSwitch }),
@@ -2434,6 +2439,11 @@ export type ProfileView = {
 export type ProfilesView = {
 	current: string | null,
 	private: boolean,
+	/**
+	 *  The tabs of the private window while one exists, shown or set aside
+	 *  behind the regular tabs.
+	 */
+	private_tabs?: number | null,
 	profiles: ProfileEntryView[],
 };
 

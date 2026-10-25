@@ -54,6 +54,7 @@
   import {
     ModeTabs,
     PrivateBar,
+    PrivateReturn,
     Sidebar,
     SidebarSearch,
     SidebarNotice,
@@ -355,6 +356,7 @@
                 onopen={() => toolHost.open("downloads")}
               />{/if}
             <UpdateNotice view="cards" />
+            <PrivateReturn />
           {/if}
         </div>{/key}
     {/snippet}{#snippet dock(
@@ -365,7 +367,7 @@
           compact
         />{:else if compact}{#if tabs.profile()?.id && !inWork}<DownloadPulse
             profile={tabs.profile()?.id ?? ""}
-          />{/if}<UpdateNotice view="glyph" onabout={openAbout} /><Dock
+          />{/if}<PrivateReturn compact /><UpdateNotice view="glyph" onabout={openAbout} /><Dock
           compact
           tools={!inWork}
           foot={inWork ? accountFoot : undefined}

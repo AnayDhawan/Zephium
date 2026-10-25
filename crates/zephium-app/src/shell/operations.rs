@@ -909,6 +909,9 @@ impl Shell {
             "tab.new" => self.operation_open(),
             "window.newPrivate" => self.operation_enter_private(),
             "window.closePrivate" => self.operation_close_private(),
+            "window.togglePrivate" => self.operation_toggle_private(),
+            "window.showRegular" => self.operation_show_regular(),
+            "window.showPrivate" => self.operation_show_private(),
             "tab.close" if in_work => self.operation_work_pane_hide(),
             "tab.close" if window_page.is_some() => self.operation_show_browser_page(None),
             "tab.close" => active.map_or_else(

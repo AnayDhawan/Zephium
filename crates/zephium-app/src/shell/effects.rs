@@ -72,6 +72,7 @@ impl Shell {
         native.record(self.relayout());
         self.maintain_views();
         self.project_items();
+        self.project_private_if_changed();
         self.project_browser_page_if_changed();
         native
     }

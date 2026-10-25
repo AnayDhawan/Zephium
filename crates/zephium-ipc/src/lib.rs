@@ -341,6 +341,10 @@ pub struct ProfileEntryView {
 pub struct ProfilesView {
     pub current: Option<String>,
     pub private: bool,
+    /// The tabs of the private window while one exists, shown or set aside
+    /// behind the regular tabs.
+    #[serde(default)]
+    pub private_tabs: Option<u32>,
     pub profiles: Vec<ProfileEntryView>,
 }
 
