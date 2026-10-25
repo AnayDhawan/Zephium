@@ -26,6 +26,7 @@ enum CoalescedKey {
     Loading(ItemId),
     Favicon(ItemId),
     FaviconCandidates(ItemId),
+    FaviconImage(ItemId),
     PageMemory(ItemId),
     FaviconPoll(ItemId),
     Presentation(ItemId),
@@ -80,6 +81,7 @@ impl CoalescedKey {
                 Self::Favicon(*id)
             }
             EngineEvent::FaviconCandidates { id, .. } => Self::FaviconCandidates(*id),
+            EngineEvent::FaviconImage { id, .. } => Self::FaviconImage(*id),
             EngineEvent::PageMemory { id, .. } => Self::PageMemory(*id),
             EngineEvent::PresentationPending { id, .. }
             | EngineEvent::PresentationReady { id, .. } => Self::Presentation(*id),

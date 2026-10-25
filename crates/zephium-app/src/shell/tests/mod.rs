@@ -332,6 +332,7 @@ pub(crate) struct FakeEngine {
     reject_navigation_dispatch: std::sync::atomic::AtomicBool,
     reject_discard_dispatch: std::sync::atomic::AtomicBool,
     reject_native_dispatch: std::sync::atomic::AtomicBool,
+    native_favicons: std::sync::atomic::AtomicBool,
     unsupported_presentation: std::sync::atomic::AtomicBool,
     runtime_restart_required: std::sync::atomic::AtomicBool,
     runtime_security_advisories: Mutex<zephium_core::runtime_security::RuntimeSecurityAdvisories>,
@@ -772,6 +773,10 @@ impl Engine for FakeEngine {
     fn rasterize_favicon(&self, id: ItemId, url: &str) -> NativeDispatch {
         self.log(format!("rasterize {id} {url}"));
         self.native_admission()
+    }
+    fn native_favicons(&self) -> bool {
+        self.native_favicons
+            .load(std::sync::atomic::Ordering::Acquire)
     }
     fn probe_discard_safety(&self, id: ItemId, probe: DiscardProbeId) -> bool {
         self.log(format!("probe-discard {id} {}", probe.0));

@@ -797,6 +797,8 @@ pub enum FaviconPageSource {
     /// Icon addresses the page declared, best first. Each is fetched without
     /// cookies, credentials or referrer; the first that decodes wins.
     Addresses(Vec<String>),
+    /// A PNG the web engine already chose for the page.
+    Encoded(Vec<u8>),
 }
 
 /// One request to the prober.

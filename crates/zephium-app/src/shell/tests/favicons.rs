@@ -1942,6 +1942,125 @@ fn a_page_naming_nothing_is_concluded_once_and_duplicate_loads_start_nothing() {
 }
 
 #[test]
+fn the_engines_own_icon_comes_first_and_declared_addresses_wait_for_the_load() {
+    let (mut shell, engine, screen) = setup();
+    engine
+        .native_favicons
+        .store(true, std::sync::atomic::Ordering::Release);
+    shell.handle(Command::Bootstrap);
+    let (_, pages) = attach_probers(&mut shell);
+    let id = active_id(&screen);
+    let page = "https://win.example/x";
+    navigate_and_commit(&mut shell, id, page);
+    shell.handle(Command::Engine(EngineEvent::LoadingChanged {
+        id,
+        loading: true,
+    }));
+
+    report(
+        &mut shell,
+        id,
+        page,
+        false,
+        vec![png("https://win.example/i.png", 32)],
+    );
+    assert!(
+        pages.lock().unwrap().is_empty(),
+        "the engine may still name its own"
+    );
+
+    shell.handle(Command::Engine(EngineEvent::FaviconImage {
+        id,
+        page_url: page.into(),
+        png: vec![1, 2, 3],
+    }));
+    assert_eq!(pages.lock().unwrap().len(), 1);
+    assert_eq!(
+        pages.lock().unwrap()[0].1,
+        crate::FaviconPageSource::Encoded(vec![1, 2, 3])
+    );
+    let ticket = pages.lock().unwrap()[0].0;
+    answer(&mut shell, ticket, Some(raster(6)), "engine", &[]);
+    assert!(tab_icon(&screen, id).is_some());
+
+    shell.handle(Command::Engine(EngineEvent::LoadingChanged {
+        id,
+        loading: false,
+    }));
+    report(
+        &mut shell,
+        id,
+        page,
+        true,
+        vec![png("https://win.example/i.png", 32)],
+    );
+    assert_eq!(
+        pages.lock().unwrap().len(),
+        1,
+        "the declared address is only a fallback"
+    );
+    assert_eq!(calls_matching(&engine, "rasterize"), 0);
+}
+
+#[test]
+fn declared_addresses_back_up_an_engine_that_named_no_icon() {
+    let (mut shell, engine, screen) = setup();
+    engine
+        .native_favicons
+        .store(true, std::sync::atomic::Ordering::Release);
+    shell.handle(Command::Bootstrap);
+    let (_, pages) = attach_probers(&mut shell);
+    let id = active_id(&screen);
+    let page = "https://win.example/y";
+    navigate_and_commit(&mut shell, id, page);
+    report(
+        &mut shell,
+        id,
+        page,
+        false,
+        vec![png("https://win.example/i.png", 32)],
+    );
+    assert!(pages.lock().unwrap().is_empty());
+
+    shell.handle(Command::Engine(EngineEvent::LoadingChanged {
+        id,
+        loading: false,
+    }));
+    assert_eq!(addresses(&pages, 0)[0], "https://win.example/i.png");
+}
+
+#[test]
+fn an_engine_icon_for_another_page_or_without_a_prober_is_dropped() {
+    let (mut shell, _engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    let page = "https://win.example/z";
+    navigate_and_commit(&mut shell, id, page);
+    shell.handle(Command::Engine(EngineEvent::FaviconImage {
+        id,
+        page_url: page.into(),
+        png: vec![1],
+    }));
+    let (_, pages) = attach_probers(&mut shell);
+    shell.handle(Command::Engine(EngineEvent::FaviconImage {
+        id,
+        page_url: "https://other.example/".into(),
+        png: vec![1],
+    }));
+    shell.handle(Command::Engine(EngineEvent::FaviconImage {
+        id,
+        page_url: page.into(),
+        png: vec![0; 256 * 1024 + 1],
+    }));
+    shell.handle(Command::Engine(EngineEvent::FaviconImage {
+        id,
+        page_url: page.into(),
+        png: Vec::new(),
+    }));
+    assert!(pages.lock().unwrap().is_empty());
+}
+
+#[test]
 fn an_answer_for_a_page_the_tab_left_is_dropped_and_taken_once() {
     let (mut shell, _engine, screen) = setup();
     shell.handle(Command::Bootstrap);

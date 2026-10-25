@@ -1129,6 +1129,7 @@ impl RetirementGate {
             | event @ EngineEvent::FaviconPixels { id, .. }
             | event @ EngineEvent::FaviconRasterFailed { id, .. }
             | event @ EngineEvent::FaviconCandidates { id, .. }
+            | event @ EngineEvent::FaviconImage { id, .. }
             | event @ EngineEvent::DiscardSafety { id, .. }
             | event @ EngineEvent::NavState { id, .. }
             | event @ EngineEvent::NativeTabCloseRequested { id }
@@ -2943,6 +2944,10 @@ impl Engine for WebviewEngine {
         self.run_for_active_item(id, move |h| h.rasterize_favicon(id, url))
     }
 
+    fn native_favicons(&self) -> bool {
+        cfg!(target_os = "windows")
+    }
+
     fn probe_discard_safety(&self, id: ItemId, probe: DiscardProbeId) -> bool {
         let Some(active) = lock_retirement_gate(&self.retirement).active_item(id) else {
             return false;
@@ -4286,6 +4291,11 @@ mod tests {
                 page_url: "https://late.invalid".into(),
                 complete: true,
                 candidates: Vec::new(),
+            },
+            EngineEvent::FaviconImage {
+                id,
+                page_url: "https://late.invalid".into(),
+                png: vec![0; 8],
             },
             EngineEvent::DiscardSafety {
                 id,

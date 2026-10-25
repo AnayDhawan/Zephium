@@ -27,6 +27,10 @@ pub(crate) const MAX_REDIRECTS: usize = 2;
 /// Largest declared icon side the head parser picks.
 pub(crate) const MAX_CANDIDATE_SIDE: u32 = 256;
 const MAX_CANDIDATES_TRIED: usize = 3;
+/// Most PNG the web engine may hand over for one icon.
+const MAX_ENGINE_ICON_BYTES: usize = 256 * 1024;
+/// What the shell remembers as the source of an icon the engine chose.
+const ENGINE_SOURCE: &str = "engine";
 const MAX_LINKS: usize = 64;
 const MAX_DECODED_SIDE: u32 = 1024;
 const MAX_DECODE_ALLOC: u64 = 16 * 1024 * 1024;
@@ -146,7 +150,7 @@ async fn answer(reply: &CallbackHandle, profile: ProfileId, origin: String, rgba
 /// What one page request produced.
 struct PageFetch {
     rgba: Option<Vec<u8>>,
-    /// The address that decoded.
+    /// The address that decoded, or [`ENGINE_SOURCE`].
     source: Option<String>,
     /// Addresses this prober could not use, for any reason.
     failed: Vec<String>,
@@ -175,7 +179,20 @@ async fn fetch_page_icon(
     policy: ProbePolicy,
     source: FaviconPageSource,
 ) -> PageFetch {
-    let FaviconPageSource::Addresses(addresses) = source;
+    let addresses = match source {
+        FaviconPageSource::Encoded(png) => {
+            let rgba = (png.len() <= MAX_ENGINE_ICON_BYTES)
+                .then(|| rasterize(&png))
+                .flatten();
+            return PageFetch {
+                source: rgba.is_some().then(|| ENGINE_SOURCE.to_owned()),
+                rgba,
+                failed: Vec::new(),
+                bytes: png.len(),
+            };
+        }
+        FaviconPageSource::Addresses(addresses) => addresses,
+    };
     let mut fetched = PageFetch {
         rgba: None,
         source: None,
@@ -822,5 +839,29 @@ mod tests {
             assert!(!head.contains(header), "{header} was sent:\n{head}");
         }
         assert!(head.contains("user-agent: zephium-agent-browser"));
+    }
+
+    #[test]
+    fn the_engines_png_is_decoded_and_a_malformed_or_oversized_one_is_refused() {
+        let client = client(LOCAL).unwrap();
+        let fetched = run(fetch_page_icon(
+            &client,
+            LOCAL,
+            FaviconPageSource::Encoded(png(48, 48)),
+        ));
+        assert_eq!(fetched.rgba.map(|rgba| rgba.len()), Some(RGBA32_BYTES));
+        assert_eq!(fetched.source.as_deref(), Some(ENGINE_SOURCE));
+        for refused in [
+            vec![1, 2, 3],
+            vec![0; MAX_ENGINE_ICON_BYTES + 1],
+            png(2048, 2048),
+        ] {
+            let fetched = run(fetch_page_icon(
+                &client,
+                LOCAL,
+                FaviconPageSource::Encoded(refused),
+            ));
+            assert!(fetched.rgba.is_none() && fetched.source.is_none());
+        }
     }
 }

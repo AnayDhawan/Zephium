@@ -27,6 +27,8 @@ pub(super) const FAILED_ICON_CAPACITY: usize = 512;
 pub(super) const FAILED_ICON_TTL: std::time::Duration = std::time::Duration::from_secs(3600);
 /// Addresses the prober is given for one page, best first.
 const FETCHED_ADDRESSES: usize = 3;
+/// The most PNG the web engine may hand over for one icon.
+const MAX_NATIVE_ICON_BYTES: usize = 256 * 1024;
 /// Addresses the page itself is asked to decode, for what the prober cannot
 /// reach: vectors, plain http, private hosts and cookie-gated icons.
 const RENDERED_ADDRESSES: usize = 3;
@@ -65,6 +67,8 @@ pub(super) struct IconAttempt {
     pub(super) rendered: Vec<String>,
     /// Where the icon on show for this page came from.
     pub(super) found: Option<String>,
+    /// The web engine reported its own choice for this page.
+    pub(super) native: bool,
 }
 
 impl IconAttempt {
@@ -80,6 +84,7 @@ impl IconAttempt {
             raster: None,
             rendered: Vec::new(),
             found: None,
+            native: false,
         }
     }
 }
@@ -734,6 +739,13 @@ impl Shell {
         if attempt.fetch.is_some() || attempt.raster.is_some() {
             return;
         }
+        // Where the web engine names the page's icon itself, the declared
+        // addresses only back it up: they are used once the page has loaded
+        // without it.
+        if self.engine.native_favicons() && !attempt.native && !attempt.loaded && !attempt.complete
+        {
+            return;
+        }
         match self.next_icon_work(&attempt) {
             IconWork::Adopt(source) => self.adopt_icon(id, source),
             IconWork::Fetch(addresses) => self.fetch_icon(id, addresses),
@@ -744,6 +756,9 @@ impl Shell {
     }
 
     fn next_icon_work(&self, attempt: &IconAttempt) -> IconWork {
+        if attempt.native && attempt.found.is_some() {
+            return IconWork::Idle;
+        }
         let now = std::time::Instant::now();
         let profile = attempt.target.profile;
         let usable: Vec<&IconCandidate> = attempt
@@ -981,6 +996,33 @@ impl Shell {
             }
         }
         self.drive_icon_attempt(id);
+    }
+
+    /// The web engine's own choice for the page, as a PNG. It is decoded like
+    /// any fetched icon and, where it works, the declared addresses are not
+    /// needed.
+    pub(super) fn favicon_image(&mut self, id: ItemId, page_url: &str, png: Vec<u8>) {
+        let Some(target) = self.item_target(id) else {
+            return;
+        };
+        let Some(page) = url::Url::parse(page_url).ok() else {
+            return;
+        };
+        if png.is_empty()
+            || png.len() > MAX_NATIVE_ICON_BYTES
+            || origin_of(&page).as_deref() != Some(target.origin.as_str())
+            || zephium_core::icon::page_key(&page) != target.page
+            || !self.page_prober_attached()
+        {
+            return;
+        }
+        let ticket = self.queue_page_job(id, target.clone(), FaviconPageSource::Encoded(png));
+        if let Some(attempt) = self.favicons.icon_attempts.get_mut(&id) {
+            if attempt.target == target {
+                attempt.native = true;
+                attempt.fetch = Some(ticket);
+            }
+        }
     }
 
     /// Files the icon a tab's page now wears. False when it cannot be kept.

@@ -2140,6 +2140,28 @@ impl EngineHost {
                 }
             }
         };
+        // The icon WebView2 chose for the page, when this runtime reports it;
+        // the declared icon addresses back it up otherwise.
+        #[cfg(target_os = "windows")]
+        let favicon_observer = {
+            let page_navigation = navigation.clone();
+            let page = move || page_navigation.committed_snapshot();
+            let favicon_id = id.clone();
+            let favicon_permit = event_permit.clone();
+            let favicon_sink = self.sink.clone();
+            crate::platform::imp::install_favicon_observer(&view, page, move |page_url, png| {
+                if favicon_permit.active_token().is_some() {
+                    favicon_permit.emit(
+                        &favicon_sink,
+                        EngineEvent::FaviconImage {
+                            id: favicon_id.get(),
+                            page_url,
+                            png,
+                        },
+                    );
+                }
+            })
+        };
         let observation_permit = event_permit.clone();
         let observation_navigation = navigation.clone();
         let observer = match crate::platform::imp::install_navigation_observer(
@@ -2230,6 +2252,8 @@ impl EngineHost {
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             automatic_pip_sequence: Rc::new(Cell::new(0)),
             favicon_watch: Cell::new(0),
+            #[cfg(target_os = "windows")]
+            _favicon_observer: favicon_observer,
             #[cfg(target_os = "macos")]
             _capture_observer: capture_observer,
             #[cfg(any(target_os = "macos", target_os = "windows"))]

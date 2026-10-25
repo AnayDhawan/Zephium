@@ -783,6 +783,12 @@ pub trait Engine {
     /// the page declared. An exact 32x32 RGBA result arrives as
     /// `EngineEvent::FaviconPixels`, a failure as `FaviconRasterFailed`.
     fn rasterize_favicon(&self, id: ItemId, url: &str) -> NativeDispatch;
+    /// Whether the engine reports each page's icon itself as
+    /// `EngineEvent::FaviconImage`, the exact one the web engine chose. The
+    /// declared candidates then only back it up.
+    fn native_favicons(&self) -> bool {
+        false
+    }
     /// Asynchronously asks the exact live native-view generation and its
     /// current committed navigation whether it is safe to discard. A missing
     /// or malformed response is deliberately not a positive result. Callers
@@ -1329,6 +1335,13 @@ pub enum EngineEvent {
         page_url: String,
         complete: bool,
         candidates: Vec<crate::icon::IconCandidate>,
+    },
+    /// The icon the web engine itself chose for a page, as a bounded PNG. The
+    /// privileged side decodes it with the same decoders as any fetched icon.
+    FaviconImage {
+        id: ItemId,
+        page_url: String,
+        png: Vec<u8>,
     },
     /// The same renderer-side discovery as [`EngineEvent::FaviconPixels`],
     /// run on a Work page the agent read. It names no item: the icon is

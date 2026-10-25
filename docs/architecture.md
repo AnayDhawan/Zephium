@@ -574,12 +574,14 @@ chrome. What the prober cannot use (vectors, plain-http or private hosts, icons
 that need the page's cookies) is decoded by the page itself from one address
 the host names, same-origin first. A private profile never asks the prober for a
 page's addresses: all of its icon fetching stays inside its own partition and is
-kept in memory only. A tab shows its page's icon, then its origin's, then the
-other spelling of its host (`www` and apex only). While a page of the site it
-was just on loads it keeps the icon it had until the new one is known or thirty
-seconds pass; a tab that moved to another site shows its loading state. An
-address that gave nothing is not asked for again for an hour, and the oldest of
-those give way first, so a new site always gets its turn.
+kept in memory only. Where WebView2 reports the icon it chose (`FaviconChanged`
+and `GetFavicon`), that PNG is the primary source and the declared addresses
+wait for the load and back it up. A tab shows its page's icon, then its
+origin's, then the other spelling of its host (`www` and apex only). While a
+page of the site it was just on loads it keeps the icon it had until the new one
+is known or thirty seconds pass; a tab that moved to another site shows its
+loading state. An address that gave nothing is not asked for again for an hour,
+and the oldest of those give way first, so a new site always gets its turn.
 
 Future application-owned downloads, such as maintained filter lists or signed
 updates, are not page-derived browsing traffic. Each must use a purpose-built,

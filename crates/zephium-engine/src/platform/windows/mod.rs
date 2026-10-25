@@ -29,6 +29,8 @@ mod content_filter;
 mod find;
 pub(crate) use find::{find, FindReport, FindSession};
 mod automatic_pip;
+mod favicon;
+pub use favicon::{install_favicon_observer, FaviconObserver};
 mod fullscreen;
 pub(crate) use automatic_pip::automatic_pip;
 mod fullscreen_transition;

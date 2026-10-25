@@ -164,6 +164,8 @@ struct ObservedView {
         objc2::rc::Retained<crate::platform::macos::fullscreen::FullscreenObserver>,
     #[cfg(target_os = "windows")]
     _fullscreen_observer: crate::platform::imp::FullscreenObserver,
+    #[cfg(target_os = "windows")]
+    _favicon_observer: Option<crate::platform::imp::FaviconObserver>,
     // Which icon watch of this view's document is current; an older watch's
     // reports are ignored.
     favicon_watch: Cell<u64>,

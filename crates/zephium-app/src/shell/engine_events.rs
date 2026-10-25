@@ -411,6 +411,9 @@ impl Shell {
                 complete,
                 candidates,
             } => self.favicon_candidates(id, &page_url, complete, candidates),
+            EngineEvent::FaviconImage { id, page_url, png } => {
+                self.favicon_image(id, &page_url, png);
+            }
             EngineEvent::DiscardSafety {
                 id,
                 probe,
@@ -679,6 +682,7 @@ impl Shell {
             | EngineEvent::FaviconPixels { id, .. }
             | EngineEvent::FaviconRasterFailed { id, .. }
             | EngineEvent::FaviconCandidates { id, .. }
+            | EngineEvent::FaviconImage { id, .. }
             | EngineEvent::DiscardSafety { id, .. }
             | EngineEvent::NavState { id, .. }
             | EngineEvent::NativeTabCloseRequested { id }
