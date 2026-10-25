@@ -3038,6 +3038,11 @@ export type TabView = {
 	can_go_forward: boolean,
 	icon: IconRef | null,
 	capture?: MediaCaptureView | null,
+	/**
+	 *  The page's zoom in whole percent, while the tab has a page to zoom. It
+	 *  is the level just asked for until the view reports it applied.
+	 */
+	zoom?: number | null,
 };
 
 /**

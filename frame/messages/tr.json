@@ -423,6 +423,8 @@
   "zoom_levels_forget": "{site} yakınlaştırmasını sıfırla",
   "zoom_levels_forget_all": "Tümünü sıfırla",
   "zoom_levels_unavailable": "Yakınlaştırma düzeyleri yüklenemedi.",
+  "zoom_badge_label": "Sayfa yakınlaştırma, {percent}",
+  "zoom_reset": "Sıfırla",
   "pref_tabs_pins": "Bir alanı kapatırken sabitlenmiş sekmeleri tut",
   "pref_tabs_pins_help": "Sık döndüğünüz sayfaları koruyun.",
   "pref_tabs_sleep": "Etkin olmayan sekmeleri uyut",

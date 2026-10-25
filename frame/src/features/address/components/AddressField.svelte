@@ -18,6 +18,8 @@
   import Button from "$shared/ui/Button";
   import IconButton from "$shared/ui/IconButton";
   import PageRequestCard from "./PageRequestCard.svelte";
+  import ZoomBadge from "./ZoomBadge.svelte";
+  import { preferences } from "$domain/preferences";
   import * as find from "../lib/find.svelte";
   import { flushSync, untrack, type Snippet } from "svelte";
   import { duration, easing, reducedMotion } from "$shared/lib/motion";
@@ -78,6 +80,9 @@
       ? "Extension page — enter an address to open a new tab"
       : m.ui_enter_an_address(),
   );
+  // The page's zoom is shown only when it is not what pages show at by default.
+  let zoom = $derived(tabs.activeTab()?.zoom ?? null);
+  let standardZoom = $derived(Number(preferences.value("zoom.default")));
   let authoritativeValue = $derived(restingAddress(activeUrl));
   let value = $derived(editing ? draft : authoritativeValue);
   let security = $derived(
@@ -345,7 +350,12 @@
         buttonSize={24}
         onclick={() => find.hide()}
       />
-    {:else if !compact && trailing}{@render trailing()}{/if}
+    {:else if !compact}
+      {#if zoom !== null && zoom !== standardZoom}
+        <ZoomBadge percent={zoom} standard={standardZoom} />
+      {/if}
+      {#if trailing}{@render trailing()}{/if}
+    {/if}
   </div>
   {#if !compact && listedInstalled}
     {#if removing}

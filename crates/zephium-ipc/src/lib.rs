@@ -51,6 +51,11 @@ pub struct TabView {
     #[serde(default)]
     #[specta(optional)]
     pub capture: Option<MediaCaptureView>,
+    /// The page's zoom in whole percent, while the tab has a page to zoom. It
+    /// is the level just asked for until the view reports it applied.
+    #[serde(default)]
+    #[specta(optional)]
+    pub zoom: Option<u16>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]

@@ -423,6 +423,8 @@
   "zoom_levels_forget": "Redefinir o zoom de {site}",
   "zoom_levels_forget_all": "Redefinir tudo",
   "zoom_levels_unavailable": "Não foi possível carregar os níveis de zoom.",
+  "zoom_badge_label": "Zoom da página, {percent}",
+  "zoom_reset": "Redefinir",
   "pref_tabs_pins": "Manter abas fixadas ao fechar uma mesa",
   "pref_tabs_pins_help": "Proteja as páginas para as quais você volta com frequência.",
   "pref_tabs_sleep": "Colocar abas inativas em repouso",

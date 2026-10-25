@@ -315,6 +315,19 @@ impl Shell {
         self.reconcile_zoom(id);
     }
 
+    /// The percent chrome shows for a tab with a page: the level just asked
+    /// for while a request is in flight, so the glass answers the key.
+    pub(super) fn zoom_view(&self, id: ItemId, tab: &TabState) -> Option<u16> {
+        (tab.content == zephium_core::item::TabContent::Web && tab.has_view()).then(|| {
+            zoom::percent(
+                self.zoom
+                    .pending
+                    .get(&id)
+                    .map_or(tab.zoom, |pending| pending.desired_scale),
+            )
+        })
+    }
+
     pub(super) fn operation_adjust_zoom(&mut self, step: ZoomStep) -> OperationDisposition {
         let Some(active) = self.windows.focused().and_then(|window| window.active) else {
             return operation_result(OperationOutcome::NoOp, OperationReason::NoFocusedWindow);

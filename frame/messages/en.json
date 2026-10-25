@@ -423,6 +423,8 @@
   "zoom_levels_forget": "Reset zoom for {site}",
   "zoom_levels_forget_all": "Reset all",
   "zoom_levels_unavailable": "Zoom levels could not be loaded.",
+  "zoom_badge_label": "Page zoom, {percent}",
+  "zoom_reset": "Reset",
   "pref_tabs_pins": "Keep pinned tabs when closing a space",
   "pref_tabs_pins_help": "Protect the pages you return to often.",
   "pref_tabs_sleep": "Put inactive tabs to sleep",

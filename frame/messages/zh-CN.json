@@ -423,6 +423,8 @@
   "zoom_levels_forget": "重置 {site} 的缩放",
   "zoom_levels_forget_all": "全部重置",
   "zoom_levels_unavailable": "无法加载缩放级别。",
+  "zoom_badge_label": "页面缩放，{percent}",
+  "zoom_reset": "重置",
   "pref_tabs_pins": "关闭空间时保留固定标签页",
   "pref_tabs_pins_help": "保护你经常访问的页面。",
   "pref_tabs_sleep": "让未使用的标签页休眠",

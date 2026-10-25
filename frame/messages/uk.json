@@ -423,6 +423,8 @@
   "zoom_levels_forget": "Скинути масштаб для {site}",
   "zoom_levels_forget_all": "Скинути все",
   "zoom_levels_unavailable": "Не вдалося завантажити масштаб сайтів.",
+  "zoom_badge_label": "Масштаб сторінки, {percent}",
+  "zoom_reset": "Скинути",
   "pref_tabs_pins": "Зберігати закріплені вкладки під час закриття простору",
   "pref_tabs_pins_help": "Захищає сторінки, до яких ви часто повертаєтеся.",
   "pref_tabs_sleep": "Усипляти неактивні вкладки",

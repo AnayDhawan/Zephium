@@ -423,6 +423,8 @@
   "zoom_levels_forget": "{site} 확대/축소 재설정",
   "zoom_levels_forget_all": "모두 재설정",
   "zoom_levels_unavailable": "확대/축소 수준을 불러올 수 없어요.",
+  "zoom_badge_label": "페이지 확대/축소, {percent}",
+  "zoom_reset": "재설정",
   "pref_tabs_pins": "공간을 닫을 때 고정된 탭 유지",
   "pref_tabs_pins_help": "자주 돌아가는 페이지를 지켜요.",
   "pref_tabs_sleep": "사용하지 않는 탭 재우기",

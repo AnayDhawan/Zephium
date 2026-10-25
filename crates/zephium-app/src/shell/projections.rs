@@ -445,6 +445,7 @@ impl Shell {
             view.can_go_forward = false;
             view.icon = None;
             view.availability = None;
+            view.zoom = None;
         }
         self.stable_revision(id, view)
     }
@@ -480,6 +481,7 @@ impl Shell {
         icon: Option<zephium_ipc::IconRef>,
     ) -> TabView {
         let mut view = tab_view(id, tab, icon, self.next_projection_revision());
+        view.zoom = self.zoom_view(id, tab);
         if self.crash.presentations.contains(&id) && view.failure.is_none() {
             view.failure = view.url.clone().map(|url| zephium_ipc::TabFailure {
                 url,
@@ -739,5 +741,6 @@ fn tab_view(
                 }
             },
         ),
+        zoom: None,
     }
 }

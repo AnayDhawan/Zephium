@@ -423,6 +423,8 @@
   "zoom_levels_forget": "重設 {site} 的縮放",
   "zoom_levels_forget_all": "全部重設",
   "zoom_levels_unavailable": "無法載入縮放級別。",
+  "zoom_badge_label": "頁面縮放，{percent}",
+  "zoom_reset": "重設",
   "pref_tabs_pins": "關閉空間時保留釘選的分頁",
   "pref_tabs_pins_help": "保護你經常回訪的網頁。",
   "pref_tabs_sleep": "讓未使用的分頁休眠",

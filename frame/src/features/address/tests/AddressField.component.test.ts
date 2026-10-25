@@ -3,14 +3,25 @@ import { render } from "vitest-browser-svelte";
 import { emitNativeEvent } from "$shared/testing/native-events";
 import { revision, tabFixture } from "$shared/testing/fixtures";
 import { tabs } from "$domain/tabs";
+import { preferences } from "$domain/preferences";
 import AddressField from "../components/AddressField.svelte";
+
+const native = vi.hoisted(() => ({ defaultZoom: "100" }));
 
 vi.mock("$shared/ipc/bindings", async () => {
   const { mockBindings } = await import("$shared/testing/bindings");
-  return mockBindings({ tabsBootstrap: async () => {} });
+  return mockBindings({
+    tabsBootstrap: async () => {},
+    runCommand: async () => ({ accepted: true, operation_id: null }),
+    settingGet: async (key: string) => (key === "zoom.default" ? native.defaultZoom : null),
+  });
 });
 
-afterEach(() => tabs.dispose());
+afterEach(() => {
+  tabs.dispose();
+  preferences.dispose();
+  native.defaultZoom = "100";
+});
 
 async function field() {
   await tabs.init();
@@ -87,4 +98,58 @@ test("a page's link for another app asks before it opens", async () => {
   await expect.element(card).toHaveTextContent("Open zoom.us?");
   await expect.element(card.getByRole("checkbox")).not.toBeChecked();
   await expect.element(card.getByRole("button", { name: "Cancel" })).toBeVisible();
+});
+
+async function zoomed(zoom: number | undefined) {
+  const { screen } = await field();
+  const tab = tabs.activeTab()!;
+  emitNativeEvent("tabChanged", { ...tab, projection_revision: revision(Date.now() + 1), zoom });
+  return screen;
+}
+
+test("a page zoomed away from the default shows its level beside the address", async () => {
+  const screen = await zoomed(125);
+  const badge = screen.getByRole("button", { name: "Page zoom, 125%" });
+  await expect.element(badge).toBeVisible();
+  await expect.element(badge).toHaveTextContent("125%");
+});
+
+test("a page at the default shows no zoom, and none arrives before a page exists", async () => {
+  const screen = await zoomed(100);
+  await expect.element(screen.getByRole("button", { name: /Page zoom/u })).not.toBeInTheDocument();
+  emitNativeEvent("tabChanged", {
+    ...tabs.activeTab()!,
+    projection_revision: revision(Date.now() + 2),
+    zoom: undefined,
+  });
+  await expect.element(screen.getByRole("button", { name: /Page zoom/u })).not.toBeInTheDocument();
+});
+
+test("the default zoom is what the badge measures against", async () => {
+  native.defaultZoom = "125";
+  await preferences.init();
+  const screen = await zoomed(125);
+  await expect.element(screen.getByRole("button", { name: /Page zoom/u })).not.toBeInTheDocument();
+  emitNativeEvent("tabChanged", {
+    ...tabs.activeTab()!,
+    projection_revision: revision(Date.now() + 3),
+    zoom: 100,
+  });
+  await expect.element(screen.getByRole("button", { name: "Page zoom, 100%" })).toBeVisible();
+});
+
+test("the zoom badge leaves the not-secure glyph and the address alone", async () => {
+  const { screen, input } = await field();
+  const tab = tabs.activeTab()!;
+  emitNativeEvent("tabChanged", {
+    ...tab,
+    projection_revision: revision(Date.now() + 1),
+    url: "http://example.com/",
+    zoom: 90,
+  });
+  await expect
+    .element(screen.getByRole("img", { name: "Connection is not encrypted" }))
+    .toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Page zoom, 90%" })).toBeVisible();
+  expect(input.value).toBe("example.com");
 });

@@ -423,6 +423,8 @@
   "zoom_levels_forget": "Restablecer el zoom de {site}",
   "zoom_levels_forget_all": "Restablecer todo",
   "zoom_levels_unavailable": "No se pudieron cargar los niveles de zoom.",
+  "zoom_badge_label": "Zoom de página, {percent}",
+  "zoom_reset": "Restablecer",
   "pref_tabs_pins": "Mantener las pestañas fijadas al cerrar un espacio",
   "pref_tabs_pins_help": "Protege las páginas a las que vuelves a menudo.",
   "pref_tabs_sleep": "Suspender pestañas inactivas",

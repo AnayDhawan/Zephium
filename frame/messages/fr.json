@@ -423,6 +423,8 @@
   "zoom_levels_forget": "Réinitialiser le zoom de {site}",
   "zoom_levels_forget_all": "Tout réinitialiser",
   "zoom_levels_unavailable": "Impossible de charger les niveaux de zoom.",
+  "zoom_badge_label": "Zoom de la page, {percent}",
+  "zoom_reset": "Réinitialiser",
   "pref_tabs_pins": "Garder les onglets épinglés à la fermeture d'un espace",
   "pref_tabs_pins_help": "Protégez les pages auxquelles vous revenez souvent.",
   "pref_tabs_sleep": "Mettre les onglets inactifs en veille",

@@ -423,6 +423,8 @@
   "zoom_levels_forget": "Ripristina lo zoom di {site}",
   "zoom_levels_forget_all": "Ripristina tutto",
   "zoom_levels_unavailable": "Impossibile caricare i livelli di zoom.",
+  "zoom_badge_label": "Zoom pagina, {percent}",
+  "zoom_reset": "Ripristina",
   "pref_tabs_pins": "Mantieni le schede fissate alla chiusura di uno spazio",
   "pref_tabs_pins_help": "Proteggi le pagine a cui torni spesso.",
   "pref_tabs_sleep": "Metti in pausa le schede inattive",

@@ -594,3 +594,65 @@ fn a_zoom_call_for_another_profile_or_an_unusable_site_is_refused() {
     );
     assert_eq!(saved(&store, profile), [("github.com".to_owned(), 110)]);
 }
+
+fn shown_zoom(screen: &Screen, id: ItemId) -> Option<u16> {
+    last(screen)
+        .tabs
+        .iter()
+        .find(|tab| tab.id == id.to_string())
+        .and_then(|tab| tab.zoom)
+}
+
+#[test]
+fn chrome_is_told_a_pages_zoom_when_it_is_asked_for_and_when_it_settles() {
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    // A New Tab has no page to zoom.
+    assert_eq!(shown_zoom(&screen, id), None);
+    navigate_and_commit(&mut shell, id, "github.com");
+    assert_eq!(shown_zoom(&screen, id), Some(100));
+
+    // The level asked for shows at once, so the badge answers the key.
+    shell.handle(Command::Run("zoom.in".into()));
+    assert_eq!(shown_zoom(&screen, id), Some(110));
+    let (_, _, request) = engine.last_zoom_request();
+
+    // A view that could not apply it shows what it is at.
+    shell.handle(Command::Engine(EngineEvent::ZoomSettled {
+        id,
+        request,
+        applied_scale: 1.0,
+        succeeded: false,
+    }));
+    assert_eq!(shown_zoom(&screen, id), Some(100));
+
+    zoom_in_and_settle(&mut shell, &engine, id);
+    assert_eq!(shown_zoom(&screen, id), Some(110));
+}
+
+#[test]
+fn a_tab_follows_its_site_in_what_chrome_is_told() {
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let first = active_id(&screen);
+    navigate_and_commit(&mut shell, first, "github.com");
+    let second = open_and_browse(&mut shell, &screen, "gist.github.com");
+    shell.handle(Command::Activate(first));
+    zoom_in_and_settle(&mut shell, &engine, first);
+    assert_eq!(shown_zoom(&screen, second), Some(110));
+    settle_last(&mut shell, &engine, second);
+    assert_eq!(shown_zoom(&screen, second), Some(110));
+}
+
+#[test]
+fn a_sleeping_tab_carries_no_zoom() {
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let id = active_id(&screen);
+    navigate_and_commit(&mut shell, id, "github.com");
+    zoom_in_and_settle(&mut shell, &engine, id);
+    shell.items.view_creation_failed(id);
+    shell.project_tab(id);
+    assert_eq!(shown_zoom(&screen, id), None);
+}

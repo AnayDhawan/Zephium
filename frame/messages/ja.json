@@ -423,6 +423,8 @@
   "zoom_levels_forget": "{site} のズームをリセット",
   "zoom_levels_forget_all": "すべてリセット",
   "zoom_levels_unavailable": "ズームレベルを読み込めませんでした。",
+  "zoom_badge_label": "ページのズーム、{percent}",
+  "zoom_reset": "リセット",
   "pref_tabs_pins": "スペースを閉じるときもピン留めのタブを残す",
   "pref_tabs_pins_help": "よく戻るページを守ります。",
   "pref_tabs_sleep": "使っていないタブをスリープ",

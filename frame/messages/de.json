@@ -423,6 +423,8 @@
   "zoom_levels_forget": "Zoom für {site} zurücksetzen",
   "zoom_levels_forget_all": "Alle zurücksetzen",
   "zoom_levels_unavailable": "Die Zoomstufen konnten nicht geladen werden.",
+  "zoom_badge_label": "Seitenzoom, {percent}",
+  "zoom_reset": "Zurücksetzen",
   "pref_tabs_pins": "Angeheftete Tabs beim Schließen eines Bereichs behalten",
   "pref_tabs_pins_help": "Schützt die Seiten, zu denen du oft zurückkehrst.",
   "pref_tabs_sleep": "Inaktive Tabs schlafen legen",
