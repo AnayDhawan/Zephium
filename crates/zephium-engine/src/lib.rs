@@ -143,6 +143,8 @@ compile_error!("the native agentic input probe is forbidden in optimized builds"
 compile_error!("the native agentic semantic probe is forbidden in optimized builds");
 
 #[cfg(target_os = "macos")]
+pub use platform::macos::private_api::missing as missing_private_webkit_api;
+#[cfg(target_os = "macos")]
 pub use platform::macos::{
     passkey_authorization_state as macos_passkey_authorization_state,
     request_passkey_authorization as request_macos_passkey_authorization,

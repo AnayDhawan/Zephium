@@ -47,6 +47,7 @@ mod credentials;
 mod find;
 mod native;
 mod navigation;
+pub mod private_api;
 pub(crate) use apps::{external_app_name, open_external_app};
 mod paint;
 pub(crate) use paint::{PageSnapshot, PaintCover};

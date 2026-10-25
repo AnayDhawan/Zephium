@@ -6522,6 +6522,20 @@ pub fn run() {
             app.state::<keymap::Keymap>()
                 .attach_engine(Box::new(move |table| keys_engine.set_shortcuts(table)));
             #[cfg(target_os = "macos")]
+            let _ = std::thread::Builder::new()
+                .name("webkit-private-api".into())
+                .spawn(|| {
+                    let missing = zephium_engine::missing_private_webkit_api();
+                    if missing.is_empty() {
+                        write_diagnostic(format_args!("webkit: private api present"));
+                    } else {
+                        write_diagnostic(format_args!(
+                            "webkit: missing private api {}",
+                            missing.join(", ")
+                        ));
+                    }
+                });
+            #[cfg(target_os = "macos")]
             {
                 let shortcut_app = handle.clone();
                 platform::imp::install_key_monitor(
