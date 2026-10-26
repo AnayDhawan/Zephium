@@ -18,8 +18,7 @@
   import Button from "$shared/ui/Button";
   import IconButton from "$shared/ui/IconButton";
   import CaptureControl from "$shared/ui/CaptureControl";
-  import PageRequestCard from "./PageRequestCard.svelte";
-  import ZoomBadge from "./ZoomBadge.svelte";
+  import SiteInfo from "./SiteInfo.svelte";
   import { preferences } from "$domain/preferences";
   import * as find from "../lib/find.svelte";
   import { flushSync, untrack, type Snippet } from "svelte";
@@ -29,10 +28,13 @@
   let {
     compact = false,
     trailing,
+    onSiteSettings,
   }: {
     compact?: boolean;
     /** Controls that act on the page, at the far end of the field. */
     trailing?: Snippet;
+    /** Opens the Site settings the site-info panel links to. */
+    onSiteSettings?: () => void;
   } = $props();
 
   let input: HTMLInputElement;
@@ -92,16 +94,17 @@
   let security = $derived(
     addressSecurity(activeUrl, tabs.activeTab()?.certificate_exception === true),
   );
-  // Only a problem earns a glyph. A padlock on every encrypted page is the
-  // default state of the web and says nothing; the field reads cleaner
-  // without it, and the one case worth interrupting for still shows.
-  let warning = $derived(
-    editing || security === "none" || security === "secure"
-      ? null
-      : security === "untrusted"
-        ? m.address_certificate_exception()
-        : m.address_insecure(),
+  // A web page in front has a site to describe. A new tab, an internal page
+  // and a page behind Settings have none, and neither does the rail, where the
+  // launcher stands in for the field.
+  let siteInfo = $derived(
+    !compact &&
+      !finding &&
+      activeContent === "web" &&
+      security !== "none" &&
+      surface.currentPage() === null,
   );
+  let privateWindow = $derived(tabs.profile()?.kind === "incognito");
 
   $effect(() => {
     const command = ui.uiCommand();
@@ -224,6 +227,25 @@
   });
 
   let pageRequest = $derived(tabs.activeTab()?.page_request ?? null);
+
+  // What appears only on demand is fetched the first time it is wanted, not
+  // at startup; a failed fetch is tried again at the next request or zoom.
+  let RequestCard = $state.raw<typeof import("./PageRequestCard.svelte").default | null>(null);
+  let Badge = $state.raw<typeof import("./ZoomBadge.svelte").default | null>(null);
+  $effect(() => {
+    if (pageRequest && RequestCard === null)
+      void import("./PageRequestCard.svelte").then(
+        (module) => (RequestCard = module.default),
+        () => {},
+      );
+  });
+  $effect(() => {
+    if (zoom !== null && zoom !== standardZoom && Badge === null)
+      void import("./ZoomBadge.svelte").then(
+        (module) => (Badge = module.default),
+        () => {},
+      );
+  });
 </script>
 
 <!--
@@ -244,6 +266,7 @@
     class:sr-only={compact}
     class:flex={!compact}
     class:shadow-[inset_0_0_0_1px_var(--color-danger)]={failed}
+    style:--address-centering={siteInfo ? "0px" : null}
     class="address-field h-[34px] items-center gap-2 rounded-row bg-address ps-2.5 pe-1 shadow-[var(--shadow-tile)] transition-[background-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--ease-out)] [--address-centering:20px] focus-within:bg-address-hover focus-within:shadow-[var(--shadow-field-focus)] hover:bg-address-hover"
   >
     {#if !compact && activeCapture && !editing}
@@ -256,23 +279,35 @@
         }}
       />
     {/if}
-    {#if !compact && warning}
-      <span
-        class="flex h-4 w-4 shrink-0 items-center justify-center text-danger"
-        title={warning}
-        role="img"
-        aria-label={warning}
+    {#if siteInfo}
+      <!-- Pressing it ends editing as a press anywhere else in the chrome does,
+           whether or not the engine moves focus to a pressed button. -->
+      <div
+        class="contents"
+        role="presentation"
+        onpointerdowncapture={() => {
+          if (editing) input.blur();
+        }}
       >
-        <Icon icon={Alert02Icon} size={14} />
-      </span>
+        <SiteInfo
+          url={activeUrl}
+          {security}
+          {zoom}
+          {standardZoom}
+          capture={activeCapture}
+          {privateWindow}
+          {onSiteSettings}
+        />
+      </div>
     {/if}
 
     <!--
       Resting, the text centres on the field rather than on the input. The
       trailing tray takes 26px and the field's own gutters differ by 6px, so
       the input's centre sits 10px left of the field's; padding twice that on
-      the leading edge puts it back. Editing drops it and returns to the
-      start, where a long URL has to begin.
+      the leading edge puts it back. The site-info glyph on the other side
+      takes 30px, which puts the input's centre back by itself. Editing drops
+      the padding and returns to the start, where a long URL has to begin.
     -->
     <span class="address-clip">
       <!-- Stays mounted and correct while find borrows the field: native
@@ -365,8 +400,8 @@
         onclick={() => find.hide()}
       />
     {:else if !compact}
-      {#if zoom !== null && zoom !== standardZoom}
-        <ZoomBadge percent={zoom} standard={standardZoom} />
+      {#if zoom !== null && zoom !== standardZoom && Badge}
+        <Badge percent={zoom} standard={standardZoom} />
       {/if}
       {#if trailing}{@render trailing()}{/if}
     {/if}
@@ -427,9 +462,9 @@
     <p class="popup-notice" role="status" title={m.page_request_waiting()}>
       <Icon icon={Alert02Icon} size={14} />
     </p>
-  {:else if pageRequest}
+  {:else if pageRequest && RequestCard}
     {#key `${tabs.activeId()}:${JSON.stringify(pageRequest)}`}
-      <PageRequestCard tab={tabs.activeId()!} request={pageRequest} />
+      <RequestCard tab={tabs.activeId()!} request={pageRequest} />
     {/key}
   {/if}
 </form>

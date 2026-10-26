@@ -84,12 +84,10 @@
     }
   }
 
-  // Requests the page already made stay made; reloading is what makes the
-  // switch mean what it says, so it happens here rather than as advice.
   const setProtected = (protect: boolean) =>
     run(async () => {
-      const tab = site?.context.tab;
-      if ((await change({ kind: "pause", paused: !protect })) && tab) void commands.tabsReload(tab);
+      if (!(await blockerSites.setProtected(protect)))
+        failure = "That didn't go through. Try again.";
     });
 
   const enable = () =>
