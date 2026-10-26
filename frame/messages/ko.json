@@ -856,7 +856,7 @@
   "site_info_permissions_reset": "권한 재설정",
   "site_info_permissions_partial": "일부 권한을 지금은 읽을 수 없어요.",
   "site_info_in_use": "사용 중",
-  "site_info_blocking": "광고 및 추적기 차단",
+  "site_info_blocking": "광고 차단",
   "site_info_blocking_on": "이 사이트에서 켜짐",
   "site_info_blocking_count": "오늘 {count}개 차단됨",
   "site_info_blocking_paused": "이 사이트에서 일시중지됨",

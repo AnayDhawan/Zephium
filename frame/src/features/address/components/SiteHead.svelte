@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { Alert02Icon, LockIcon } from "@hugeicons/core-free-icons";
+  import { ShieldAlertIcon, ShieldCheckIcon } from "@hugeicons/core-free-icons";
   import * as m from "$shared/i18n/messages";
   import Icon from "$shared/ui/Icon";
   import { restingAddress, type SitePage } from "../lib/address-model";
 
-  /** Who the page is from and whether the connection can be trusted. */
+  /** Who the page is from and whether the connection can be trusted. A secure
+   *  page says so on its shield alone; one that is not says why in words. */
   let { page }: { page: SitePage | null } = $props();
 
   let host = $derived(restingAddress(page?.url));
@@ -20,12 +21,18 @@
 
 {#if page}
   <header>
-    <span class="mark" data-secure={secure || undefined}>
-      <Icon icon={secure ? LockIcon : Alert02Icon} size={15} />
+    <span
+      class="mark"
+      role="img"
+      aria-label={status}
+      title={status}
+      data-secure={secure || undefined}
+    >
+      <Icon icon={secure ? ShieldCheckIcon : ShieldAlertIcon} size={16} />
     </span>
     <span class="words">
       <span class="host" title={host}>{host}</span>
-      <span class="status" data-secure={secure || undefined}>{status}</span>
+      {#if !secure}<span class="status">{status}</span>{/if}
     </span>
   </header>
 {/if}
@@ -35,6 +42,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    min-block-size: var(--menu-row);
     padding-inline: var(--menu-item-inset);
   }
 
@@ -42,8 +50,8 @@
     display: grid;
     flex: none;
     place-items: center;
-    inline-size: 20px;
-    block-size: 20px;
+    inline-size: 16px;
+    block-size: 16px;
     color: var(--color-danger);
   }
 
@@ -63,18 +71,14 @@
     font-size: var(--text-body);
     font-weight: 600;
     letter-spacing: -0.005em;
-    line-height: 20px;
+    line-height: 18px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .status {
     color: var(--color-danger);
-    font-size: var(--text-label);
-    line-height: 16px;
-  }
-
-  .status[data-secure] {
-    color: var(--color-muted);
+    font-size: var(--text-caption);
+    line-height: 14px;
   }
 </style>

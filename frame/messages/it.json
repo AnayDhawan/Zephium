@@ -856,7 +856,7 @@
   "site_info_permissions_reset": "Ripristina permessi",
   "site_info_permissions_partial": "Alcuni permessi non possono essere letti al momento.",
   "site_info_in_use": "In uso",
-  "site_info_blocking": "Blocca pubblicità e tracker",
+  "site_info_blocking": "Blocco annunci",
   "site_info_blocking_on": "Attivo per questo sito",
   "site_info_blocking_count": "{count} bloccati oggi",
   "site_info_blocking_paused": "In pausa su questo sito",

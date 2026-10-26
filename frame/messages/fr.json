@@ -856,7 +856,7 @@
   "site_info_permissions_reset": "Réinitialiser les autorisations",
   "site_info_permissions_partial": "Certaines autorisations n'ont pas pu être lues pour le moment.",
   "site_info_in_use": "Utilisé",
-  "site_info_blocking": "Bloquer les publicités et les traceurs",
+  "site_info_blocking": "Blocage des pubs",
   "site_info_blocking_on": "Activé pour ce site",
   "site_info_blocking_count": "{count} bloqués aujourd'hui",
   "site_info_blocking_paused": "En pause sur ce site",

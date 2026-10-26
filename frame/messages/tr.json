@@ -856,7 +856,7 @@
   "site_info_permissions_reset": "İzinleri sıfırla",
   "site_info_permissions_partial": "Bazı izinler şu anda okunamadı.",
   "site_info_in_use": "Kullanımda",
-  "site_info_blocking": "Reklamları ve izleyicileri engelle",
+  "site_info_blocking": "Reklam engelleme",
   "site_info_blocking_on": "Bu site için açık",
   "site_info_blocking_count": "Bugün {count} engellendi",
   "site_info_blocking_paused": "Bu sitede duraklatıldı",

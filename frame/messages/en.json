@@ -856,7 +856,7 @@
   "site_info_permissions_reset": "Reset permissions",
   "site_info_permissions_partial": "Some permissions couldn't be read right now.",
   "site_info_in_use": "In use",
-  "site_info_blocking": "Block ads and trackers",
+  "site_info_blocking": "Ad blocking",
   "site_info_blocking_on": "On for this site",
   "site_info_blocking_count": "{count} blocked today",
   "site_info_blocking_paused": "Paused on this site",

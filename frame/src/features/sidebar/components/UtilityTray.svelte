@@ -43,7 +43,8 @@
   panel: who it is from, blocking, extensions, what the site may use. One glyph
   holds them, because none of them is worth a permanent seat in the chrome. Each
   section is a direct child of the body, or absent, and the body rules the
-  hairline between whichever are showing.
+  hairline between whichever are showing, except between two that belong
+  together (data-tray-tools).
 -->
 <Disclosure
   {label}
@@ -120,10 +121,13 @@
     box-shadow: var(--shadow-field-focus);
   }
 
-  /* Under the field, from its edge: the trigger sits a field-padding in. */
+  /* Under the field, as wide as it and from its edge: the trigger sits a
+     field-padding in. The rows need the room: a name, its count and a switch
+     on one line. */
   :global(.utilities-panel.ui-disclosure-panel) {
     inset-inline-end: -4px;
-    inline-size: min(304px, calc(var(--sidebar-width, 320px) - 24px));
+    inline-size: min(304px, var(--sidebar-width, 320px));
+    max-width: none;
     max-block-size: calc(100vh - 120px);
     padding: var(--menu-pad);
     overflow-y: auto;
@@ -136,8 +140,14 @@
   }
 
   .tray-body > :global(* + *) {
-    margin-block-start: 6px;
-    padding-block-start: 6px;
+    margin-block-start: 4px;
+    padding-block-start: 4px;
     border-block-start: 1px solid var(--color-menu-separator);
+  }
+
+  .tray-body > :global([data-tray-tools] + [data-tray-tools]) {
+    margin-block-start: 0;
+    padding-block-start: 0;
+    border-block-start: 0;
   }
 </style>

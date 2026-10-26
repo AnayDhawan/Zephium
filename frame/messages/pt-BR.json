@@ -856,7 +856,7 @@
   "site_info_permissions_reset": "Redefinir permissões",
   "site_info_permissions_partial": "Não foi possível ler algumas permissões agora.",
   "site_info_in_use": "Em uso",
-  "site_info_blocking": "Bloquear anúncios e rastreadores",
+  "site_info_blocking": "Bloqueio de anúncios",
   "site_info_blocking_on": "Ativado neste site",
   "site_info_blocking_count": "{count} bloqueados hoje",
   "site_info_blocking_paused": "Pausado neste site",

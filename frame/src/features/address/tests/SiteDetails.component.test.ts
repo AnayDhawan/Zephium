@@ -2,6 +2,7 @@ import type { ComponentProps } from "svelte";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-svelte";
 import "$styles/global.css";
+import "$shared/ui/Menu/surface.css";
 import type { SitePermissionKindView, SitePermissionsView } from "$shared/ipc/bindings";
 import { clearRequest } from "$domain/site-data";
 import SiteDetails from "../components/SiteDetails.svelte";
@@ -266,4 +267,70 @@ test("there is no link to Site settings and no explanatory text", async () => {
     .element(screen.getByRole("button", { name: "Site settings" }))
     .not.toBeInTheDocument();
   expect(screen.container.querySelectorAll("p")).toHaveLength(0);
+});
+
+// The panel's width at the default 240px column, less its own padding.
+const panelWidth = "228px";
+
+test("every row leads with an icon on one axis, then its name, then its control", async () => {
+  const kinds: SitePermissionKindView[] = [
+    "camera",
+    "microphone",
+    "geolocation",
+    "notifications",
+    "popups",
+    "automatic_downloads",
+  ];
+  native.list.mockResolvedValue(
+    view(
+      kinds.map((kind) => ({ origin: "https://meet.example", kind, decision: "allow" as const })),
+      { kinds },
+    ),
+  );
+  const screen = await details({ page: pageOf({ zoom: 125 }) });
+  screen.container.style.inlineSize = panelWidth;
+  await expect.element(screen.getByRole("radiogroup", { name: "Camera" })).toBeVisible();
+
+  const icons = [...screen.container.querySelectorAll<HTMLElement>(".ui-menu-icon")];
+  expect(icons).toHaveLength(kinds.length + 2);
+  for (const icon of icons) expect(icon.querySelector("svg")).not.toBeNull();
+  expect(icons.map((icon) => Math.round(icon.getBoundingClientRect().left))).toEqual(
+    icons.map(() => Math.round(icons[0]!.getBoundingClientRect().left)),
+  );
+
+  // The choice stays on its name's line: a name that is long takes two lines
+  // of its own before the choice is asked to drop.
+  for (const row of screen.container.querySelectorAll<HTMLElement>("li")) {
+    const control = row.querySelector(".control")!.getBoundingClientRect();
+    const name = row.querySelector(".name")!.getBoundingClientRect();
+    expect(row.offsetHeight, row.textContent ?? "").toBeLessThanOrEqual(38);
+    expect(control.left).toBeGreaterThanOrEqual(name.right);
+  }
+
+  const zoom = screen.getByRole("group", { name: "Page zoom" }).element() as HTMLElement;
+  expect(zoom.offsetHeight).toBe(34);
+  const clear = screen.getByRole("button", { name: "Clear data for this site…" }).element();
+  expect((clear as HTMLElement).offsetHeight).toBe(34);
+});
+
+test("the keyboard reaches Clear data and it shows a ring", async () => {
+  const screen = await details();
+  const clear = screen.getByRole("button", { name: "Clear data for this site…" });
+  await expect.element(clear).toBeVisible();
+  clear.element().focus({ focusVisible: true } as FocusOptions);
+  await expect.element(clear).toHaveFocus();
+  expect(getComputedStyle(clear.element()).outlineStyle).toBe("solid");
+});
+
+test("zoom takes its level as its name, so its controls and Reset share the row", async () => {
+  const screen = await details({ page: pageOf({ zoom: 125 }) });
+  screen.container.style.inlineSize = panelWidth;
+  const zoom = screen.getByRole("group", { name: "Page zoom" });
+  await expect.element(zoom).toBeVisible();
+  const row = zoom.element() as HTMLElement;
+  expect(row.offsetHeight).toBe(34);
+  const level = row.querySelector("output")!.getBoundingClientRect();
+  const controls = row.querySelector(".controls")!.getBoundingClientRect();
+  expect(level.right).toBeLessThanOrEqual(controls.left);
+  expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth);
 });

@@ -856,7 +856,7 @@
   "site_info_permissions_reset": "重設權限",
   "site_info_permissions_partial": "暫時無法讀取部分權限。",
   "site_info_in_use": "使用中",
-  "site_info_blocking": "封鎖廣告與追蹤器",
+  "site_info_blocking": "廣告攔截",
   "site_info_blocking_on": "已對此網站開啟",
   "site_info_blocking_count": "今天已封鎖 {count} 項",
   "site_info_blocking_paused": "已在此網站暫停",

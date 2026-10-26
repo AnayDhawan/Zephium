@@ -17,11 +17,16 @@ const native = vi.hoisted(() => ({
   refresh: vi.fn(async () => {}),
   setProtected: vi.fn(async (_protect: boolean) => true),
   status: null as unknown as BlockerStatusView,
+  extensions: false,
 }));
 vi.mock("$domain/permissions", async (original) => ({
   ...(await original<typeof import("$domain/permissions")>()),
   sitePermissions: { list: native.list, set: native.set },
 }));
+vi.mock("$domain/webext", async (original) => {
+  const { webext } = await original<typeof import("$domain/webext")>();
+  return { webext: { ...webext, isAvailable: () => native.extensions } };
+});
 vi.mock("$domain/blocker", async (original) => ({
   ...(await original<typeof import("$domain/blocker")>()),
   blocker: { status: () => native.status, refresh: native.refresh },
@@ -31,6 +36,7 @@ vi.mock("$shared/ipc/bindings", async () => {
   const { mockBindings } = await import("$shared/testing/bindings");
   return mockBindings({
     tabsBootstrap: async () => {},
+    pagePermissionCardHost: async () => {},
     runCommand: async () => ({ accepted: true, operation_id: null }),
     blockerStats: async () => ({
       status: "ok" as const,
@@ -43,6 +49,7 @@ let clock = 100;
 const stamp = () => revision((clock += 1));
 
 beforeEach(() => {
+  native.extensions = false;
   native.status = {
     protection: "active",
     applied_enabled: true,
@@ -112,15 +119,15 @@ test("one panel, top to bottom: the site, blocking, its permissions, zoom, and i
   const panel = screen.getByRole("group", { name: "Site information" });
 
   const host = panel.getByText("meet.example");
-  const secure = panel.getByText("Secure", { exact: true });
-  const blocking = panel.getByRole("switch", { name: "Block ads and trackers" });
+  const secure = panel.getByRole("img", { name: "Secure" });
+  const blocking = panel.getByRole("switch", { name: "Ad blocking" });
   const camera = panel.getByRole("radiogroup", { name: "Camera" });
   const zoom = panel.getByRole("group", { name: "Page zoom" });
   const clear = panel.getByRole("button", { name: "Clear data for this site…" });
   await expect.element(host).toBeVisible();
   await expect.element(secure).toBeVisible();
   await expect.element(blocking).toBeChecked();
-  await expect.element(panel.getByText("42 blocked today")).toBeVisible();
+  await expect.element(panel.getByText("42", { exact: true })).toBeVisible();
   await expect.element(camera.getByRole("radio", { name: "Allow" })).toBeChecked();
   await expect.element(zoom.getByRole("status")).toHaveTextContent("125%");
   await expect.element(clear).toBeVisible();
@@ -141,7 +148,7 @@ test("a page at its default zoom with no decisions has just the site, blocking a
   const screen = await shell();
   await screen.getByRole("button", { name: "Site information" }).click();
   const panel = screen.getByRole("group", { name: "Site information" });
-  await expect.element(panel.getByRole("switch", { name: "Block ads and trackers" })).toBeVisible();
+  await expect.element(panel.getByRole("switch", { name: "Ad blocking" })).toBeVisible();
   await expect.poll(() => native.list.mock.calls.length).toBe(1);
   await expect.element(panel.getByRole("radiogroup")).not.toBeInTheDocument();
   await expect.element(panel.getByRole("group", { name: "Page zoom" })).not.toBeInTheDocument();
@@ -149,6 +156,64 @@ test("a page at its default zoom with no decisions has just the site, blocking a
   await expect
     .element(panel.getByRole("button", { name: "Clear data for this site…" }))
     .toBeVisible();
+});
+
+test("the panel is as wide as the field, with groups divided and every row on one line", async () => {
+  const screen = await shell({ zoom: 125 });
+  await screen.getByRole("button", { name: "Site information" }).click();
+  const panel = screen.getByRole("group", { name: "Site information" });
+  await expect.element(panel.getByRole("switch", { name: "Ad blocking" })).toBeVisible();
+  await expect.element(panel.getByRole("group", { name: "Page zoom" })).toBeVisible();
+
+  const field = screen.container
+    .querySelector<HTMLElement>(".address-field")!
+    .getBoundingClientRect();
+  // Opening scales the panel up from a hair under, so wait for it to settle.
+  await expect
+    .poll(() => Math.abs(panel.element().getBoundingClientRect().left - field.left))
+    .toBeLessThanOrEqual(1);
+  expect(Math.abs(panel.element().getBoundingClientRect().right - field.right)).toBeLessThanOrEqual(
+    1,
+  );
+
+  const body = panel.element().querySelector<HTMLElement>("[data-tray-body]")!;
+  const line = (row: Element) => (row as HTMLElement).offsetHeight;
+  expect(line(body.querySelector("header")!)).toBeLessThanOrEqual(36);
+  expect(line(body.querySelector(".protection .head")!)).toBe(34);
+  expect(line(panel.getByRole("group", { name: "Page zoom" }).element())).toBe(34);
+  expect(line(panel.getByRole("button", { name: "Clear data for this site…" }).element())).toBe(34);
+
+  // Three groups, so two dividers: the site, what acts on the page, what the
+  // site has; and the extensions would share the second group's.
+  const dividers = [...body.children].filter(
+    (child) => parseFloat(getComputedStyle(child).borderTopWidth) > 0,
+  );
+  expect(dividers).toHaveLength(2);
+});
+
+test("with extensions, the blocking and the extensions are one group between two dividers", async () => {
+  native.extensions = true;
+  const screen = await shell({ zoom: 125 });
+  await screen.getByRole("button", { name: "Site information" }).click();
+  const panel = screen.getByRole("group", { name: "Site information" });
+  await expect.element(panel.getByRole("button", { name: "Manage extensions" })).toBeVisible();
+  await expect.element(panel.getByRole("button", { name: "Hide elements…" })).toBeVisible();
+
+  const body = panel.element().querySelector<HTMLElement>("[data-tray-body]")!;
+  const sections = [...body.children];
+  const ruled = sections.filter((child) => parseFloat(getComputedStyle(child).borderTopWidth) > 0);
+  expect(ruled.map((child) => child.className.replace(/\s*svelte-\w+/gu, ""))).toEqual([
+    "protection",
+    "details",
+  ]);
+  const row = body.querySelector<HTMLElement>(".extensions .row")!;
+  expect(row.offsetHeight).toBe(34);
+  expect(
+    [...body.querySelectorAll<HTMLElement>(".ui-menu-icon")].every(
+      (icon) =>
+        Math.round(icon.getBoundingClientRect().left - body.getBoundingClientRect().left) === 8,
+    ),
+  ).toBe(true);
 });
 
 test("an unencrypted page keeps the warning in view, and the panel says why", async () => {
@@ -181,7 +246,7 @@ test("a new tab has the panel too, for blocking and extensions, without a site",
   const screen = await shell({ url: null });
   await screen.getByRole("button", { name: "Utilities" }).click();
   const panel = screen.getByRole("group", { name: "Utilities" });
-  await expect.element(panel.getByText("42 blocked today")).toBeVisible();
+  await expect.element(panel.getByText("42", { exact: true })).toBeVisible();
   await expect
     .element(panel.getByRole("button", { name: "Clear data for this site…" }))
     .not.toBeInTheDocument();

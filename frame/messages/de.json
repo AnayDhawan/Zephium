@@ -856,7 +856,7 @@
   "site_info_permissions_reset": "Berechtigungen zurücksetzen",
   "site_info_permissions_partial": "Einige Berechtigungen konnten gerade nicht gelesen werden.",
   "site_info_in_use": "In Verwendung",
-  "site_info_blocking": "Werbung und Tracker blockieren",
+  "site_info_blocking": "Werbeblocker",
   "site_info_blocking_on": "Für diese Website aktiv",
   "site_info_blocking_count": "Heute {count} blockiert",
   "site_info_blocking_paused": "Auf dieser Website pausiert",

@@ -856,7 +856,7 @@
   "site_info_permissions_reset": "Сбросить разрешения",
   "site_info_permissions_partial": "Не удалось прочитать часть разрешений.",
   "site_info_in_use": "Используется",
-  "site_info_blocking": "Блокировать рекламу и трекеры",
+  "site_info_blocking": "Блокировка рекламы",
   "site_info_blocking_on": "Включено для этого сайта",
   "site_info_blocking_count": "Заблокировано сегодня: {count}",
   "site_info_blocking_paused": "На этом сайте приостановлено",

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { ShieldBanIcon } from "@hugeicons/core-free-icons";
   import * as m from "$shared/i18n/messages";
   import { blocker, shieldPresentation } from "$domain/blocker";
+  import Icon from "$shared/ui/Icon";
 
   /** The blocking section of the site panel. Its controls load the first time
    *  the panel is open, a failed load is tried again at the next, and the
@@ -30,17 +32,21 @@
 {#if Menu}
   <Menu {open} />
 {:else if shield.visible}
-  <section class="protection" aria-label={m.site_info_blocking()}>
-    <span class="title">{m.site_info_blocking()}</span>
-    {#if failed}<span class="failure" role="status">{m.surface_render_failed()}</span>{/if}
+  <section class="protection" aria-label={m.site_info_blocking()} data-tray-tools>
+    <div class="head">
+      <span class="ui-menu-icon" aria-hidden="true"><Icon icon={ShieldBanIcon} size={16} /></span>
+      <span class="title">{m.site_info_blocking()}</span>
+    </div>
+    {#if failed}<p class="failure" role="status">{m.surface_render_failed()}</p>{/if}
   </section>
 {/if}
 
 <style>
-  .protection {
-    display: grid;
-    gap: 2px;
-    min-block-size: 38px;
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-block-size: var(--menu-row);
     padding-inline: var(--menu-item-inset);
   }
 
@@ -50,6 +56,7 @@
   }
 
   .failure {
+    margin: 0 var(--menu-item-inset) 4px;
     color: var(--color-warning);
     font-size: var(--text-caption);
   }

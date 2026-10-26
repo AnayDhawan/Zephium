@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { ArrowRight01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
+  import {
+    ArrowRight01Icon,
+    Cancel01Icon,
+    ListViewIcon,
+    ReloadIcon,
+    ShieldBanIcon,
+    ViewOffIcon,
+  } from "@hugeicons/core-free-icons";
   import * as m from "$shared/i18n/messages";
   import { blocker, blockerSites, hiding, shieldPresentation } from "$domain/blocker";
   import { tabs } from "$domain/tabs";
@@ -44,6 +51,12 @@
     };
   });
 
+  // Active and counting, the row tells it in a number beside the name, and
+  // anything else needs its words: protection that is off, starting or in
+  // trouble. A site paused is shown by its switch.
+  let counting = $derived(
+    status.protection === "active" && site?.paused !== true && blockedToday !== null,
+  );
   let standing = $derived(
     status.protection === "disabled"
       ? m.site_info_blocking_off()
@@ -106,12 +119,19 @@
 </script>
 
 {#if shield.visible}
-  <section class="protection" aria-label={m.site_info_blocking()}>
-    <div class="head">
-      <div class="words">
+  <section class="protection" aria-label={m.site_info_blocking()} data-tray-tools>
+    <div class="head" title={standing}>
+      <span class="ui-menu-icon" aria-hidden="true"><Icon icon={ShieldBanIcon} size={16} /></span>
+      <span class="words">
         <span class="title" aria-hidden="true">{m.site_info_blocking()}</span>
-        <span class="standing" class:warning={shield.tone === "warning"}>{standing}</span>
-      </div>
+        {#if counting}
+          <span class="count"
+            ><span aria-hidden="true">{blockedToday?.toLocaleString()}</span><span class="sr-only"
+              >{standing}</span
+            ></span
+          >
+        {/if}
+      </span>
       {#if on && site?.ready}
         <Switch
           label={m.site_info_blocking()}
@@ -123,13 +143,20 @@
       {/if}
     </div>
 
+    {#if status.protection !== "active"}
+      <p class="standing" class:warning={shield.tone === "warning"}>{standing}</p>
+    {/if}
+
     {#if status.desired_enabled !== true}
       <button
         type="button"
         class="ui-menu-item row"
         disabled={busy || !status.can_enable || status.preference !== "authoritative"}
-        onclick={() => void enable()}>{m.site_info_blocking_enable()}</button
+        onclick={() => void enable()}
       >
+        <span class="ui-menu-icon" aria-hidden="true"><Icon icon={ShieldBanIcon} size={16} /></span>
+        <span class="label">{m.site_info_blocking_enable()}</span>
+      </button>
     {/if}
 
     {#if site && on}
@@ -139,16 +166,21 @@
           class="ui-menu-item row"
           data-dismiss
           disabled={busy || site.busy}
-          onclick={() => void hide()}>{m.site_info_hide_elements()}</button
+          onclick={() => void hide()}
         >
+          <span class="ui-menu-icon" aria-hidden="true"><Icon icon={ViewOffIcon} size={16} /></span>
+          <span class="label">{m.site_info_hide_elements()}</span>
+        </button>
       {:else}
         <button
           type="button"
           class="ui-menu-item row"
           disabled={busy || site.busy}
           onclick={() => void run(async () => void (await change({ kind: "retry" })))}
-          >{m.site_info_blocking_retry()}</button
         >
+          <span class="ui-menu-icon" aria-hidden="true"><Icon icon={ReloadIcon} size={16} /></span>
+          <span class="label">{m.site_info_blocking_retry()}</span>
+        </button>
       {/if}
       {#if site.hides.length > 0}
         <button
@@ -157,7 +189,9 @@
           aria-expanded={managing}
           onclick={() => (managing = !managing)}
         >
-          <span>{m.site_info_hidden()}</span>
+          <span class="ui-menu-icon" aria-hidden="true"><Icon icon={ListViewIcon} size={16} /></span
+          >
+          <span class="label">{m.site_info_hidden()}</span>
           <span class="count">{site.hides.length}</span>
           <span class="chevron" class:open={managing}
             ><Icon icon={ArrowRight01Icon} size={14} /></span
@@ -167,7 +201,7 @@
           <ul class="hides">
             {#each site.hides as hide (hide.id)}
               <li>
-                <span class="label" title={hide.label}>{hide.label}</span>
+                <span class="name" title={hide.label}>{hide.label}</span>
                 <button
                   type="button"
                   class="restore"
@@ -209,32 +243,56 @@
   .head {
     display: flex;
     align-items: center;
-    gap: 12px;
-    min-block-size: 38px;
+    gap: 8px;
+    min-block-size: var(--menu-row);
     padding-inline: var(--menu-item-inset);
   }
 
+  /* The name starts where every row's does, a gutter past the icon. */
+  .head .ui-menu-icon {
+    margin-inline-end: 2px;
+  }
+
+  /* The name, and beside it the day's count while it fits. What does not fit
+     on the line wraps below it and is clipped, so the name is never the
+     thing that gives way for the number. */
   .words {
     display: flex;
     flex: 1;
-    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 8px;
     min-inline-size: 0;
+    block-size: 18px;
+    overflow: hidden;
   }
 
   .title {
-    font-size: var(--text-body);
-    line-height: 18px;
-    text-wrap: balance;
-  }
-
-  .standing {
+    flex: 0 1 auto;
+    max-inline-size: 100%;
     overflow: hidden;
-    color: var(--color-muted);
-    font-size: var(--text-caption);
-    font-variant-numeric: tabular-nums;
-    line-height: 14px;
+    font-size: var(--text-body);
+    font-weight: 450;
+    line-height: 18px;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .count {
+    flex: none;
+    color: var(--color-muted);
+    font-size: var(--text-label);
+    font-variant-numeric: tabular-nums;
+    line-height: 18px;
+  }
+
+  /* Under the name, where the icon's column ends. */
+  .standing {
+    margin-block: -4px 4px;
+    margin-inline: calc(var(--menu-item-inset) + 26px) var(--menu-item-inset);
+    color: var(--color-muted);
+    font-size: var(--text-caption);
+    line-height: 14px;
   }
 
   .standing.warning {
@@ -247,6 +305,7 @@
     background: transparent;
     font: inherit;
     font-size: var(--text-body);
+    font-weight: 450;
     text-align: start;
   }
 
@@ -254,16 +313,28 @@
     opacity: 0.45;
   }
 
-  .row:focus-visible,
+  .row:focus-visible {
+    background: var(--row-active);
+    outline: 2px solid var(--color-ring);
+    outline-offset: -2px;
+  }
+
   .row:hover:not(:disabled) {
     background: var(--row-active);
   }
 
-  .count {
-    margin-inline-start: auto;
-    color: var(--color-muted);
+  .row:is(:hover, :focus-visible):not(:disabled) .ui-menu-icon {
+    color: var(--color-text);
+  }
+
+  .label {
+    flex: 1;
+    min-inline-size: 0;
+    text-wrap: balance;
+  }
+
+  .row .count {
     font-size: var(--text-caption);
-    font-variant-numeric: tabular-nums;
   }
 
   .chevron {
@@ -276,10 +347,12 @@
     rotate: 90deg;
   }
 
+  /* Aligned with the names above it, past the icon column. */
   .hides {
     max-block-size: 184px;
     margin: 0 0 2px;
-    padding: 0 0 0 calc(var(--menu-item-inset) + 8px);
+    padding: 0;
+    padding-inline-start: calc(var(--menu-item-inset) + 26px);
     overflow: auto;
     list-style: none;
   }
@@ -292,7 +365,7 @@
     padding-inline-end: 4px;
   }
 
-  .label {
+  .name {
     flex: 1;
     min-inline-size: 0;
     overflow: hidden;
@@ -315,6 +388,11 @@
     cursor: default;
   }
 
+  .restore:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: -2px;
+  }
+
   .restore:hover:not(:disabled) {
     background: var(--row-hover);
     color: var(--color-text);
@@ -328,6 +406,11 @@
     font: inherit;
     font-size: var(--text-caption);
     cursor: default;
+  }
+
+  .all:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: -2px;
   }
 
   .all:hover:not(:disabled) {

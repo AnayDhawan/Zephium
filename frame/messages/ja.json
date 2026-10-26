@@ -856,7 +856,7 @@
   "site_info_permissions_reset": "許可をリセット",
   "site_info_permissions_partial": "一部の許可を現在読み込めませんでした。",
   "site_info_in_use": "使用中",
-  "site_info_blocking": "広告とトラッカーをブロック",
+  "site_info_blocking": "広告ブロック",
   "site_info_blocking_on": "このサイトでオン",
   "site_info_blocking_count": "今日 {count} 件ブロック",
   "site_info_blocking_paused": "このサイトでは一時停止中",

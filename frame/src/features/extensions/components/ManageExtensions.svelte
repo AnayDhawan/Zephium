@@ -1,42 +1,43 @@
 <script lang="ts">
-  import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
   import { surface as browserPage } from "$domain/surface";
   import { webext } from "$domain/webext";
-  import Icon from "$shared/ui/Icon";
   import * as m from "$shared/i18n/messages";
 </script>
 
+<!-- Laid over the whole row of the section it sits in, under everything the
+     row draws, so the row opens the manager from anywhere on it except the
+     buttons that have a job of their own. -->
 {#if webext.isAvailable()}
   <button
     type="button"
     data-dismiss
-    class="ui-menu-item manage"
+    class="manage"
+    aria-label={m.webext_manage()}
+    title={m.webext_manage()}
     onclick={() => void browserPage.open("extensions")}
-  >
-    <span>{m.webext_manage()}</span>
-    <span class="chevron"><Icon icon={ArrowRight01Icon} size={14} /></span>
-  </button>
+  ></button>
 {/if}
 
 <style>
   .manage {
-    width: 100%;
+    position: absolute;
+    inset: 0;
+    padding: 0;
     border: 0;
+    border-radius: inherit;
     background: transparent;
-    font: inherit;
-    font-size: var(--text-body);
-    text-align: start;
+    cursor: default;
+    outline: none;
+    transition: background-color var(--motion-instant) var(--ease-smooth);
   }
 
   .manage:hover,
   .manage:focus-visible {
-    outline: none;
     background: var(--row-active);
   }
 
-  .chevron {
-    display: grid;
-    margin-inline-start: auto;
-    color: var(--color-faint);
+  .manage:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: -2px;
   }
 </style>
