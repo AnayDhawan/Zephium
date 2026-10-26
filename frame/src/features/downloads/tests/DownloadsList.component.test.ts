@@ -8,6 +8,50 @@ const native = vi.hoisted(() => ({
   call: vi.fn(),
   listener: null as null | ((event: { payload: { profile: string } }) => void),
 }));
+
+test("resuming after a pause starts a fresh time-left estimate", async () => {
+  const profile = "00000000000000000000000009";
+  let time = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => time);
+  let entry: DownloadView = {
+    id: "00000000000000000000000008",
+    revision: "00000001",
+    created_at: "1",
+    filename: "resume.zip",
+    source: "https://example.com/",
+    state: "receiving",
+    received: "0",
+    total: "10000",
+    error: null,
+  };
+  native.call.mockImplementation(async (_profile: string, call: DownloadCall) => ({
+    kind: call.kind === "list" ? "page" : "updates",
+    entries: [entry],
+    next: null,
+    removed: [],
+    supported: true,
+    cleanup: { running: false, error: null },
+  }));
+  const screen = await render(DownloadsList, { profile });
+  await expect.poll(() => screen.container.textContent).toContain("0 B of");
+  time = 1000;
+  entry = { ...entry, revision: "00000002", received: "1000" };
+  native.listener?.({ payload: { profile } });
+  await expect.poll(() => screen.container.textContent).toContain("9 sec left");
+  entry = { ...entry, revision: "00000003", state: "paused" };
+  native.listener?.({ payload: { profile } });
+  await expect.poll(() => screen.container.textContent).not.toContain("left");
+  time = 601_000;
+  entry = { ...entry, revision: "00000004", state: "receiving" };
+  native.listener?.({ payload: { profile } });
+  await expect.poll(() => screen.container.textContent).toContain("1,000 B of");
+  expect(screen.container.textContent).not.toContain("left");
+  time = 602_000;
+  entry = { ...entry, revision: "00000005", received: "2000" };
+  native.listener?.({ payload: { profile } });
+  await expect.poll(() => screen.container.textContent).toContain("8 sec left");
+  await screen.unmount();
+});
 vi.mock("$shared/ipc/bindings", async () => {
   const { mockBindings } = await import("$shared/testing/bindings");
   return mockBindings({ downloadCall: native.call });

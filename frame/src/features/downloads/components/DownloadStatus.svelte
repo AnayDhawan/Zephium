@@ -45,7 +45,7 @@
     current?.state === "failed" || current?.state === "interrupted" || current?.state === "paused",
   );
   let rate = $derived.by(() => {
-    rates.retain(active.map((entry) => entry.id));
+    rates.retain(active);
     return current?.state === "receiving"
       ? rates.observe(current.id, Number(current.received))
       : null;
