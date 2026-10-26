@@ -1950,6 +1950,8 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   #[cfg(target_os = "macos")]
   native_download_handler: Option<Box<dyn Fn(&objc2_web_kit::WKDownload)>>,
   #[cfg(target_os = "macos")]
+  autofill_button_handler: Option<Box<dyn Fn()>>,
+  #[cfg(target_os = "macos")]
   context_menu_handler: Option<
     Box<
       dyn Fn(
@@ -1987,6 +1989,8 @@ impl Default for PlatformSpecificWebViewAttributes {
       server_trust_exceptions: None,
       #[cfg(target_os = "macos")]
       native_download_handler: None,
+      #[cfg(target_os = "macos")]
+      autofill_button_handler: None,
       #[cfg(target_os = "macos")]
       context_menu_handler: None,
     }
@@ -2100,6 +2104,10 @@ pub trait WebViewBuilderExtMacos {
     covers: impl Fn(&str, &str, u16) -> bool + 'static,
     allows: impl Fn(&str, &str, u16, &[u8; 32]) -> bool + 'static,
   ) -> Self;
+  /// Called when the person clicks the AutoFill button WebKit draws inside a
+  /// field. Only a script in a content world allowed to drive AutoFill can
+  /// show that button; page script cannot.
+  fn with_autofill_button_handler(self, handler: impl Fn() + 'static) -> Self;
   /// Merges browser-owned items into the native page context menu without
   /// serializing page metadata through Rust. The callback receives WebKit's
   /// already-created default menu and may replace or suppress it.
@@ -2176,6 +2184,11 @@ impl WebViewBuilderExtMacos for WebViewBuilder<'_> {
       covers: Box::new(covers),
       allows: Box::new(allows),
     });
+    self
+  }
+
+  fn with_autofill_button_handler(mut self, handler: impl Fn() + 'static) -> Self {
+    self.platform_specific.autofill_button_handler = Some(Box::new(handler));
     self
   }
 

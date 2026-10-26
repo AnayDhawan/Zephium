@@ -1467,6 +1467,7 @@ impl EngineHost {
             let drop_presentation = presentation_permit.clone();
             let drop_epoch = std::cell::Cell::new(None);
             let page_permission_item = id.clone();
+            let autofill_item = id.clone();
             let page_permission_permit = event_permit.clone();
             let page_permission_navigation = navigation.clone();
             let page_permission_presence = page_permission_pending.clone();
@@ -1529,6 +1530,11 @@ impl EngineHost {
                     ) {
                         broker.challenge(challenge, request.main_frame_url.as_deref(), responder);
                     }
+                })
+                // Only views in `views` answer: agent pages never do.
+                .with_autofill_button_handler(move || {
+                    let id = autofill_item.get();
+                    let _ = super::try_with(move |host| host.autofill_password(id));
                 })
                 .with_permission_request_handler(move |request| {
                     super::page_permissions::admit_native_request(
@@ -2119,6 +2125,10 @@ impl EngineHost {
             }
             return None;
         }
+        #[cfg(target_os = "macos")]
+        crate::platform::macos::autofill::show_key_in_sign_in_fields(
+            &crate::platform::imp::native_webview(&view),
+        );
         #[cfg(target_os = "windows")]
         let request_witness = crate::platform::imp::RequestWitness::install(
             wry::WebViewExtWindows::webview(&view),

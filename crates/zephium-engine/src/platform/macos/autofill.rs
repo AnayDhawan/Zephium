@@ -5,10 +5,68 @@
 //! process that takes the keyboard while it is open, so typing that follows a
 //! click into a field would go to the panel instead of the field.
 
+use std::cell::OnceCell;
+
 use objc2::rc::Retained;
 use objc2::runtime::{AnyClass, AnyObject};
-use objc2::{msg_send, sel};
-use objc2_web_kit::WKWebView;
+use objc2::{msg_send, sel, ClassType, MainThreadOnly};
+use objc2_foundation::{MainThreadMarker, NSString};
+use objc2_web_kit::{WKContentWorld, WKUserScript, WKUserScriptInjectionTime, WKWebView};
+
+/// Puts WebKit's AutoFill key in sign-in fields of `page`; a click on it
+/// opens the panel through the view's AutoFill button handler. It needs a
+/// content world allowed to drive AutoFill, new in macOS 27; before that the
+/// fields stay plain and Edit > AutoFill Password remains.
+pub(crate) fn show_key_in_sign_in_fields(page: &WKWebView) {
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let Some(world) = autofill_world() else {
+        return;
+    };
+    let source = NSString::from_str(include_str!("autofill_key.js"));
+    // SAFETY: main-thread WebKit calls on a live view and world.
+    unsafe {
+        let script = WKUserScript::initWithSource_injectionTime_forMainFrameOnly_inContentWorld(
+            WKUserScript::alloc(mtm),
+            &source,
+            WKUserScriptInjectionTime::AtDocumentEnd,
+            false,
+            &world,
+        );
+        page.configuration()
+            .userContentController()
+            .addUserScript(&script);
+    }
+}
+
+fn autofill_world() -> Option<Retained<WKContentWorld>> {
+    thread_local! {
+        // WebKit cannot hand back a world made from a configuration, so the
+        // one world all views share is kept here.
+        static WORLD: OnceCell<Option<Retained<WKContentWorld>>> = const { OnceCell::new() };
+    }
+    WORLD.with(|world| {
+        world
+            .get_or_init(|| {
+                let configuration = AnyClass::get(c"WKContentWorldConfiguration")?;
+                let make = sel!(worldWithConfiguration:);
+                // SAFETY: public macOS 27 API, checked for before each call.
+                unsafe {
+                    let made: bool = msg_send![WKContentWorld::class(), respondsToSelector: make];
+                    let configuration: Retained<AnyObject> = msg_send![configuration, new];
+                    let enable = sel!(setAutofillScriptingEnabled:);
+                    let enables: bool = msg_send![&*configuration, respondsToSelector: enable];
+                    if !made || !enables {
+                        return None;
+                    }
+                    let _: () = msg_send![&*configuration, setAutofillScriptingEnabled: true];
+                    msg_send![WKContentWorld::class(), worldWithConfiguration: &*configuration]
+                }
+            })
+            .clone()
+    })
+}
 
 /// Shows the panel for the field focused in `page`. False when this macOS
 /// lacks the panel, or when `page` does not have the keyboard or no text
@@ -88,5 +146,29 @@ mod tests {
             at("respondsToSelector: show")
                 < at("showAutoFillPasswordsPopoverForTextInputContext: &*context")
         );
+    }
+
+    #[test]
+    fn the_key_waits_for_focus_and_skips_new_passwords() {
+        let script = include_str!("autofill_key.js");
+        for idle in [
+            "MutationObserver",
+            "setTimeout",
+            "setInterval",
+            "querySelectorAll",
+        ] {
+            assert!(!script.contains(idle), "{idle}");
+        }
+        assert!(script.contains(r#""focusin""#) && script.contains(r#""focusout""#));
+        assert!(script.contains("new-password|one-time-code"));
+    }
+
+    #[test]
+    fn this_macos_draws_the_key_only_from_its_own_world() {
+        let made = objc2::runtime::AnyClass::get(c"WKContentWorldConfiguration").is_some();
+        let major = objc2_foundation::NSProcessInfo::processInfo()
+            .operatingSystemVersion()
+            .majorVersion;
+        assert_eq!(made, major >= 27);
     }
 }

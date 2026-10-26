@@ -40,13 +40,19 @@ const CLASS_METHODS: &[(&CStr, &[&CStr])] =
 /// Callbacks WebKit sends to a delegate that implements them. Only the
 /// protocol that declares one can say it still exists. The find callbacks
 /// have none registered; the find calls above stand for them.
-const DELEGATED: &[(&CStr, &[&CStr])] = &[(
-    c"WKNavigationDelegatePrivate",
-    &[
-        c"_webView:contentRuleListWithIdentifier:performedAction:forURL:",
-        c"_webView:contextMenuDidCreateDownload:",
-    ],
-)];
+const DELEGATED: &[(&CStr, &[&CStr])] = &[
+    (
+        c"WKNavigationDelegatePrivate",
+        &[
+            c"_webView:contentRuleListWithIdentifier:performedAction:forURL:",
+            c"_webView:contextMenuDidCreateDownload:",
+        ],
+    ),
+    (
+        c"WKUIDelegatePrivate",
+        &[c"_webView:didClickAutoFillButtonWithUserInfo:"],
+    ),
+];
 
 /// The private selectors this macOS lacks, as `Owner.selector`, or
 /// `Owner.+selector` for a class method. An owner that is itself missing is
