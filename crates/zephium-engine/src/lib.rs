@@ -1134,6 +1134,7 @@ impl RetirementGate {
             | event @ EngineEvent::LoadingChanged { id, .. }
             | event @ EngineEvent::MediaCaptureChanged { id, .. }
             | event @ EngineEvent::AudioChanged { id, .. }
+            | event @ EngineEvent::MediaChanged { id, .. }
             | event @ EngineEvent::PageResponsiveness { id, .. }
             | event @ EngineEvent::FullscreenChanged { id, .. }
             | event @ EngineEvent::FaviconPixels { id, .. }
@@ -3099,6 +3100,38 @@ impl Engine for WebviewEngine {
 
     fn can_mute(&self) -> bool {
         page_mute_supported()
+    }
+
+    fn watch_media(&self, id: ItemId) -> NativeDispatch {
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        {
+            self.run_for_active_item(id, move |h| h.watch_media(id))
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        {
+            let _ = id;
+            NativeDispatch::Unsupported
+        }
+    }
+
+    fn media_action(
+        &self,
+        id: ItemId,
+        action: zephium_core::ports::engine::MediaAction,
+    ) -> NativeDispatch {
+        if matches!(action, zephium_core::ports::engine::MediaAction::Seek(seconds) if !seconds.is_finite() || seconds < 0.0)
+        {
+            return NativeDispatch::Rejected;
+        }
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        {
+            self.run_for_active_item(id, move |h| h.media_action(id, action))
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        {
+            let _ = id;
+            NativeDispatch::Unsupported
+        }
     }
 
     fn find(

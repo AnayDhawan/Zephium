@@ -20,6 +20,7 @@ mod favicons;
 mod fullscreen;
 mod history;
 mod history_list;
+mod media;
 mod network;
 mod operations;
 mod page_permissions;
@@ -237,6 +238,8 @@ pub struct Shell {
     zoom: ZoomState,
     /// Tabs gone quiet whose speaker is still held.
     audio_quiet: std::collections::HashSet<ItemId>,
+    /// What each watched tab's media is doing, for the sidebar's player.
+    media: zephium_core::media::MediaPlayers,
     divider: Option<GrabbedDivider>,
     private: Option<private::PrivateSession>,
     private_projected: (bool, Option<u32>),
@@ -490,6 +493,7 @@ impl Shell {
             presentation: PresentationState::default(),
             zoom: ZoomState::load(&*store),
             audio_quiet: std::collections::HashSet::new(),
+            media: zephium_core::media::MediaPlayers::default(),
             divider: None,
             private: None,
             private_projected: (false, None),
@@ -911,6 +915,9 @@ impl Shell {
             }
             Command::SetTabMuted { id, muted } => {
                 let _ = self.operation_set_tab_muted(id, muted);
+            }
+            Command::MediaPlayer { id, action } => {
+                let _ = self.operation_media_player(id, action);
             }
             Command::SetWindowVisible(visible) => {
                 if self.window_visible != visible {

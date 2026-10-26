@@ -463,6 +463,9 @@ impl Shell {
                 }
             }
             EngineEvent::AudioChanged { id, audible } => self.on_audio_changed(id, audible),
+            EngineEvent::MediaChanged { id, media } => {
+                self.on_media_changed(id, media.map(|media| *media))
+            }
             EngineEvent::PageResponsiveness { id, responding } => {
                 self.on_page_responsiveness(id, responding)
             }
@@ -775,6 +778,7 @@ impl Shell {
             | EngineEvent::FindResult { id, .. } => self.profile_of_item(*id),
             EngineEvent::MediaCaptureChanged { id, .. }
             | EngineEvent::AudioChanged { id, .. }
+            | EngineEvent::MediaChanged { id, .. }
             | EngineEvent::PageResponsiveness { id, .. }
             | EngineEvent::FullscreenChanged { id, .. } => self.profile_of_item(*id),
             EngineEvent::PermissionRequested { profile, .. }

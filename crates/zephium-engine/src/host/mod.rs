@@ -36,6 +36,7 @@ mod generic_styles;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod http_auth;
 mod lifecycle;
+mod media;
 mod navigation;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod page_open;
@@ -180,6 +181,8 @@ struct ObservedView {
     // Which icon watch of this view's document is current; an older watch's
     // reports are ignored.
     favicon_watch: Cell<u64>,
+    // The media watch's generation, and whether it is running.
+    media_watch: Cell<(u64, bool)>,
     replay_safety: Rc<discard::ReplaySafety>,
     discard_probe_lease: std::cell::RefCell<Option<discard::ProbeLease>>,
     #[cfg(target_os = "macos")]

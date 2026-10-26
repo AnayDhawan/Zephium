@@ -8,6 +8,9 @@ impl Shell {
     pub(super) fn on_audio_changed(&mut self, id: ItemId, audible: bool) {
         let now = std::time::Instant::now();
         if self.items.observe_audio(id, audible, now) {
+            if audible {
+                self.watch_tab_media(id);
+            }
             self.project_tab(id);
         }
         if let Some(deadline) = self.items.tab(id).and_then(|tab| tab.audio.deadline()) {
@@ -46,6 +49,7 @@ impl Shell {
         if self.items.silence_audio(id) {
             self.project_tab(id);
         }
+        self.forget_tab_media(id);
     }
 
     pub(super) fn operation_set_tab_muted(
@@ -53,7 +57,8 @@ impl Shell {
         id: ItemId,
         muted: bool,
     ) -> OperationDisposition {
-        if !self.item_in_focused_scope(id) {
+        // The player may show a tab of another space.
+        if !self.item_in_focused_scope(id) && self.media_player_tab() != Some(id) {
             return operation_result(OperationOutcome::Rejected, OperationReason::InvalidScope);
         }
         if !self.engine.can_mute() {

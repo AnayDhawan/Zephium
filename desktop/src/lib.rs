@@ -1441,6 +1441,11 @@ struct SearchChanged(zephium_ipc::SearchResults);
 #[derive(Clone, Debug, Serialize, Deserialize, specta::Type, Event)]
 struct FindChanged(zephium_ipc::FindResultView);
 
+#[derive(Clone, Debug, Serialize, Deserialize, specta::Type, Event)]
+struct MediaPlayerChanged(Option<zephium_ipc::MediaPlayerView>);
+
+const EVENT_MEDIA_PLAYER: &str = "zephium:media-player";
+
 const EVENT_FIND: &str = "zephium:find";
 
 #[derive(Clone, Debug, Serialize, Deserialize, specta::Type, Event)]
@@ -1755,6 +1760,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             browser_credentials::browser_passkey_authorization_request,
             page_permission_respond,
             tab_set_muted,
+            media_player,
             site_permissions,
             site_permission_set,
             blocker_status,
@@ -1886,6 +1892,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             PagePermissionPromptChanged,
             UiCommand,
             FindChanged,
+            MediaPlayerChanged,
             SearchChanged,
             LayoutChanged,
             RuntimeStatusChanged,
@@ -3014,6 +3021,22 @@ fn tab_set_muted(
     }
     dispatch_with_id(caller.app_handle(), &shell, &id, |id| {
         Command::SetTabMuted { id, muted }
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+fn media_player(
+    caller: WebviewWindow,
+    shell: State<'_, Handle>,
+    id: String,
+    action: zephium_ipc::MediaPlayerAction,
+) -> zephium_ipc::OperationAdmission {
+    if !authorize(&caller, CallerPolicy::Main, "media_player") {
+        return rejected_operation();
+    }
+    dispatch_with_id(caller.app_handle(), &shell, &id, |id| {
+        Command::MediaPlayer { id, action }
     })
 }
 
@@ -6926,6 +6949,9 @@ pub fn run() {
                     emit_to_privileged(&emit_handle, MAIN_LABEL, "zephium:profiles", &view)
                 }
                 Projection::RecentlyClosed(tabs) => recently_closed::follow(&emit_handle, &tabs),
+                Projection::MediaPlayer(player) => {
+                    emit_to_privileged(&emit_handle, MAIN_LABEL, EVENT_MEDIA_PLAYER, &player)
+                }
 
             });
 

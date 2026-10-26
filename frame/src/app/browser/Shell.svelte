@@ -17,6 +17,8 @@
   import { AddressField, SiteDetails, SiteHead, findInPage } from "$features/address";
   import { Dock } from "$features/dock";
   import { DownloadPulse, DownloadStatus } from "$features/downloads";
+  import { loadMediaPlayer } from "$features/media";
+  import { mediaPlayer } from "$domain/media-player";
   import { UpdateNotice } from "$features/updates";
   import { EssentialsRail } from "$features/essentials";
   import { ExtensionsSection } from "$features/extensions";
@@ -315,6 +317,14 @@
   }
 </script>
 
+<!-- The player of a tab playing behind the page in front; its code loads the
+     first time there is one. -->
+{#snippet player(
+  compact: boolean,
+)}{#if mediaPlayer.view()}{#await loadMediaPlayer() then { default: MediaPlayer }}<MediaPlayer
+        {compact}
+      />{/await}{/if}{/snippet}
+
 <!-- The chrome view starts at the window's corner in every shape and draws
      the gutter itself, which stays a place to drag the window by. -->
 <div
@@ -382,15 +392,16 @@
               />{/if}
             <UpdateNotice view="cards" />
             <PrivateReturn />
+            {@render player(false)}
           {/if}
         </div>{/key}
     {/snippet}{#snippet dock(
       compact,
     )}{#snippet accountFoot()}{#await loadAccountButton() then { default: AccountButton }}<AccountButton
             name={tabs.profile()?.name ?? ""}
-          />{/await}{/snippet}{#if compact && incognito}<PrivateBar
+          />{/await}{/snippet}{#if compact && incognito}{@render player(true)}<PrivateBar
           compact
-        />{:else if compact}{#if tabs.profile()?.id && !inWork}<DownloadPulse
+        />{:else if compact}{@render player(true)}{#if tabs.profile()?.id && !inWork}<DownloadPulse
             profile={tabs.profile()?.id ?? ""}
           />{/if}<PrivateReturn compact /><UpdateNotice view="glyph" onabout={openAbout} /><Dock
           compact

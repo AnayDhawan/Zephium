@@ -816,6 +816,18 @@ impl Engine for FakeEngine {
     fn can_mute(&self) -> bool {
         !self.cannot_mute.load(std::sync::atomic::Ordering::Acquire)
     }
+    fn watch_media(&self, id: ItemId) -> NativeDispatch {
+        self.log(format!("media watch {id}"));
+        self.native_admission()
+    }
+    fn media_action(
+        &self,
+        id: ItemId,
+        action: zephium_core::ports::engine::MediaAction,
+    ) -> NativeDispatch {
+        self.log(format!("media {id} {action:?}"));
+        self.native_admission()
+    }
     fn find(
         &self,
         id: ItemId,
@@ -1943,6 +1955,7 @@ fn apply_projection(view: &mut ItemsState, p: Projection) {
         Projection::OperationProcessed(_) => {}
         Projection::Profiles(_) => {}
         Projection::RecentlyClosed(_) => {}
+        Projection::MediaPlayer(_) => {}
         Projection::OpenNote { .. } => {}
     }
 }
@@ -2253,6 +2266,7 @@ mod fullscreen;
 mod history;
 mod history_list;
 mod lookup;
+mod media;
 #[path = "navigation.rs"]
 mod navigation_tests;
 mod notes;

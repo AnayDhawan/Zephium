@@ -468,6 +468,11 @@ pub enum Command {
         id: ItemId,
         muted: bool,
     },
+    /// Acts on the media of the tab the sidebar's player shows.
+    MediaPlayer {
+        id: ItemId,
+        action: zephium_ipc::MediaPlayerAction,
+    },
     /// The sidebar's width, and whether it changed by a deliberate change of
     /// shape — a toggle, a snap, a tool opening — that the content should
     /// travel with, rather than by a drag that it should simply follow.

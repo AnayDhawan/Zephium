@@ -20,6 +20,8 @@ pub mod item;
 pub mod items;
 pub mod layout;
 pub mod macos;
+/// What a tab's media is doing, and which tab the sidebar's player follows.
+pub mod media;
 pub mod navigation;
 /// Markdown notes the person owns, described by an index built from the files.
 pub mod notes;

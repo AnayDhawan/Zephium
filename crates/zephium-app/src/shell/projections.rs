@@ -177,6 +177,7 @@ impl Shell {
             }
         }
         self.project_blocker_status();
+        self.project_media_player();
         if let Some(snapshot) = self.items_snapshot() {
             self.announce_icon_owner();
             self.publish_icons();
@@ -213,6 +214,9 @@ impl Shell {
     /// Chrome lost what it held (its document reloaded): the next snapshot goes out whole.
     pub(super) fn forget_offered_items(&self) {
         if let Ok(mut last) = self.presentation.last_items.try_borrow_mut() {
+            *last = None;
+        }
+        if let Ok(mut last) = self.presentation.last_media_player.try_borrow_mut() {
             *last = None;
         }
     }
@@ -398,6 +402,7 @@ impl Shell {
             self.publish_icons();
             (self.emit)(Projection::Tab(projection));
         }
+        self.project_media_player();
     }
 
     fn record_tab_projection_revisions(&self, tabs: &[TabView]) {

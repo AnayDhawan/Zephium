@@ -53,6 +53,8 @@ pub(super) struct PresentationState {
     /// The last sidebar snapshot offered to chrome. Chrome holds it plus the
     /// per-tab deltas since, so a snapshot equal to it would change nothing.
     pub(super) last_items: std::cell::RefCell<Option<zephium_ipc::ItemsState>>,
+    /// The player last offered to chrome, as of its page's report.
+    pub(super) last_media_player: std::cell::RefCell<Option<Option<zephium_ipc::MediaPlayerView>>>,
 }
 
 impl Shell {

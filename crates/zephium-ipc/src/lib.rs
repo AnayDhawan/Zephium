@@ -62,6 +62,45 @@ pub struct TabView {
     pub audio: Option<TabAudioView>,
 }
 
+/// The sidebar's player: the media of the tab that most recently started
+/// playing off screen.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type)]
+pub struct MediaPlayerView {
+    pub tab_id: String,
+    /// The page's own name for what plays, else the tab's title.
+    pub title: String,
+    /// The page's artist, else the site.
+    pub artist: String,
+    pub icon: Option<IconRef>,
+    /// Seconds; absent while unknown and for a live stream.
+    pub duration: Option<f64>,
+    /// Seconds, as of this projection; chrome advances it by `rate` while
+    /// `playing` and not `waiting`.
+    pub position: f64,
+    pub rate: f64,
+    pub playing: bool,
+    pub waiting: bool,
+    pub can_pip: bool,
+    pub in_pip: bool,
+    pub muted: bool,
+    pub can_mute: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum MediaPlayerAction {
+    Play,
+    Pause,
+    Seek {
+        seconds: f64,
+    },
+    PictureInPicture,
+    /// Brings the tab to front, in its own space.
+    Show,
+    /// Closes the player until the tab plays something else.
+    Close,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct TabAudioView {
     pub muted: bool,
@@ -1638,6 +1677,8 @@ pub enum Projection {
     /// The newest tabs the focused profile can reopen by name, for the menus.
     /// Sent only when that list changes; icons are not part of it.
     RecentlyClosed(Vec<ClosedTabView>),
+    /// The sidebar's player, sent when it changes; `None` hides it.
+    MediaPlayer(Option<MediaPlayerView>),
 }
 
 /// Shared Rust-owned Notes/Tasks wire model.

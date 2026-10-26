@@ -1299,6 +1299,7 @@ fn tracked_operation_command(command: &Command) -> bool {
             | Command::SetSitePermission { .. }
             | Command::StopMediaCapture { .. }
             | Command::SetTabMuted { .. }
+            | Command::MediaPlayer { .. }
             | Command::OpenUrl { .. }
             | Command::SetAppSetting { .. }
             | Command::Focus(_)

@@ -375,6 +375,7 @@ export const commands = {
 	 */
 	pagePermissionRespond: (profileId: string, itemId: string, requestId: string, decision: PagePermissionPromptDecisionInput) => __TAURI_INVOKE<OperationAdmission>("page_permission_respond", { profileId, itemId, requestId, decision }),
 	tabSetMuted: (id: string, muted: boolean) => __TAURI_INVOKE<OperationAdmission>("tab_set_muted", { id, muted }),
+	mediaPlayer: (id: string, action: MediaPlayerAction) => __TAURI_INVOKE<OperationAdmission>("media_player", { id, action }),
 	/**
 	 *  The focused profile's saved site decisions, of `origin` only when given.
 	 *  The actor picks the profile; chrome cannot name one.
@@ -669,6 +670,7 @@ export const events = {
 	focusChanged: makeEvent<FocusChanged>("focus-changed"),
 	itemsChanged: makeEvent<ItemsChanged>("items-changed"),
 	layoutChanged: makeEvent<LayoutChanged>("layout-changed"),
+	mediaPlayerChanged: makeEvent<MediaPlayerChanged>("media-player-changed"),
 	noteOpenRequested: makeEvent<NoteOpenRequested>("note-open-requested"),
 	notesChanged: makeEvent<NotesChanged>("notes-changed"),
 	operationProcessed: makeEvent<OperationProcessed>("operation-processed"),
@@ -1795,6 +1797,41 @@ export type MediaOrigin =
 { kind: "imported" } |
 /**  Fetched by Rust from a public HTTPS URL without cookies. */
 { kind: "fetched"; url: string; observed_at: string };
+
+export type MediaPlayerAction = { kind: "play" } | { kind: "pause" } | { kind: "seek"; seconds: number | null } | { kind: "picture_in_picture" } |
+/**  Brings the tab to front, in its own space. */
+{ kind: "show" } |
+/**  Closes the player until the tab plays something else. */
+{ kind: "close" };
+
+export type MediaPlayerChanged = MediaPlayerView | null;
+
+/**
+ *  The sidebar's player: the media of the tab that most recently started
+ *  playing off screen.
+ */
+export type MediaPlayerView = {
+	tab_id: string,
+	/**  The page's own name for what plays, else the tab's title. */
+	title: string,
+	/**  The page's artist, else the site. */
+	artist: string,
+	icon: IconRef | null,
+	/**  Seconds; absent while unknown and for a live stream. */
+	duration: number | null,
+	/**
+	 *  Seconds, as of this projection; chrome advances it by `rate` while
+	 *  `playing` and not `waiting`.
+	 */
+	position: number | null,
+	rate: number | null,
+	playing: boolean,
+	waiting: boolean,
+	can_pip: boolean,
+	in_pip: boolean,
+	muted: boolean,
+	can_mute: boolean,
+};
 
 export type NoteCall = { kind: "list"; query: NoteQuery } | { kind: "get"; id: string } | { kind: "create"; request_id: string; markdown: string } |
 /**

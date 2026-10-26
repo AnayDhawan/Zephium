@@ -17,6 +17,7 @@
   import { operations } from "$domain/operations";
   import { pagePermissions } from "$domain/permissions";
   import { runtime } from "$domain/runtime";
+  import { mediaPlayer } from "$domain/media-player";
   import { updates } from "$domain/updates";
   import { focus } from "$domain/time";
   import { tabs } from "$domain/tabs";
@@ -127,6 +128,8 @@
     const browserPageReady = browserPage.init();
     const preferencesReady = preferences.init();
     const runtimeReady = runtime.init();
+    // Native offers the player with the same bootstrap that supplies tabs.
+    void mediaPlayer.init();
     void focus.init();
     void updates.init();
     void updateNotices.init();
@@ -195,6 +198,7 @@
       operations.dispose();
       blocker.dispose();
       runtime.dispose();
+      mediaPlayer.dispose();
       updates.dispose();
       updateNotices.dispose();
       focus.dispose();

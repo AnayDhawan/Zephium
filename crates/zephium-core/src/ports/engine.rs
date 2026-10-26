@@ -822,6 +822,17 @@ pub trait Engine {
     fn can_mute(&self) -> bool {
         false
     }
+    /// Watches the current document's media until it has none, reporting
+    /// each change as [`EngineEvent::MediaChanged`]. A tab already watched is
+    /// left as it is.
+    fn watch_media(&self, _id: ItemId) -> NativeDispatch {
+        NativeDispatch::Unsupported
+    }
+    /// Acts on the media the watch reports. The new state arrives through
+    /// the watch.
+    fn media_action(&self, _id: ItemId, _action: MediaAction) -> NativeDispatch {
+        NativeDispatch::Unsupported
+    }
     /// One step of finding text in the page; `None` ends the session and
     /// clears its highlights. Results arrive as `EngineEvent::FindResult`.
     fn find(&self, id: ItemId, request: Option<FindRequest>) -> NativeDispatch;
@@ -1306,6 +1317,17 @@ pub struct WebExtensionAccessRequest {
     pub patterns: Vec<String>,
 }
 
+/// What the sidebar's player may ask of a tab's media.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MediaAction {
+    Play,
+    Pause,
+    /// Seconds from the start.
+    Seek(f64),
+    /// Enters picture in picture, or leaves it.
+    PictureInPicture,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum EngineEvent {
     /// A native browser environment reported that a newer runtime is
@@ -1500,6 +1522,12 @@ pub enum EngineEvent {
     AudioChanged {
         id: ItemId,
         audible: bool,
+    },
+    /// What the page's media is doing, as page script reports it; `None`
+    /// once the document has none it can control, or is gone.
+    MediaChanged {
+        id: ItemId,
+        media: Option<Box<crate::media::MediaSnapshot>>,
     },
     /// The page entered or left element fullscreen. At most one view per
     /// engine is reported active at a time.

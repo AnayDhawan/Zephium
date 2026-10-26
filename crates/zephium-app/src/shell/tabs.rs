@@ -244,6 +244,7 @@ impl Shell {
         }
         self.forget_removed_tab_state(id);
         self.forget_content_fullscreen(id);
+        self.forget_tab_media(id);
         self.native_openers.remove(&id);
         // An Essential is kept, not closed: the page ends and the site stays.
         let kept = self.kept_slot(id);
