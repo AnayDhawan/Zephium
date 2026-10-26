@@ -1338,7 +1338,13 @@ export type DocumentNode_Serialize = {
 
 export type DoubleTap = "off" | "command" | "option";
 
-export type DownloadCall = { kind: "updates" } | { kind: "retry_cleanup" } | { kind: "list"; before: string | null; limit: number } | { kind: "cancel"; id: string } | { kind: "resume"; id: string } | { kind: "open"; id: string } | { kind: "reveal"; id: string } | { kind: "forget"; id: string } | { kind: "clear" } | { kind: "preferences" } | { kind: "choose_directory" } | { kind: "set_ask_destination"; enabled: boolean };
+export type DownloadCall = { kind: "updates" } | { kind: "retry_cleanup" } | { kind: "list"; before: string | null; limit: number } | { kind: "cancel"; id: string } |
+/**  Stops receiving and keeps what was received for `Resume`. */
+{ kind: "pause"; id: string } | { kind: "resume"; id: string } |
+/**  Publishes a finished download that was held for its type. */
+{ kind: "keep"; id: string } |
+/**  Deletes a finished download that was held for its type. */
+{ kind: "discard"; id: string } | { kind: "open"; id: string } | { kind: "reveal"; id: string } | { kind: "forget"; id: string } | { kind: "clear" } | { kind: "preferences" } | { kind: "choose_directory" } | { kind: "set_ask_destination"; enabled: boolean };
 
 export type DownloadCleanup = {
 	running: boolean,
@@ -1361,7 +1367,7 @@ export type DownloadPreferences = {
 
 export type DownloadResponse = { kind: "updates"; entries: DownloadView[]; removed: string[]; cleanup: DownloadCleanup } | { kind: "page"; entries: DownloadView[]; next: string | null; supported: boolean; cleanup: DownloadCleanup } | { kind: "preferences"; preferences: DownloadPreferences; supported: boolean; site_downloads_require_confirmation: boolean } | { kind: "accepted" } | { kind: "applied" } | { kind: "error"; error: DownloadError };
 
-export type DownloadState = "pending" | "receiving" | "paused" | "cancelling" | "finalizing" | "completed" | "cancelled" | "interrupted" | "failed";
+export type DownloadState = "pending" | "receiving" | "paused" | "held" | "cancelling" | "finalizing" | "completed" | "cancelled" | "interrupted" | "failed";
 
 export type DownloadView = {
 	id: string,

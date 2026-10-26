@@ -74,6 +74,28 @@ impl Downloads {
             }
             return;
         }
+        if let DownloadCall::Keep { id } | DownloadCall::Discard { id } = &call {
+            let id = DownloadId::parse(id).expect("validated download id");
+            let result = if matches!(call, DownloadCall::Keep { .. }) {
+                self.keep(partition, id)
+            } else {
+                self.discard(partition, id)
+            };
+            done.finish(match result {
+                Ok(()) => DownloadResponse::Accepted,
+                Err(error) => DownloadResponse::Error { error },
+            });
+            return;
+        }
+        if let DownloadCall::Pause { id } = &call {
+            let id = DownloadId::parse(id).expect("validated download id");
+            let result = self.user_pause(partition, id);
+            done.finish(match result {
+                Ok(()) => DownloadResponse::Accepted,
+                Err(error) => DownloadResponse::Error { error },
+            });
+            return;
+        }
         if let DownloadCall::Resume { id } = &call {
             let id = DownloadId::parse(id).expect("validated download id");
             let result = self.resume(partition, id);
@@ -203,7 +225,10 @@ impl Downloads {
                 }
             }
             DownloadCall::Cancel { .. }
+            | DownloadCall::Pause { .. }
             | DownloadCall::Resume { .. }
+            | DownloadCall::Keep { .. }
+            | DownloadCall::Discard { .. }
             | DownloadCall::Updates
             | DownloadCall::RetryCleanup => {
                 unreachable!()
