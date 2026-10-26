@@ -5743,6 +5743,7 @@ const TAB_MENU_ACTION_IDS: [&str; 14] = [
     "tabmenu.stopCapture",
     "tabmenu.clearSiteData",
 ];
+const TAB_MENU_CLEAR_SITE_DATA: usize = 13;
 
 /// What the tab menu can offer for the tab it opens on, as the sidebar sees
 /// it. Only availability: the shell checks every action again.
@@ -5912,7 +5913,11 @@ fn build_tab_menu(
     let duplicate = item(1, "Duplicate Tab", context.page)?;
     let copy_link = item(2, "Copy Link", context.page)?;
     let bookmark = item(3, "Bookmark Tab", context.page)?;
-    let clear_site_data = item(10, "Clear Data for This Site…", context.page)?;
+    let clear_site_data = item(
+        TAB_MENU_CLEAR_SITE_DATA,
+        "Clear Data for This Site…",
+        context.page,
+    )?;
     let first = PredefinedMenuItem::separator(handle)?;
     let keep = if context.essential {
         item(5, "Remove from Essentials", true)?
@@ -7723,6 +7728,10 @@ mod tests {
                 "tabmenu.stopCapture",
                 "tabmenu.clearSiteData"
             ]
+        );
+        assert_eq!(
+            super::TAB_MENU_ACTION_IDS[super::TAB_MENU_CLEAR_SITE_DATA],
+            "tabmenu.clearSiteData"
         );
         // Context-menu actions carry their own target and must never collide
         // with the registry ids the launcher and the keymap may run directly.
