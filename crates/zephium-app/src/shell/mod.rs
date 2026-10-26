@@ -25,6 +25,7 @@ mod network;
 mod operations;
 mod page_permissions;
 mod page_requests;
+mod page_source;
 mod persistence;
 mod presentation;
 mod private;
@@ -229,6 +230,7 @@ pub struct Shell {
     history: history::HistoryState,
     bookmarks: bookmarks::BookmarkState,
     history_lists: history_list::HistoryListState,
+    sources: page_source::SourceState,
     search: SearchState,
     tab_preferences: tabs::TabPreferences,
     proxy: network::ProxyPreference,
@@ -471,6 +473,7 @@ impl Shell {
             history: history::HistoryState::default(),
             bookmarks: bookmarks::BookmarkState::default(),
             history_lists: history_list::HistoryListState::default(),
+            sources: page_source::SourceState::default(),
             time: time::TimeState::load(&store),
             search: SearchState {
                 custom_url: store.app_setting("search.custom-url").unwrap_or_default(),
@@ -875,6 +878,7 @@ impl Shell {
                 let _ = self.operation_go_to_history_entry(id, offset, url);
             }
             Command::HistoryList { id, done } => self.history_list(id, done),
+            Command::PageSource { id, done } => self.page_source(id, done),
             Command::SplitWith { other, axis } => {
                 let _ = self.operation_split(other, axis);
             }

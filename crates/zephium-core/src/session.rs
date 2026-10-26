@@ -211,6 +211,8 @@ fn collect(items: &Items, placement: Placement, out: &mut Vec<PersistedItem>) {
         let kind = match &item.kind {
             ItemKind::Folder { name } => PersistedKind::Folder { name: name.clone() },
             ItemKind::Tab(tab) => match tab.content {
+                // The document a source tab shows lives in memory only.
+                TabContent::BrowserOwned(BrowserOwnedTab::Source) => return,
                 TabContent::BrowserOwned(page) => PersistedKind::BrowserTab { page },
                 TabContent::ExtensionOwned => return,
                 TabContent::Web => match &tab.url {
@@ -333,7 +335,10 @@ pub fn restore(state: SessionState) -> Restored {
                 let Placement::Space { space, .. } = i.placement else {
                     continue;
                 };
-                if i.parent.is_some() || !browser_tabs.insert((space, page)) {
+                if page == BrowserOwnedTab::Source
+                    || i.parent.is_some()
+                    || !browser_tabs.insert((space, page))
+                {
                     continue;
                 }
                 ItemKind::Tab(TabState::browser_owned(page))
@@ -771,6 +776,30 @@ mod tests {
             .items
             .navigate(extensions_tab, "https://example.test/")
             .is_empty());
+    }
+
+    #[test]
+    fn a_source_tab_is_never_saved_and_a_saved_one_is_not_restored() {
+        let (profiles, spaces, mut items, _profile, space) = seed();
+        let source = ItemId::from(41);
+        assert!(items.insert_source_tab(source, today(space), "view-source:example.com"));
+        assert!(!items.insert_browser_tab(ItemId::from(42), today(space), BrowserOwnedTab::Source));
+        assert_eq!(
+            items.tab(source).map(|tab| tab.title.as_str()),
+            Some("view-source:example.com")
+        );
+
+        let mut state = snapshot(&profiles, &spaces, &items, Some(space), Some(source), None);
+        assert!(state.items.iter().all(|item| item.id != source));
+        state.items.push(PersistedItem {
+            id: source,
+            parent: None,
+            placement: today(space),
+            kind: PersistedKind::BrowserTab {
+                page: BrowserOwnedTab::Source,
+            },
+        });
+        assert!(restore(state).items.tab(source).is_none());
     }
 
     #[test]

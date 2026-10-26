@@ -836,7 +836,8 @@ impl Engine for FakeEngine {
     fn capture(&self, _id: ItemId) -> NativeDispatch {
         NativeDispatch::Unsupported
     }
-    fn extract_html(&self, _id: ItemId) -> NativeDispatch {
+    fn extract_html(&self, id: ItemId) -> NativeDispatch {
+        self.log(format!("extract {id}"));
         self.native_admission()
     }
     fn discover_favicon(&self, id: ItemId) -> NativeDispatch {
@@ -2263,6 +2264,7 @@ mod notes;
 mod onboarding;
 mod operations;
 mod page_permissions;
+mod page_source;
 mod persistence;
 mod presentation;
 mod private;

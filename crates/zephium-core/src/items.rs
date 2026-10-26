@@ -220,7 +220,8 @@ impl Items {
     ) -> bool {
         // Settings is a window-scoped browser page. Keep the enum variant only
         // to decode and discard snapshots produced by an earlier QA build.
-        if page == BrowserOwnedTab::Settings {
+        // A source tab carries a document, so it has its own constructor.
+        if matches!(page, BrowserOwnedTab::Settings | BrowserOwnedTab::Source) {
             return false;
         }
         self.insert(Item {
@@ -228,6 +229,19 @@ impl Items {
             parent: None,
             placement,
             kind: ItemKind::Tab(TabState::browser_owned(page)),
+        })
+    }
+
+    /// Inserts a tab that shows the source of a page. Any number may exist,
+    /// each titled for its page; none is ever persisted.
+    pub fn insert_source_tab(&mut self, id: ItemId, placement: Placement, title: &str) -> bool {
+        let mut tab = TabState::browser_owned(BrowserOwnedTab::Source);
+        tab.title = sanitize_page_title(title);
+        self.insert(Item {
+            id,
+            parent: None,
+            placement,
+            kind: ItemKind::Tab(tab),
         })
     }
 

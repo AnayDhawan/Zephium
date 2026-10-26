@@ -632,6 +632,12 @@ export const commands = {
 	importOpenPermission: (source: string) => __TAURI_INVOKE<boolean>("import_open_permission", { source }),
 	exportBrowserData: (kind: ExportKindView) => __TAURI_INVOKE<ExportOutcomeView>("export_browser_data", { kind }),
 	historyMenuPopup: (id: string, forward: boolean, x: number | null, y: number | null) => __TAURI_INVOKE<boolean>("history_menu_popup", { id, forward, x, y }),
+	pageSource: (id: string) => __TAURI_INVOKE<{
+	url: string,
+	text: string,
+	/**  The page was longer than the engine reads. */
+	truncated: boolean,
+} | null>("page_source", { id }),
 	resourceCloseReady: (token: string, success: boolean) => __TAURI_INVOKE<boolean>("resource_close_ready", { token, success }),
 	tabDrop: (id: string, x: number | null, y: number | null) => __TAURI_INVOKE<OperationAdmission>("tab_drop", { id, x, y }),
 	dividerGrab: (x: number | null, y: number | null) => __TAURI_INVOKE<void>("divider_grab", { x, y }),
@@ -2406,6 +2412,13 @@ export type PageSiteStylesV1 = {
 	styles: PageStyleV1[],
 };
 
+export type PageSourceView = {
+	url: string,
+	text: string,
+	/**  The page was longer than the engine reads. */
+	truncated: boolean,
+};
+
 /**  A page style the reply proposed. */
 export type PageStyleProposalV1 = {
 	/**  The stored style's id once applied; null before. */
@@ -3082,7 +3095,7 @@ export type TabChanged = TabView;
  *  Browser chrome's bounded tab renderer choice. Future extension-owned
  *  documents can add a separate variant without treating them as page URLs.
  */
-export type TabContentView = "web" | "settings" | "extensions" | "extension_owned";
+export type TabContentView = "web" | "settings" | "extensions" | "extension_owned" | "source";
 
 export type TabFailure = {
 	url: string,

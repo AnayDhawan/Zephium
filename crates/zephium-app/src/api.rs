@@ -162,6 +162,9 @@ pub enum BrowserPage {
     Tasks,
     Notes,
     Time,
+    /// The source of the tab in front. Chrome never asks for it by name: a
+    /// source tab being in front is what shows it.
+    Source,
 }
 
 impl BrowserPage {
@@ -175,6 +178,7 @@ impl BrowserPage {
             Self::Tasks => "browser.tasks",
             Self::Notes => "browser.notes",
             Self::Time => "browser.time",
+            Self::Source => "browser.source",
         }
     }
 
@@ -294,6 +298,11 @@ pub enum Command {
         expected_profile: ProfileId,
         call: Box<zephium_ipc::BookmarkCall>,
         done: BookmarkCompletion,
+    },
+    /// The document a source tab shows, for the page that renders it.
+    PageSource {
+        id: ItemId,
+        done: SourceCompletion,
     },
     /// What the Back and Forward buttons of a tab can reach, for their menu.
     HistoryList {
@@ -1041,6 +1050,37 @@ impl BookmarkCompletion {
         if let Some(done) = done {
             done(response);
         }
+    }
+}
+/// The serialized document of a page, kept for the tab that shows its source.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PageSource {
+    pub url: String,
+    pub text: String,
+    /// The page was longer than the engine reads.
+    pub truncated: bool,
+}
+
+#[derive(Clone)]
+pub struct SourceCompletion(Completion<Option<Arc<PageSource>>>);
+impl SourceCompletion {
+    pub fn new(done: impl FnOnce(Option<Arc<PageSource>>) + Send + 'static) -> Self {
+        Self(Arc::new(Mutex::new(Some(Box::new(done)))))
+    }
+    pub fn finish(self, document: Option<Arc<PageSource>>) {
+        let done = self
+            .0
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take();
+        if let Some(done) = done {
+            done(document);
+        }
+    }
+}
+impl fmt::Debug for SourceCompletion {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("SourceCompletion")
     }
 }
 #[derive(Clone)]

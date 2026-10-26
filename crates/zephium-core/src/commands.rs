@@ -247,6 +247,12 @@ pub const REGISTRY: &[CommandSpec] = &[
         Group::View,
     ),
     command(
+        "page.viewSource",
+        "View Page Source",
+        Keys::same("CmdOrCtrl+U"),
+        Group::View,
+    ),
+    command(
         "page.devtools",
         "Developer Tools",
         split("CmdOrCtrl+Alt+I", "Ctrl+Shift+I"),

@@ -68,6 +68,9 @@ pub enum Lifecycle {
 pub enum BrowserOwnedTab {
     Settings,
     Extensions,
+    /// The source of a page, shown read-only. Transient: it holds a document
+    /// the shell keeps in memory, so it is never saved with the session.
+    Source,
 }
 
 impl BrowserOwnedTab {
@@ -75,6 +78,7 @@ impl BrowserOwnedTab {
         match self {
             Self::Settings => "Settings",
             Self::Extensions => "Extensions",
+            Self::Source => "Page Source",
         }
     }
 }

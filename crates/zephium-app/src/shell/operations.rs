@@ -1060,6 +1060,7 @@ impl Shell {
                     mutation_result(native)
                 },
             ),
+            "page.viewSource" => self.operation_view_source(),
             "page.devtools" => active.map_or_else(
                 || operation_result(OperationOutcome::NoOp, OperationReason::NoFocusedWindow),
                 |id| {

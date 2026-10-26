@@ -194,6 +194,7 @@ pub enum TabContentView {
     Settings,
     Extensions,
     ExtensionOwned,
+    Source,
 }
 
 /// Names a cached site icon without carrying its pixels. Chrome keeps rasters

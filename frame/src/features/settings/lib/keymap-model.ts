@@ -15,6 +15,7 @@ const TITLES: Record<string, () => string> = {
   "note.new": m.command_note_new,
   "split.choose": m.command_split_choose,
   "page.print": m.command_page_print,
+  "page.viewSource": m.command_page_view_source,
   "page.devtools": m.command_page_devtools,
   "tab.close": m.command_tab_close,
   "page.copyLink": m.command_page_copy_link,

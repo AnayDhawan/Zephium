@@ -47,6 +47,7 @@
   import { SettingsNavigation } from "$features/settings";
   import { loadLibraryPage } from "$features/library";
   import { loadHistoryPage } from "$features/history";
+  import { loadSourcePage } from "$features/source";
   import { bookmarkReveal } from "$features/bookmarks";
   import { loadTasksPage } from "$features/tasks";
   import { loadFocusCover, loadTimePage } from "$features/time";
@@ -610,6 +611,16 @@
                   retryLabel={m.surface_retry()}
                   >{#snippet children(View)}<View />{/snippet}</LazyView
                 >
+              {:else if browserPage.currentPage() === "source"}
+                {#key tabs.activeId()}<LazyView
+                    loader={loadSourcePage}
+                    loadingLabel={m.surface_loading()}
+                    failureLabel={m.surface_render_failed()}
+                    retryLabel={m.surface_retry()}
+                    >{#snippet children(View)}<View
+                        tab={tabs.activeId() ?? ""}
+                      />{/snippet}</LazyView
+                  >{/key}
               {:else}
                 <LazyView
                   loader={loadLibraryPage}

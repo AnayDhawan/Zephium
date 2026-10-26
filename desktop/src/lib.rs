@@ -101,6 +101,7 @@ mod menu_text;
 mod notes;
 mod overlay;
 mod page_assist;
+mod page_source;
 #[cfg(target_os = "macos")]
 mod panel;
 mod platform;
@@ -1849,6 +1850,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             browser_import::import_open_permission,
             data_export::export_browser_data,
             history_menu::history_menu_popup,
+            page_source::page_source,
             resource_close_ready,
             tab_drop,
             divider_grab,
@@ -5552,6 +5554,7 @@ fn build_menu(
         .item(&appearance)
         .separator()
         .item(&item("url.focus")?)
+        .item(&item("page.viewSource")?)
         .item(&item("page.devtools")?);
     let view = if work_pane {
         let mut view = view.separator();

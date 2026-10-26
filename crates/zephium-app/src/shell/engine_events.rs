@@ -564,7 +564,11 @@ impl Shell {
             }
             EngineEvent::Crashed { id } => self.on_crashed(id),
             EngineEvent::Captured { .. } => {}
-            EngineEvent::HtmlExtracted { .. } => {}
+            EngineEvent::HtmlExtracted {
+                id,
+                html,
+                truncated,
+            } => self.on_html_extracted(id, html, truncated),
             EngineEvent::HistoryEntries {
                 id,
                 request,

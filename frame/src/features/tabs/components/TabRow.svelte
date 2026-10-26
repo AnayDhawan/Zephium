@@ -6,7 +6,8 @@
 
 <script lang="ts">
   import * as m from "$shared/i18n/messages";
-  import { Cancel01Icon, Globe02Icon, PuzzleIcon } from "@hugeicons/core-free-icons";
+  import { Cancel01Icon } from "@hugeicons/core-free-icons";
+  import { tabFallbackIcon } from "../lib/tab-icon";
   import type { TabView } from "$shared/ipc/bindings";
   import FavIcon from "$shared/ui/FavIcon";
   import { favicons } from "$domain/favicons";
@@ -58,9 +59,7 @@
 
   // A tab with no page yet is a different thing from a page whose site simply
   // supplies no icon, and the row should say which.
-  let fallback = $derived(
-    tab.content === "extensions" || tab.content === "extension_owned" ? PuzzleIcon : Globe02Icon,
-  );
+  let fallback = $derived(tabFallbackIcon(tab.content));
 </script>
 
 <li

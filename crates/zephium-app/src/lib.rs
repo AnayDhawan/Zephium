@@ -145,6 +145,6 @@ pub mod work_trace;
 pub use api::{
     BookmarkCompletion, BrowsingDataCompletion, ExportCompletion, FaviconPageSource, FaviconProbe,
     FaviconProber, FaviconProberAttachment, HistoryCompletion, HistoryListCompletion,
-    ImportCompletion, NoteCompletion, NotesAttachment, ResourceCompletion, SpaceCommand, TabAction,
-    TabCompletion, TimeCompletion, ZoomCompletion,
+    ImportCompletion, NoteCompletion, NotesAttachment, PageSource, ResourceCompletion,
+    SourceCompletion, SpaceCommand, TabAction, TabCompletion, TimeCompletion, ZoomCompletion,
 };

@@ -669,6 +669,9 @@ fn tab_view(
             zephium_core::item::TabContent::BrowserOwned(
                 zephium_core::item::BrowserOwnedTab::Extensions,
             ) => zephium_ipc::TabContentView::Extensions,
+            zephium_core::item::TabContent::BrowserOwned(
+                zephium_core::item::BrowserOwnedTab::Source,
+            ) => zephium_ipc::TabContentView::Source,
             zephium_core::item::TabContent::ExtensionOwned => {
                 zephium_ipc::TabContentView::ExtensionOwned
             }
