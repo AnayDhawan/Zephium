@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-svelte";
+import "$styles/global.css";
 import type { MediaPlayerView } from "$shared/ipc/bindings";
 import { emitNativeEvent } from "$shared/testing/native-events";
 import { mediaPlayer } from "$domain/media-player";
@@ -126,4 +127,15 @@ test("without engine mute the player offers none", async () => {
     .element(screen.getByRole("button", { name: "Pause", exact: true }))
     .toBeInTheDocument();
   expect(screen.container.querySelector('[aria-label="Mute tab"]')).toBeNull();
+});
+
+test("the card sits flush with the column's edges, which the window already insets", async () => {
+  const screen = await render(MediaPlayer);
+  emitNativeEvent("mediaPlayerChanged", view());
+  const card = screen.getByRole("region", { name: "Now playing" });
+  await expect.element(card).toBeInTheDocument();
+  const edges = card.element().getBoundingClientRect();
+  const column = screen.container.getBoundingClientRect();
+  expect(edges.left).toBe(column.left);
+  expect(edges.right).toBe(column.right);
 });

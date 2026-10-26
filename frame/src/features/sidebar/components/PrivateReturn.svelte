@@ -42,9 +42,9 @@
     align-items: center;
     gap: 8px;
     box-sizing: border-box;
-    inline-size: calc(100% - 16px);
+    inline-size: calc(100% - 2 * var(--sidebar-inset));
     block-size: 32px;
-    margin: 6px 8px 0;
+    margin: 6px var(--sidebar-inset) 0;
     padding-inline: 10px 8px;
     border: 0;
     border-radius: var(--radius-row);

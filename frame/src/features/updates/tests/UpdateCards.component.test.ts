@@ -84,6 +84,16 @@ test("after an update, the card links its release notes and goes once read", asy
   expect(native.settingSet).toHaveBeenCalledWith("notice.seen-version", "1.0.1");
 });
 
+test("the cards sit flush with the column's edges, which the window already insets", async () => {
+  await start({ state: "upToDate" }, { "notice.seen-version": "1.0.0" });
+  const screen = await render(UpdateCards);
+  await expect.element(screen.getByText("Zephium updated to 1.0.1")).toBeVisible();
+  const stack = screen.container.querySelector(".update-stack")!.getBoundingClientRect();
+  const column = screen.container.getBoundingClientRect();
+  expect(stack.left).toBe(column.left);
+  expect(stack.right).toBe(column.right);
+});
+
 test("the close button acknowledges the new version without opening anything", async () => {
   await start({ state: "upToDate" }, { "notice.seen-version": "1.0.0" });
   const screen = await render(UpdateCards);

@@ -2,6 +2,7 @@ import { expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-svelte";
 import type { DownloadCall, DownloadView } from "$shared/ipc/bindings";
+import "$styles/global.css";
 import DownloadStatus from "../components/DownloadStatus.svelte";
 
 const native = vi.hoisted(() => ({ call: vi.fn() }));
@@ -85,4 +86,14 @@ test("a download in flight offers Pause beside Cancel", async () => {
   expect(native.call).toHaveBeenCalledWith(profile, { kind: "pause", id: entry.id });
   await expect.element(page.getByText("Paused", { exact: true })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
+});
+
+test("the card sits flush with the column's edges, which the window already insets", async () => {
+  serving(entry, () => null);
+  const screen = await render(DownloadStatus, { props: { profile, onopen: () => {} } });
+  await expect.element(page.getByText("setup.exe", { exact: true })).toBeVisible();
+  const card = screen.container.querySelector(".download-card")!.getBoundingClientRect();
+  const column = screen.container.getBoundingClientRect();
+  expect(card.left).toBe(column.left);
+  expect(card.right).toBe(column.right);
 });

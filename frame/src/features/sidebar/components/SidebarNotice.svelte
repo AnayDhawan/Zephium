@@ -51,7 +51,7 @@
     flex: none;
     align-items: center;
     gap: 10px;
-    margin: 6px 8px;
+    margin: 6px var(--sidebar-inset);
     padding: 8px 12px 8px 8px;
     border-radius: var(--radius-row);
     background: var(--row-active);

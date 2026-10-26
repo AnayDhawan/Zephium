@@ -215,7 +215,7 @@
     position: relative;
     isolation: isolate;
     flex: none;
-    margin: 6px 8px;
+    margin: 6px var(--sidebar-inset);
     padding: 8px 6px 8px 8px;
     overflow: hidden;
     border-radius: var(--radius-card);

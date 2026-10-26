@@ -208,7 +208,7 @@
     flex: none;
     align-items: center;
     gap: 2px;
-    margin: 6px 8px;
+    margin: 6px var(--sidebar-inset);
     padding: 8px 6px 10px 8px;
     overflow: hidden;
     border-radius: var(--radius-row);
