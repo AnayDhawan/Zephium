@@ -96,11 +96,25 @@
     pointer-events: none;
   }
 
+  /* The button alone is the hit area, and it never moves or resizes: what it
+     draws shrinks, fades and grows inside it, but cannot take the pointer, or
+     the badge scaling away from under the pointer would end the hover that
+     scaled it. The badge hangs past the box by its offset; the box reaches
+     out to it rather than leaving a strip that is drawn but not pressable. */
+  button.audio-mark::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    inset-block-end: -2px;
+    inset-inline-end: -2px;
+  }
+
   .audio-glyph,
   .audio-badge {
     position: absolute;
     display: grid;
     place-items: center;
+    pointer-events: none;
   }
 
   .audio-glyph {

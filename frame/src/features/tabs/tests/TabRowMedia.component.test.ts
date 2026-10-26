@@ -105,3 +105,67 @@ test("the camera indicator offers its own tab's media menu without selecting it"
   expect(onSelect).not.toHaveBeenCalled();
   expect(native.mute).not.toHaveBeenCalled();
 });
+
+// Sampled over the length of the transitions: a hover that lets go and takes
+// hold again shows as a false among the samples.
+async function hoverStaysHeld(button: HTMLElement, duration = 600) {
+  const samples: boolean[] = [];
+  const end = performance.now() + duration;
+  while (performance.now() < end) {
+    samples.push(button.matches(":hover"));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  }
+  return samples;
+}
+
+test("resting on the badge's corner holds the hover instead of flashing between badge and speaker", async () => {
+  const screen = await row(tabFixture({ audio: { muted: false, can_mute: true } }));
+  const mark = screen.getByRole("button", { name: "Mute tab" });
+  const button = mark.element() as HTMLElement;
+  const badge = button.querySelector(".audio-badge")!.getBoundingClientRect();
+  const box = button.getBoundingClientRect();
+  // The badge's own bottom inline-end corner, as far from the favicon as it reaches.
+  await mark.hover({
+    position: { x: badge.right - box.left - 0.5, y: badge.bottom - box.top - 0.5 },
+  });
+  const samples = await hoverStaysHeld(button);
+  expect(samples.length).toBeGreaterThan(10);
+  expect(samples.every(Boolean)).toBe(true);
+  expect(getComputedStyle(button.querySelector(".audio-glyph")!).opacity).toBe("1");
+});
+
+test("the hit area is one fixed box over the favicon, whatever the mark is showing", async () => {
+  const screen = await row(tabFixture({ audio: { muted: false, can_mute: true } }));
+  const mark = screen.getByRole("button", { name: "Mute tab" });
+  const button = mark.element() as HTMLElement;
+  const glyph = button.querySelector(".audio-glyph")!;
+  const favicon = screen.container.querySelector("[data-favicon]")!.getBoundingClientRect();
+  const resting = button.getBoundingClientRect();
+  expect(resting.left).toBeLessThanOrEqual(favicon.left);
+  expect(resting.top).toBeLessThanOrEqual(favicon.top);
+  expect(resting.right).toBeGreaterThanOrEqual(favicon.right);
+  expect(resting.bottom).toBeGreaterThanOrEqual(favicon.bottom);
+
+  // The corners of everything the mark draws, resting and speaking.
+  const corners = [...button.querySelectorAll(".audio-badge, .audio-glyph")].flatMap((part) => {
+    const rect = part.getBoundingClientRect();
+    return [
+      [rect.left + 0.5, rect.top + 0.5],
+      [rect.right - 0.5, rect.top + 0.5],
+      [rect.left + 0.5, rect.bottom - 0.5],
+      [rect.right - 0.5, rect.bottom - 0.5],
+    ] as const;
+  });
+  const stray = () =>
+    corners.filter(([x, y]) => {
+      const hit = document.elementFromPoint(x, y);
+      return hit !== button && !button.contains(hit);
+    });
+  expect(stray()).toEqual([]);
+
+  await mark.hover();
+  await expect.poll(() => getComputedStyle(glyph).opacity).toBe("1");
+  await expect.poll(() => getComputedStyle(glyph).scale).toBe("1");
+  expect(stray()).toEqual([]);
+  expect(button.getBoundingClientRect().toJSON()).toEqual(resting.toJSON());
+});
