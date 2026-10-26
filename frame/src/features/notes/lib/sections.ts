@@ -11,18 +11,16 @@ export type SectionKey =
 
 export type Section = { key: SectionKey; id: string; items: NoteSummary[] };
 
-const DAY = 24 * 60 * 60 * 1000;
-
-function startOfDay(time: number): number {
+function startOfDay(time: number, daysAgo = 0): number {
   const date = new Date(time);
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - daysAgo).getTime();
 }
 
 function sectionOf(modified: number, today: number): SectionKey {
   if (modified >= today) return { kind: "today" };
-  if (modified >= today - DAY) return { kind: "yesterday" };
-  if (modified >= today - 7 * DAY) return { kind: "week" };
-  if (modified >= today - 30 * DAY) return { kind: "month" };
+  if (modified >= startOfDay(today, 1)) return { kind: "yesterday" };
+  if (modified >= startOfDay(today, 7)) return { kind: "week" };
+  if (modified >= startOfDay(today, 30)) return { kind: "month" };
   const date = new Date(modified);
   return { kind: "calendar", year: date.getFullYear(), month: date.getMonth() };
 }
