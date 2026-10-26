@@ -131,6 +131,7 @@ export default defineConfig({
               ),
             },
           },
+          setupFiles: ["./vitest.component.setup.ts"],
           include: ["src/**/*.component.test.ts"],
           // Playwright retires the oldest of 10,000 live requests. Parallel
           // files flood that window while a slow manual mock is still being

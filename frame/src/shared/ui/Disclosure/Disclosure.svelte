@@ -144,11 +144,13 @@
     role={menu ? "menu" : "group"}
     onclick={(event) => {
       // Choosing from a menu closes it. Owning that here keeps every caller
-      // from having to remember, and from needing a handle on this state.
+      // from having to remember, and from needing a handle on this state. A
+      // panel's own control that leaves it (opening a page or a dialog) says
+      // so with data-dismiss.
+      const target = event.target as Element | null;
       if (
-        menu &&
-        !(event.target as Element | null)?.closest("[data-keep-open]") &&
-        (event.target as Element | null)?.closest('[role="menuitem"]')
+        target?.closest("[data-dismiss]") ||
+        (menu && !target?.closest("[data-keep-open]") && target?.closest('[role="menuitem"]'))
       )
         dismiss(true);
     }}
