@@ -70,6 +70,7 @@
       data-zephium-tab-id={tab.id}
       data-zephium-tab-url={tab.url ?? ""}
       data-zephium-projection-revision={tab.projection_revision}
+      data-audio-host
     >
       <button
         type="button"
@@ -92,16 +93,15 @@
           size={16}
           lit
           fallback={Globe02Icon}
+          notched={!!tab.audio}
         />
         <span data-zephium-tab-label class="sr-only">{tab.title}</span>
       </button>
-      {#if tab.audio}<span class="audio-badge"
-          ><AudioControl
-            badge
-            audio={tab.audio}
-            onToggle={(muted) => void tabs.setMuted(tab.id, muted)}
-          /></span
-        >{/if}
+      {#if tab.audio}<AudioControl
+          audio={tab.audio}
+          size={16}
+          onToggle={(muted) => void tabs.setMuted(tab.id, muted)}
+        />{/if}
       {#if tab.capture}
         <span class="capture-badge">
           <CaptureControl
@@ -130,12 +130,6 @@
 <style>
   .rail-sites > li {
     position: relative;
-  }
-
-  .audio-badge {
-    position: absolute;
-    inset-inline-start: -4px;
-    inset-block-end: -3px;
   }
 
   .capture-badge {

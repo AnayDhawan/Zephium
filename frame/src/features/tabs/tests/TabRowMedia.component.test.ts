@@ -1,7 +1,12 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-svelte";
 import { tabFixture } from "$shared/testing/fixtures";
+import favicon from "../../../styles/favicon.css?raw";
 import TabRow from "../components/TabRow.svelte";
+
+const style = document.createElement("style");
+style.textContent = favicon;
+document.head.append(style);
 
 const native = vi.hoisted(() => ({ mute: vi.fn(), menu: vi.fn(), settle: vi.fn() }));
 vi.mock("$shared/ipc/bindings", async () => {
@@ -47,6 +52,34 @@ test("the speaker mutes its own tab without selecting it", async () => {
   await screen.getByRole("button", { name: "Mute tab" }).click();
   await expect.poll(() => native.mute.mock.calls).toEqual([[tab.id, true]]);
   expect(onSelect).not.toHaveBeenCalled();
+});
+
+test("sound is told on the favicon, so the title keeps its place", async () => {
+  const quiet = await row(tabFixture());
+  const at = quiet.container.querySelector("[data-zephium-tab-label]")!.getBoundingClientRect();
+  quiet.unmount();
+  const screen = await row(tabFixture({ audio: { muted: false, can_mute: true } }));
+  const label = screen.container.querySelector("[data-zephium-tab-label]")!.getBoundingClientRect();
+  expect(label.left).toBe(at.left);
+  expect(label.width).toBe(at.width);
+  const favicon = screen.container.querySelector("[data-favicon]")!;
+  expect(favicon.hasAttribute("data-notched")).toBe(true);
+  const mark = screen.getByRole("button", { name: "Mute tab" }).element().getBoundingClientRect();
+  const icon = favicon.getBoundingClientRect();
+  expect(Math.abs(mark.left + mark.width / 2 - (icon.left + icon.width / 2))).toBeLessThanOrEqual(
+    1,
+  );
+  expect(Math.abs(mark.top + mark.height / 2 - (icon.top + icon.height / 2))).toBeLessThanOrEqual(
+    1,
+  );
+});
+
+test("hovering the favicon of a playing tab turns it into the speaker", async () => {
+  const screen = await row(tabFixture({ audio: { muted: false, can_mute: true } }));
+  const mark = screen.container.querySelector("[data-favicon] > *")!;
+  expect(getComputedStyle(mark).opacity).toBe("1");
+  await screen.getByRole("button", { name: "Mute tab" }).hover();
+  await expect.poll(() => getComputedStyle(mark).opacity).toBe("0");
 });
 
 test("a muted tab keeps its speaker and unmutes", async () => {

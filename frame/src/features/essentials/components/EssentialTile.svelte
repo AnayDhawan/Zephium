@@ -50,6 +50,7 @@
   data-zephium-tab-id={tab.id}
   data-zephium-tab-url={tab.url ?? ""}
   data-zephium-projection-revision={tab.projection_revision}
+  data-audio-host
   class={["essential", className]}
   data-split-candidate={splitCandidate}
 >
@@ -73,17 +74,16 @@
       size={18}
       lit
       fallback={Globe02Icon}
+      notched={!!tab.audio}
     />
     <span data-zephium-tab-label class="sr-only">{tab.title}</span>
   </button>
   {#if tab.audio}
-    <span class="audio-badge"
-      ><AudioControl
-        badge
-        audio={tab.audio}
-        onToggle={(muted) => void tabs.setMuted(tab.id, muted)}
-      /></span
-    >
+    <AudioControl
+      audio={tab.audio}
+      size={18}
+      onToggle={(muted) => void tabs.setMuted(tab.id, muted)}
+    />
   {/if}
   {#if tab.capture}
     <span class="capture-badge">
@@ -101,12 +101,6 @@
   .essential {
     position: relative;
     min-width: 0;
-  }
-
-  .audio-badge {
-    position: absolute;
-    inset-inline-start: 2px;
-    inset-block-end: 2px;
   }
 
   .capture-badge {
