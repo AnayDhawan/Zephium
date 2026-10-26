@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { ArrowRight01Icon, Cancel01Icon, SecurityCheckIcon } from "@hugeicons/core-free-icons";
+  import { ArrowRight01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
+  import * as m from "$shared/i18n/messages";
   import { blocker, blockerSites, hiding, shieldPresentation } from "$domain/blocker";
   import { tabs } from "$domain/tabs";
   import type { BlockerSiteAction } from "$shared/ipc/bindings";
@@ -7,8 +8,8 @@
   import Icon from "$shared/ui/Icon";
   import Switch from "$shared/ui/Switch";
 
-  /** `opened` counts menu openings, so the day's count is fresh each time. */
-  let { labelled = false, opened = 0 }: { labelled?: boolean; opened?: number } = $props();
+  /** Reads the day's count each time `open` turns true. */
+  let { open }: { open: boolean } = $props();
   let status = $derived(blocker.status());
   let shield = $derived(shieldPresentation(status));
   let site = $derived(status.site);
@@ -30,8 +31,7 @@
   // site too (the new tab); keyed to the id, as `site` is new on every event.
   let profile = $derived(tabs.profile()?.id);
   $effect(() => {
-    void opened;
-    if (!profile) return;
+    if (!open || !profile) return;
     let current = true;
     void commands
       .blockerStats(profile)
@@ -46,16 +46,17 @@
 
   let standing = $derived(
     status.protection === "disabled"
-      ? "Protection is off"
+      ? m.site_info_blocking_off()
       : status.protection === "pending"
-        ? "Starting protection…"
+        ? m.site_info_blocking_starting()
         : status.protection === "degraded"
-          ? "Protection needs attention"
+          ? m.site_info_blocking_attention()
           : site?.paused
-            ? "Paused on this site"
-            : `${(blockedToday ?? 0).toLocaleString()} blocked today`,
+            ? m.site_info_blocking_paused()
+            : blockedToday === null
+              ? m.site_info_blocking_on()
+              : m.site_info_blocking_count({ count: blockedToday.toLocaleString() }),
   );
-  let active = $derived(status.protection === "active" && !site?.paused);
 
   function ok(result: blocker.BlockerMutationResult) {
     return (
@@ -69,7 +70,7 @@
     const context = blocker.status().site?.context;
     if (!context) return false;
     const done = ok(await blockerSites.changeSite(context, action));
-    if (!done) failure = "That didn't go through. Try again.";
+    if (!done) failure = m.site_info_blocking_failed();
     return done;
   }
 
@@ -86,13 +87,12 @@
 
   const setProtected = (protect: boolean) =>
     run(async () => {
-      if (!(await blockerSites.setProtected(protect)))
-        failure = "That didn't go through. Try again.";
+      if (!(await blockerSites.setProtected(protect))) failure = m.site_info_blocking_failed();
     });
 
   const enable = () =>
     run(async () => {
-      if (!ok(await blocker.setEnabled(true))) failure = "Protection couldn't start. Try again.";
+      if (!ok(await blocker.setEnabled(true))) failure = m.site_info_blocking_enable_failed();
     });
 
   const showAgain = (ids: string[]) =>
@@ -101,28 +101,20 @@
     });
 
   async function hide() {
-    if (site && !(await hiding.start(site.context)))
-      failure = "Elements can't be hidden on this page.";
+    if (site && !(await hiding.start(site.context))) failure = m.site_info_hide_failed();
   }
 </script>
 
-{#if shield.visible && labelled}
-  <div class="protection">
-    <div class="head" data-keep-open>
-      <span class="text">
-        <span class="site" title={site?.context.site}
-          >{site ? site.context.site : "Ad and tracker protection"}{site?.private_session
-            ? " · private"
-            : ""}</span
-        >
-        <span class="standing" class:active class:warning={shield.tone === "warning"}>
-          <Icon icon={SecurityCheckIcon} size={12} />
-          <span>{standing}</span>
-        </span>
-      </span>
+{#if shield.visible}
+  <section class="protection" aria-label={m.site_info_blocking()}>
+    <div class="head">
+      <div class="words">
+        <span class="title" aria-hidden="true">{m.site_info_blocking()}</span>
+        <span class="standing" class:warning={shield.tone === "warning"}>{standing}</span>
+      </div>
       {#if on && site?.ready}
         <Switch
-          label="Protection on this site"
+          label={m.site_info_blocking()}
           labelHidden
           checked={!site.paused}
           disabled={busy || site.busy}
@@ -134,11 +126,9 @@
     {#if status.desired_enabled !== true}
       <button
         type="button"
-        role="menuitem"
         class="ui-menu-item row"
-        data-keep-open
         disabled={busy || !status.can_enable || status.preference !== "authoritative"}
-        onclick={() => void enable()}>Turn on protection</button
+        onclick={() => void enable()}>{m.site_info_blocking_enable()}</button
       >
     {/if}
 
@@ -146,49 +136,43 @@
       {#if site.ready}
         <button
           type="button"
-          role="menuitem"
           class="ui-menu-item row"
+          data-dismiss
           disabled={busy || site.busy}
-          onclick={() => void hide()}
+          onclick={() => void hide()}>{m.site_info_hide_elements()}</button
         >
-          <span>Hide elements</span>
-        </button>
       {:else}
         <button
           type="button"
-          role="menuitem"
           class="ui-menu-item row"
-          data-keep-open
           disabled={busy || site.busy}
           onclick={() => void run(async () => void (await change({ kind: "retry" })))}
-          >Retry site controls</button
+          >{m.site_info_blocking_retry()}</button
         >
       {/if}
       {#if site.hides.length > 0}
         <button
           type="button"
-          role="menuitem"
           class="ui-menu-item row"
-          data-keep-open
           aria-expanded={managing}
           onclick={() => (managing = !managing)}
         >
-          <span>Hidden on this site</span>
+          <span>{m.site_info_hidden()}</span>
           <span class="count">{site.hides.length}</span>
           <span class="chevron" class:open={managing}
             ><Icon icon={ArrowRight01Icon} size={14} /></span
           >
         </button>
         {#if managing}
-          <ul class="hides" data-keep-open>
+          <ul class="hides">
             {#each site.hides as hide (hide.id)}
               <li>
                 <span class="label" title={hide.label}>{hide.label}</span>
                 <button
                   type="button"
                   class="restore"
-                  title="Show again"
-                  aria-label={`Show ${hide.label} again`}
+                  title={m.site_info_hidden_show({ name: hide.label })}
+                  aria-label={m.site_info_hidden_show({ name: hide.label })}
                   disabled={busy || site.busy}
                   onclick={() => void showAgain([hide.id])}
                   ><Icon icon={Cancel01Icon} size={12} /></button
@@ -202,27 +186,17 @@
                   class="all"
                   disabled={busy || site.busy}
                   onclick={() => void showAgain(site?.hides.map((hide) => hide.id) ?? [])}
-                  >Show all</button
+                  >{m.site_info_hidden_show_all()}</button
                 >
               </li>
             {/if}
           </ul>
         {/if}
       {/if}
-    {:else if !site && on}
-      <p class="hint">Site controls work on web pages.</p>
     {/if}
 
-    {#if failure}<p class="hint failure" role="status">{failure}</p>{/if}
-  </div>
-{:else if shield.visible}
-  <span
-    class="compact"
-    class:warning={shield.tone === "warning"}
-    title={shield.label}
-    role="img"
-    aria-label={shield.label}><Icon icon={SecurityCheckIcon} size={14} /></span
-  >
+    {#if failure}<p class="failure" role="status">{failure}</p>{/if}
+  </section>
 {/if}
 
 <style>
@@ -230,57 +204,37 @@
     display: flex;
     flex-direction: column;
     min-inline-size: 0;
-    padding-block-end: 4px;
-    border-block-end: 0.5px solid var(--color-border);
   }
 
   .head {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px var(--menu-item-inset) 10px;
+    min-block-size: 38px;
+    padding-inline: var(--menu-item-inset);
   }
 
-  .text {
+  .words {
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: 2px;
     min-inline-size: 0;
   }
 
-  .site {
-    overflow: hidden;
-    color: var(--color-text);
+  .title {
     font-size: var(--text-body);
-    font-weight: 500;
     line-height: 18px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-wrap: balance;
   }
 
   .standing {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    min-inline-size: 0;
+    overflow: hidden;
     color: var(--color-muted);
     font-size: var(--text-caption);
-    line-height: 16px;
-  }
-
-  .standing > span {
-    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+    line-height: 14px;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .standing :global(svg) {
-    flex: none;
-  }
-
-  .standing.active :global(svg) {
-    color: var(--color-success);
   }
 
   .standing.warning {
@@ -292,6 +246,7 @@
     border: 0;
     background: transparent;
     font: inherit;
+    font-size: var(--text-body);
     text-align: start;
   }
 
@@ -379,26 +334,9 @@
     color: var(--color-text);
   }
 
-  .hint {
-    max-inline-size: 240px;
-    margin: 2px var(--menu-item-inset) 4px;
-    color: var(--color-muted);
-    font-size: var(--text-caption);
-  }
-
   .failure {
+    margin: 2px var(--menu-item-inset) 4px;
     color: var(--color-warning);
-  }
-
-  .compact {
-    display: grid;
-    place-items: center;
-    inline-size: 20px;
-    block-size: 20px;
-    color: var(--color-faint);
-  }
-
-  .compact.warning {
-    color: var(--color-warning);
+    font-size: var(--text-caption);
   }
 </style>

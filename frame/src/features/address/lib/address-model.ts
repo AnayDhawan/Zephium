@@ -47,3 +47,16 @@ export function addressSecurity(
     return "none";
   }
 }
+
+/** What the site panel is told about the page in front, when it has a site. */
+export type SitePage = {
+  url: string;
+  security: AddressSecurity;
+  /** What is wrong with the connection, in words; null when nothing is. */
+  warning: string | null;
+  capture: { camera: string; microphone: string } | null;
+  privateWindow: boolean;
+  /** The page's own zoom, once it has one, and what pages show at otherwise. */
+  zoom: number | null;
+  standardZoom: number;
+};

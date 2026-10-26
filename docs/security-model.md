@@ -502,8 +502,8 @@ when the exception matches the presented leaf and system evaluation still fails;
 otherwise default handling applies. On Windows a matching leaf gets AlwaysAllow and
 anything else stays Cancel. WebView2 remembers AlwaysAllow per host and certificate,
 so another port on the same host with the same certificate may load without asking
-until the exception is dropped. A page from an excepted origin always shows the
-address field's not-secure warning, and its site-information panel says the
+until the exception is dropped. A page from an excepted origin keeps a warning
+glyph in view at the end of the address field, and its site panel says the
 certificate is not trusted. Agent, extension and bootstrap views are built
 without exceptions and keep the hard fail.
 
@@ -1794,9 +1794,9 @@ reports itself incomplete when none is open. Pop-ups come from `popup_sites` on 
 The actor chooses the profile; chrome supplies only a canonical origin, a closed kind
 and a decision. A private profile lists nothing and every change to it is refused. The
 same two commands (`site_permissions`, optionally for one origin, and
-`site_permission_set`) are what the address field's site-information panel uses for
-the page in front. It reads them only while open, and a private window shows that its
-permissions are one-time and offers no change.
+`site_permission_set`) are what the address field's site panel uses for the page in
+front. It reads them only while open, and a private window shows no permissions to
+change.
 
 The following are roadmap items or disabled backends, not current security guarantees:
 

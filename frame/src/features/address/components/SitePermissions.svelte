@@ -8,28 +8,26 @@
   } from "$shared/ipc/bindings";
   import { sitePermissions } from "$domain/permissions";
   import Button from "$shared/ui/Button";
-  import ChoiceMenu from "./ChoiceMenu.svelte";
+  import SegmentedControl from "$shared/ui/SegmentedControl";
   import {
     choiceOf,
     decisionOf,
     kindsInUse,
-    permissionChoices,
     shownKinds,
     type PermissionChoice,
   } from "../lib/site-info";
 
   /** `origin` is the site's canonical origin. It reads its decisions each time
-   *  `open` turns true, and never while closed. */
+   *  `open` turns true, and never while closed. Draws nothing while there is
+   *  nothing to show. */
   let {
     origin,
     open,
     capture = null,
-    privateWindow = false,
   }: {
     origin: string;
     open: boolean;
     capture?: { camera: string; microphone: string } | null;
-    privateWindow?: boolean;
   } = $props();
 
   const labels: Record<SitePermissionKindView, () => string> = {
@@ -44,11 +42,10 @@
     automatic_downloads: m.permission_automatic_downloads,
     popups: m.permission_popups,
   };
-  const choiceLabels: Record<PermissionChoice, () => string> = {
-    allow: m.permission_allow,
-    block: m.permission_block,
-    ask: m.permission_ask,
-  };
+  const options = $derived([
+    { value: "allow", label: m.permission_allow() },
+    { value: "block", label: m.permission_block() },
+  ]);
 
   let view = $state.raw<SitePermissionsView | null>(null);
   let loaded = $state(false);
@@ -57,7 +54,7 @@
   let decided = $state.raw<Partial<Record<SitePermissionKindView, SitePermissionDecisionView>>>({});
   let touched = $state.raw(new Set<SitePermissionKindView>());
   // What was just picked, shown until it is saved; a change that did not go
-  // through puts the select back to what is.
+  // through puts the control back to what is.
   let choosing = $state.raw<Partial<Record<SitePermissionKindView, PermissionChoice>>>({});
   let section = $state<HTMLElement>();
   let latest = 0;
@@ -72,6 +69,9 @@
     ),
   );
   let saved = $derived(Object.keys(decided).length > 0);
+  let unreadable = $derived(loaded && view === null);
+  let partial = $derived(view !== null && !view.complete);
+  let present = $derived(shown.length > 0 || unreadable || partial || failed);
 
   async function load() {
     const mine = ++latest;
@@ -88,7 +88,7 @@
 
   $effect(() => {
     void origin;
-    if (!open || privateWindow) return;
+    if (!open) return;
     untrack(() => {
       touched = new Set();
       failed = false;
@@ -97,7 +97,7 @@
   });
 
   async function change(kind: SitePermissionKindView, choice: PermissionChoice) {
-    if (busy || choice === choiceOf(decided[kind])) return;
+    if (busy || choice === choiceOf(kind, decided[kind])) return;
     busy = true;
     failed = false;
     touched = new Set([...touched, kind]);
@@ -112,40 +112,43 @@
     if (busy) return;
     busy = true;
     failed = false;
+    // The button that was pressed goes with the rows; the keyboard stays in
+    // the panel around them.
+    const panel = section?.closest<HTMLElement>("[data-tray-body]");
     for (const kind of Object.keys(decided) as SitePermissionKindView[]) {
       if (!(await sitePermissions.set(origin, kind, null))) failed = true;
     }
     touched = new Set();
     await load();
     busy = false;
-    // The button that was pressed is gone; the keyboard stays in the panel.
-    section?.focus({ preventScroll: true });
+    panel?.focus({ preventScroll: true });
   }
 </script>
 
-<section
-  class="permissions"
-  bind:this={section}
-  tabindex="-1"
-  aria-label={m.site_info_permissions()}
-  aria-busy={!loaded || undefined}
->
-  <header>
-    <h3>{m.site_info_permissions()}</h3>
-    {#if !privateWindow && saved}
-      <Button size="compact" variant="ghost" disabled={busy} onclick={() => void reset()}>
-        {m.site_info_permissions_reset()}
-      </Button>
-    {/if}
-  </header>
-  {#if privateWindow}
-    <p class="note">{m.site_info_permissions_private()}</p>
-  {:else if loaded && view === null}
-    <p class="note">{m.site_settings_unavailable()}</p>
-  {:else if loaded}
-    {#if shown.length === 0}
-      <p class="note">{m.site_info_permissions_empty()}</p>
-    {:else}
+{#if present}
+  <section
+    class="permissions"
+    bind:this={section}
+    aria-label={m.site_info_permissions()}
+    aria-busy={busy || undefined}
+  >
+    <header>
+      <h3>{m.site_info_permissions()}</h3>
+      {#if saved}
+        <Button
+          size="compact"
+          variant="ghost"
+          aria-label={m.site_info_permissions_reset()}
+          disabled={busy}
+          onclick={() => void reset()}
+        >
+          {m.zoom_reset()}
+        </Button>
+      {/if}
+    </header>
+    {#if unreadable}
+      <p class="note">{m.site_settings_unavailable()}</p>
+    {:else if shown.length > 0}
       <ul>
         {#each shown as kind (kind)}
           <li>
@@ -153,32 +156,34 @@
               <span aria-hidden="true">{labels[kind]()}</span>
               {#if inUse.has(kind)}<span class="use">{m.site_info_in_use()}</span>{/if}
             </span>
-            <ChoiceMenu
-              label={labels[kind]()}
-              options={permissionChoices(kind).map((choice) => ({
-                value: choice,
-                label: choiceLabels[choice](),
-              }))}
-              value={choosing[kind] ?? choiceOf(decided[kind])}
-              onchange={(value) => void change(kind, value as PermissionChoice)}
-            />
+            <span class="control">
+              <SegmentedControl
+                label={labels[kind]()}
+                size="compact"
+                {options}
+                value={choosing[kind] ?? choiceOf(kind, decided[kind])}
+                onchange={(value) => void change(kind, value as PermissionChoice)}
+              />
+            </span>
           </li>
         {/each}
       </ul>
     {/if}
-    {#if view && !view.complete}
+    {#if partial}
       <p class="note">{m.site_info_permissions_partial()}</p>
     {/if}
-  {/if}
-  {#if failed}
-    <p class="note error" role="alert">{m.site_settings_failed()}</p>
-  {/if}
-</section>
+    {#if failed}
+      <p class="note error" role="alert">{m.site_settings_failed()}</p>
+    {/if}
+  </section>
+{/if}
 
 <style>
   .permissions {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 2px;
+    padding-inline: var(--menu-item-inset);
     outline: none;
   }
 
@@ -204,16 +209,20 @@
     list-style: none;
   }
 
+  /* In a narrow column the control drops under the name. */
   li {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    min-block-size: 34px;
+    gap: 2px 8px;
+    min-block-size: 36px;
+    padding-block: 1px;
   }
 
   .name {
     display: grid;
+    flex: 1 1 auto;
     min-inline-size: 0;
     font-size: var(--text-body);
     line-height: 16px;
@@ -223,6 +232,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .control {
+    display: flex;
+    margin-inline-start: auto;
   }
 
   .use {

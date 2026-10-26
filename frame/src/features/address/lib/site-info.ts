@@ -1,17 +1,17 @@
 import type { SitePermissionDecisionView, SitePermissionKindView } from "$shared/ipc/bindings";
 
-/** What a site's select shows. Ask is no saved decision. */
+/** What a row's control shows. Ask is no saved decision. */
 export type PermissionChoice = "allow" | "block" | "ask";
 
 type Capture = { camera: string; microphone: string };
 
-/** Pop-ups are blocked unless a site is allowed, so they have no Ask. */
-export function permissionChoices(kind: SitePermissionKindView): PermissionChoice[] {
-  return kind === "popups" ? ["allow", "block"] : ["allow", "block", "ask"];
-}
-
-export function choiceOf(decision: SitePermissionDecisionView | undefined): PermissionChoice {
-  return decision ?? "ask";
+/** Pop-ups are blocked unless a site is allowed, so with no decision they read
+ *  as Block; every other kind with none asks. */
+export function choiceOf(
+  kind: SitePermissionKindView,
+  decision: SitePermissionDecisionView | undefined,
+): PermissionChoice {
+  return decision ?? (kind === "popups" ? "block" : "ask");
 }
 
 /** The decision to save for a choice; null forgets it so the site asks, or for

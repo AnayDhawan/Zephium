@@ -9,7 +9,7 @@
 {#if webext.isAvailable()}
   <button
     type="button"
-    role="menuitem"
+    data-dismiss
     class="ui-menu-item manage"
     onclick={() => void browserPage.open("extensions")}
   >

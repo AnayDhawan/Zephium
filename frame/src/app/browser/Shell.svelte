@@ -14,12 +14,12 @@
   import RenderBoundary from "$shared/ui/RenderBoundary";
   import { loadClearSiteData, loadSettings } from "$features/settings";
   import { EssentialTile } from "$features/essentials";
-  import { AddressField, findInPage } from "$features/address";
+  import { AddressField, SiteDetails, SiteHead, findInPage } from "$features/address";
   import { Dock } from "$features/dock";
   import { DownloadPulse, DownloadStatus } from "$features/downloads";
   import { UpdateNotice } from "$features/updates";
   import { EssentialsRail } from "$features/essentials";
-  import { ExtensionActions, ManageExtensions } from "$features/extensions";
+  import { ExtensionsSection } from "$features/extensions";
   import { loadWebExtensionManager, StoreInstallRail } from "$features/webext";
   import { sidebarTree } from "$features/tabs";
   import { SidebarBody } from "$features/tabs";
@@ -33,12 +33,11 @@
   import { uiCommands as ui } from "$domain/ui-commands";
   import { untrack, type Component } from "svelte";
   import { clearRequest } from "$domain/site-data";
-  import { blocker } from "$domain/blocker";
   import { BlockerShield, HidingBar, hideElements, toggleSiteProtection } from "$features/blocker";
 
   import { onMount } from "svelte";
   import { events } from "$shared/ipc/native-events";
-  import { askSettings, handleNativeSection, selectSettings } from "$features/settings";
+  import { askSettings, handleNativeSection } from "$features/settings";
   import * as m from "$shared/i18n/messages";
   import { surface as browserPage } from "$domain/surface";
   import { loadToolSlot } from "$features/tools";
@@ -84,11 +83,6 @@
   function openAccount(intent: "account" | "credits") {
     askSettings(intent === "credits" ? "credits" : null);
     handleNativeSection("settings.section.account");
-    void browserPage.open("settings");
-  }
-  // The site-info panel's link lands on the list it is a summary of.
-  function openSiteSettings() {
-    selectSettings("privacy", "privacy.site-settings");
     void browserPage.open("settings");
   }
   function openAbout() {
@@ -227,7 +221,6 @@
       void loadClearSiteData().then((module) => (ClearSiteData = module.default));
   });
 
-  let protectionMenuActivated = $state(0);
   let handledCommand = 0;
   $effect(() => {
     const command = ui.uiCommand();
@@ -356,17 +349,22 @@
             whole column, field included; the tray rides the field itself,
             because everything in it acts on the page the field names.
           -->
-            <AddressField {compact} onSiteSettings={openSiteSettings}>
-              {#snippet trailing()}
+            <AddressField {compact}>
+              {#snippet trailing(page)}
                 <UtilityTray
-                  onopen={() => {
-                    protectionMenuActivated += 1;
-                    void blocker.refresh();
-                  }}
+                  label={page === null
+                    ? m.utilities()
+                    : page.warning
+                      ? m.site_info_label_status({ status: page.warning })
+                      : m.site_info_label()}
+                  warning={page?.warning}
                 >
-                  <BlockerShield labelled activated={protectionMenuActivated} />
-                  <ExtensionActions />
-                  <ManageExtensions />
+                  {#snippet children(open)}
+                    <SiteHead {page} />
+                    <BlockerShield {open} />
+                    <ExtensionsSection />
+                    <SiteDetails {page} {open} />
+                  {/snippet}
                 </UtilityTray>
               {/snippet}
             </AddressField>

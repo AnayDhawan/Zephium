@@ -289,9 +289,9 @@ for (const theme of ["light", "dark"] as const) {
     sidebar.adoptMode("default");
     await settle();
 
-    // The tray on the address steps the column back under it, as the
+    // The panel on the address steps the column back under it, as the
     // switcher does.
-    await screen.getByRole("button", { name: "Utilities" }).click();
+    await screen.getByRole("button", { name: "Site information" }).click();
     await settle();
     await crop(`${theme}-site-info`);
     away();

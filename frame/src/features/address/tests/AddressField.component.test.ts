@@ -4,7 +4,7 @@ import { emitNativeEvent } from "$shared/testing/native-events";
 import { revision, tabFixture } from "$shared/testing/fixtures";
 import { tabs } from "$domain/tabs";
 import { preferences } from "$domain/preferences";
-import AddressField from "../components/AddressField.svelte";
+import AddressFieldHost from "./AddressFieldHost.svelte";
 
 const native = vi.hoisted(() => ({ defaultZoom: "100", page: null as string | null }));
 
@@ -57,7 +57,7 @@ async function field(props: { compact?: boolean } = {}) {
     active: tab.id,
     split_group: null,
   });
-  const screen = await render(AddressField, props);
+  const screen = await render(AddressFieldHost, props);
   const input = screen.container.querySelector<HTMLInputElement>("[data-zephium-address]")!;
   return { screen, input };
 }
@@ -141,68 +141,92 @@ test("a page that stopped responding offers to wait or reload", async () => {
   await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
 });
 
-async function zoomed(zoom: number | undefined) {
-  const { screen } = await field();
-  const tab = tabs.activeTab()!;
-  emitNativeEvent("tabChanged", { ...tab, projection_revision: stamp(), zoom });
-  return screen;
+const told = (screen: { container: Element }) =>
+  JSON.parse(screen.container.querySelector("[data-trailing]")?.textContent ?? "undefined");
+
+async function trailed(change: Record<string, unknown> = {}) {
+  const { screen, input } = await field();
+  if (Object.keys(change).length > 0) {
+    emitNativeEvent("tabChanged", {
+      ...tabs.activeTab()!,
+      projection_revision: stamp(),
+      ...change,
+    });
+  }
+  return { screen, input };
 }
 
-test("a page zoomed away from the default shows its level beside the address", async () => {
-  const screen = await zoomed(125);
-  const badge = screen.getByRole("button", { name: "Page zoom, 125%" });
-  await expect.element(badge).toBeVisible();
-  await expect.element(badge).toHaveTextContent("125%");
+test("the trailing controls are told about a secure web page, with nothing wrong with it", async () => {
+  const { screen } = await trailed();
+  expect(told(screen)).toEqual({
+    url: "https://www.wikipedia.org/wiki/Premium",
+    security: "secure",
+    warning: null,
+    capture: null,
+    privateWindow: false,
+    zoom: null,
+    standardZoom: 100,
+  });
 });
 
-test("a page at the default shows no zoom, and none arrives before a page exists", async () => {
-  const screen = await zoomed(100);
-  await expect.element(screen.getByRole("button", { name: /Page zoom/u })).not.toBeInTheDocument();
+test("an unencrypted page, and one past a certificate warning, are told what is wrong", async () => {
+  const { screen } = await trailed({ url: "http://example.com/" });
+  await expect.poll(() => told(screen).security).toBe("insecure");
+  expect(told(screen).warning).toBe("Connection is not encrypted");
+
   emitNativeEvent("tabChanged", {
     ...tabs.activeTab()!,
     projection_revision: stamp(),
-    zoom: undefined,
+    url: "https://self-signed.example/",
+    certificate_exception: true,
   });
-  await expect.element(screen.getByRole("button", { name: /Page zoom/u })).not.toBeInTheDocument();
+  await expect.poll(() => told(screen).security).toBe("untrusted");
+  expect(told(screen).warning).toBe("Certificate not trusted. You chose to continue to this site.");
 });
 
-test("the default zoom is what the badge measures against", async () => {
-  native.defaultZoom = "125";
+test("the page's zoom is passed on with what pages show at by default", async () => {
+  native.defaultZoom = "110";
   await preferences.init();
-  const screen = await zoomed(125);
-  await expect.element(screen.getByRole("button", { name: /Page zoom/u })).not.toBeInTheDocument();
-  emitNativeEvent("tabChanged", {
-    ...tabs.activeTab()!,
-    projection_revision: stamp(),
-    zoom: 100,
-  });
-  await expect.element(screen.getByRole("button", { name: "Page zoom, 100%" })).toBeVisible();
+  const { screen } = await trailed({ zoom: 125 });
+  await expect.poll(() => told(screen).zoom).toBe(125);
+  expect(told(screen).standardZoom).toBe(110);
 });
 
-test("the zoom badge leaves the not-secure glyph and the address alone", async () => {
-  const { screen, input } = await field();
-  const tab = tabs.activeTab()!;
-  emitNativeEvent("tabChanged", {
-    ...tab,
-    projection_revision: stamp(),
-    url: "http://example.com/",
-    zoom: 90,
-  });
+test("a camera in use is told too", async () => {
+  const { screen } = await trailed({ capture: { camera: "active", microphone: "none" } });
+  await expect.poll(() => told(screen).capture).toEqual({ camera: "active", microphone: "none" });
+});
+
+test("a new tab, an internal page and a blank page have no site to be told of", async () => {
+  const blank = await pageWithout({ url: null });
+  await expect.poll(() => told(blank)).toBeNull();
+  blank.unmount();
+
+  const internal = await pageWithout({ url: null, content: "settings" });
+  await expect.poll(() => told(internal)).toBeNull();
+  internal.unmount();
+
+  const about = await pageWithout({ url: "about:blank" });
+  await expect.poll(() => told(about)).toBeNull();
+});
+
+test("a page behind Settings has none either, and the rail draws no trailing controls", async () => {
+  native.page = "settings";
+  const behind = await field();
+  await expect.poll(() => told(behind.screen)).toBeNull();
+  behind.screen.unmount();
+
+  native.page = null;
+  const rail = await field({ compact: true });
+  expect(rail.screen.container.querySelector("[data-trailing]")).toBeNull();
+});
+
+test("the field itself carries no site glyph and no zoom badge", async () => {
+  const { screen } = await trailed({ url: "http://example.com/", zoom: 90 });
+  await expect.poll(() => told(screen).zoom).toBe(90);
   await expect
-    .element(screen.getByRole("button", { name: "Site information, Connection is not encrypted" }))
-    .toBeVisible();
-  await expect.element(screen.getByRole("button", { name: "Page zoom, 90%" })).toBeVisible();
-  expect(input.value).toBe("example.com");
-});
-
-test("a secure page has a quiet site-information glyph at the start of the field", async () => {
-  const { screen, input } = await field();
-  const glyph = screen.getByRole("button", { name: "Site information" });
-  await expect.element(glyph).toBeVisible();
-  expect(
-    glyph.element().compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING,
-  ).toBeTruthy();
-  expect(input.value).toBe("www.wikipedia.org");
+    .element(screen.getByRole("button", { name: /Site information|Page zoom/u }))
+    .not.toBeInTheDocument();
 });
 
 async function pageWithout(change: Record<string, unknown>) {
@@ -215,49 +239,3 @@ async function pageWithout(change: Record<string, unknown>) {
   await expect.poll(() => input.value).toBe("");
   return screen;
 }
-
-test("a new tab, an internal page and a blank page have no site information", async () => {
-  const blank = await pageWithout({ url: null });
-  await expect
-    .element(blank.getByRole("button", { name: /Site information/u }))
-    .not.toBeInTheDocument();
-  blank.unmount();
-
-  const internal = await pageWithout({ url: null, content: "settings" });
-  await expect
-    .element(internal.getByRole("button", { name: /Site information/u }))
-    .not.toBeInTheDocument();
-  internal.unmount();
-
-  const about = await pageWithout({ url: "about:blank" });
-  await expect
-    .element(about.getByRole("button", { name: /Site information/u }))
-    .not.toBeInTheDocument();
-});
-
-test("a page behind Settings and the rail have none either", async () => {
-  native.page = "settings";
-  const behind = await field();
-  await expect
-    .element(behind.screen.getByRole("button", { name: /Site information/u }))
-    .not.toBeInTheDocument();
-  behind.screen.unmount();
-
-  native.page = null;
-  const rail = await field({ compact: true });
-  await expect
-    .element(rail.screen.getByRole("button", { name: /Site information/u }))
-    .not.toBeInTheDocument();
-});
-
-test("pressing the glyph while typing ends the edit and opens the panel", async () => {
-  const { screen, input } = await field();
-  input.focus();
-  await expect.poll(() => input.value).toBe("https://www.wikipedia.org/wiki/Premium");
-  const glyph = screen.getByRole("button", { name: "Site information" });
-  glyph.element().dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-  expect(document.activeElement).not.toBe(input);
-  await glyph.click();
-  await expect.element(glyph).toHaveAttribute("aria-expanded", "true");
-  await expect.poll(() => input.value).toBe("www.wikipedia.org");
-});

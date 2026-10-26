@@ -74,9 +74,8 @@
 
 <!--
   The extensions' own buttons, a grid of tiles in the tray named by their
-  tooltips. They are items of the menu around them, so choosing one closes it
-  and arrow keys travel over them. At rail width they are rows of the
-  column's native menu instead.
+  tooltips. Choosing one closes the panel around them. At rail width they are
+  rows of the column's native menu instead.
 -->
 <div
   bind:this={actionRoot}
@@ -87,7 +86,7 @@
   {#each actions as action (action.runtime.install_id)}
     <button
       type="button"
-      role="menuitem"
+      data-dismiss
       aria-label={action.label || m.webext_action()}
       aria-haspopup={action.presents_popup ? "dialog" : undefined}
       title={action.label || m.webext_action()}
@@ -117,7 +116,7 @@
 <style>
   .actions {
     display: grid;
-    grid-template-columns: repeat(5, 36px);
+    grid-template-columns: repeat(auto-fill, 36px);
     gap: 4px;
   }
 
@@ -189,8 +188,7 @@
   }
 
   .failure {
-    max-width: 196px;
-    margin: 8px 2px 0;
+    margin: 4px var(--menu-item-inset);
     font-size: var(--text-label);
     line-height: 1.4;
     color: var(--color-muted);
