@@ -840,6 +840,10 @@ impl Engine for FakeEngine {
         self.log(format!("extract {id}"));
         self.native_admission()
     }
+    fn save_page(&self, id: ItemId) -> NativeDispatch {
+        self.log(format!("save {id}"));
+        self.native_admission()
+    }
     fn discover_favicon(&self, id: ItemId) -> NativeDispatch {
         self.log(format!("discover {id}"));
         self.native_admission()

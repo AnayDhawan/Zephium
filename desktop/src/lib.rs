@@ -5514,6 +5514,7 @@ fn build_menu(
         .item(&item("note.new")?)
         .item(&item("split.choose")?)
         .separator()
+        .item(&item("page.save")?)
         .item(&item("page.print")?)
         .separator()
         .item(&item("tab.close")?)

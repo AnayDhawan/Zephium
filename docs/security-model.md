@@ -386,8 +386,10 @@ privileged Windows views have no equivalent native denial hook. This is an expli
 platform limitation, not a broker Zephium has implemented. Raw Windows views disable
 browser accelerator keys and initially disable default context menus. Human views
 re-enable native menus only after installing a bounded command allowlist and a
-mandatory SaveAsUIShowing cancellation handler; privileged/agent views retain
-menu denial. Native edit/copy, link opening and download save actions remain;
+mandatory SaveAsUIShowing handler that cancels every Save As except the one the
+browser itself requests with Save Page As (a gate open only while that call is in
+flight, present only on views a person reads); privileged/agent views retain
+menu denial and cancel every Save As. Native edit/copy, link opening and download save actions remain;
 print, document Save As, sharing and unknown commands are removed. Built-in PDF
 Save, Save As, and Print controls remain hidden before the first load. WebView2 likewise exposes no event that can cancel page-initiated scripted
 printing. Zephium locks the page and `Window`-prototype print functions and wraps and

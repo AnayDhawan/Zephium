@@ -164,3 +164,36 @@ fn old_documents_are_let_go_so_memory_stays_bounded() {
         "<html>29</html>"
     );
 }
+
+#[test]
+fn save_page_goes_to_the_engine_only_for_a_loaded_page_in_front() {
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let page = active_id(&screen);
+    let saves = |engine: &FakeEngine| {
+        engine
+            .calls()
+            .iter()
+            .filter(|call| call.starts_with("save "))
+            .count()
+    };
+    // A blank tab has nothing to save.
+    let blank = shell.handle_operation(Command::Run("page.save".into()));
+    assert_eq!(blank.outcome, OperationOutcome::NoOp);
+
+    navigate_and_commit(&mut shell, page, "docs.example");
+    let saved = shell.handle_operation(Command::Run("page.save".into()));
+    assert_eq!(saved.outcome, OperationOutcome::Deferred);
+    assert_eq!(saves(&engine), 1);
+
+    // Nor does a browser page, or a source tab, hold a page to save.
+    shell.handle_operation(Command::ShowBrowserPage(Some(crate::BrowserPage::Settings)));
+    let covered = shell.handle_operation(Command::Run("page.save".into()));
+    assert_eq!(covered.outcome, OperationOutcome::NoOp);
+    shell.handle_operation(Command::ShowBrowserPage(None));
+    let _ = shell.handle_operation(Command::Run("page.viewSource".into()));
+    shell.handle(extracted(page, "<html></html>"));
+    let source_tab = shell.handle_operation(Command::Run("page.save".into()));
+    assert_eq!(source_tab.outcome, OperationOutcome::NoOp);
+    assert_eq!(saves(&engine), 1);
+}

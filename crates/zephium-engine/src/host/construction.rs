@@ -2067,7 +2067,8 @@ impl EngineHost {
             use wry::WebViewExtWindows;
             // configure() deliberately denies menus for generic/agent views.
             // Only this human-view constructor installed both the bounded
-            // ContextMenuRequested filter and the SaveAsUIShowing denial hook.
+            // ContextMenuRequested filter and the SaveAsUIShowing gate, which
+            // lets through only a Save As the browser asked for.
             // Tabs a person reads also get WebView2's own page dialogs, which
             // name the origin that asks; agent views keep them denied.
             // A failed load shows Zephium's explanation, never Edge's page:

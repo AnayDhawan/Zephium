@@ -58,29 +58,57 @@ impl Shell {
     /// Asks the page in front for its source. The tab opens when the engine
     /// answers.
     pub(super) fn operation_view_source(&mut self) -> OperationDisposition {
-        let Some(id) = self
-            .windows
-            .focused()
-            .and_then(|window| window.active)
-            .filter(|_| self.active_browser_page().is_none())
-        else {
-            return operation_result(OperationOutcome::NoOp, OperationReason::NoFocusedWindow);
+        let id = match self.loaded_page_in_front() {
+            Ok(id) => id,
+            Err(refused) => return refused,
         };
-        let viewable = self.item_in_focused_scope(id)
-            && self.items.tab(id).is_some_and(|tab| {
-                tab.content == zephium_core::item::TabContent::Web
-                    && tab.has_view()
-                    && tab.url.as_ref().is_some_and(navigation::is_allowed)
-            });
-        if !viewable {
-            return operation_result(OperationOutcome::NoOp, OperationReason::InvalidScope);
-        }
         self.sources.awaiting = Some(id);
         let mut native = NativeWork::default();
         native.record(self.engine.extract_html(id));
         if native.rejected {
             self.sources.awaiting = None;
         }
+        mutation_result(native)
+    }
+
+    /// The page the person is looking at, when it is a loaded web page they
+    /// read: the only thing that can be viewed as source or saved.
+    fn loaded_page_in_front(&self) -> Result<ItemId, OperationDisposition> {
+        let Some(id) = self
+            .windows
+            .focused()
+            .and_then(|window| window.active)
+            .filter(|_| self.active_browser_page().is_none())
+        else {
+            return Err(operation_result(
+                OperationOutcome::NoOp,
+                OperationReason::NoFocusedWindow,
+            ));
+        };
+        let loaded = self.item_in_focused_scope(id)
+            && self.items.tab(id).is_some_and(|tab| {
+                tab.content == zephium_core::item::TabContent::Web
+                    && tab.has_view()
+                    && tab.url.as_ref().is_some_and(navigation::is_allowed)
+            });
+        if loaded {
+            Ok(id)
+        } else {
+            Err(operation_result(
+                OperationOutcome::NoOp,
+                OperationReason::InvalidScope,
+            ))
+        }
+    }
+
+    /// Saves the page in front through the engine's own Save As.
+    pub(super) fn operation_save_page(&mut self) -> OperationDisposition {
+        let id = match self.loaded_page_in_front() {
+            Ok(id) => id,
+            Err(refused) => return refused,
+        };
+        let mut native = NativeWork::default();
+        native.record(self.engine.save_page(id));
         mutation_result(native)
     }
 

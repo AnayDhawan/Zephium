@@ -3124,6 +3124,10 @@ impl Engine for WebviewEngine {
         self.run_for_active_item(id, move |h| h.extract_html(id))
     }
 
+    fn save_page(&self, id: ItemId) -> NativeDispatch {
+        self.run_for_active_item(id, move |h| h.save_page(id))
+    }
+
     fn discover_favicon(&self, id: ItemId) -> NativeDispatch {
         self.run_for_active_item(id, move |h| h.discover_favicon(id))
     }

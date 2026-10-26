@@ -1061,6 +1061,7 @@ impl Shell {
                 },
             ),
             "page.viewSource" => self.operation_view_source(),
+            "page.save" => self.operation_save_page(),
             "page.devtools" => active.map_or_else(
                 || operation_result(OperationOutcome::NoOp, OperationReason::NoFocusedWindow),
                 |id| {

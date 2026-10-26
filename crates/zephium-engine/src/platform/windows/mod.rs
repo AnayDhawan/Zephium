@@ -409,8 +409,8 @@ fn configure_with_credential_denied(
         }
         // Generic and agent views retain download/menu denial. The human-view
         // constructor may enable a bounded native menu only after installing
-        // its download broker and a separate SaveAsUIShowing denial hook;
-        // document SaveAs is not part of the DownloadStarting protocol.
+        // its download broker and a separate SaveAsUIShowing gate; document
+        // SaveAs is not part of the DownloadStarting protocol.
         settings.SetAreDefaultContextMenusEnabled(false)?;
         // Native modal dialogs are likewise disabled until browser chrome has
         // an origin-labelled, rate-limited dialog broker.

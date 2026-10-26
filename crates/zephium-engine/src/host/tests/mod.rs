@@ -627,6 +627,49 @@ fn every_identity_bearing_commit_rearms_presentation_but_history_observation_doe
 }
 
 #[test]
+fn webview2_save_as_passes_only_while_the_browser_has_asked_for_one() {
+    let webview2 = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../vendor/wry/src/webview2/mod.rs"
+    ));
+    let mut handlers = webview2.split("add_SaveAsUIShowing(").skip(1);
+    // Both registrations: every view, and the views a person reads.
+    for _ in 0..2 {
+        let handler = handlers
+            .next()
+            .expect("a SaveAsUIShowing registration")
+            .split("token,")
+            .next()
+            .expect("a bounded SaveAsUIShowing handler");
+        assert!(handler.contains("gate.as_ref().is_some_and(|gate| gate.get())"));
+        assert!(handler.contains("args.SetCancel(!allowed)?"));
+        assert!(!handler.contains("SetCancel(true)"));
+    }
+    // A view built without the gate (an agent view, a raw view) cannot open
+    // one, and the gate is closed again when the dialog's call completes.
+    let show = webview2
+        .split("pub fn show_save_as(&self)")
+        .nth(1)
+        .expect("the browser's Save As entry")
+        .split("pub fn set_memory_usage_level")
+        .next()
+        .expect("a bounded Save As entry");
+    assert!(show.contains("let Some(gate) = self.save_as.clone() else"));
+    assert!(show.contains("E_ACCESSDENIED"));
+    assert!(show.contains("closing.set(false)"));
+    let gate = webview2
+        .split("let save_as = pl_attrs")
+        .nth(1)
+        .expect("the gate's construction")
+        .split(';')
+        .next()
+        .expect("a bounded gate construction");
+    assert!(gate.contains("native_context_menu_handler"));
+    assert!(gate.contains(".is_some()"));
+    assert!(gate.contains(".then("));
+}
+
+#[test]
 fn every_native_stage_revalidates_the_generation_permit_around_reveal() {
     let mac = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),

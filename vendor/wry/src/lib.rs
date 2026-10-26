@@ -2999,6 +2999,11 @@ pub trait WebViewExtWindows {
   /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   fn set_theme(&self, theme: Theme) -> Result<()>;
 
+  /// Shows WebView2's own Save As dialog for the loaded document. Refused
+  /// unless the view was built with a native context menu handler, which only
+  /// a page a person reads has.
+  fn show_save_as(&self) -> Result<()>;
+
   /// Sets the [memory usage target level][1].
   ///
   /// When to best use this mode depends on the app in question. Most commonly it's called when
@@ -3041,6 +3046,10 @@ impl WebViewExtWindows for WebView {
 
   fn set_theme(&self, theme: Theme) -> Result<()> {
     self.webview.set_theme(theme)
+  }
+
+  fn show_save_as(&self) -> Result<()> {
+    self.webview.show_save_as()
   }
 
   fn set_memory_usage_level(&self, level: MemoryUsageLevel) -> Result<()> {

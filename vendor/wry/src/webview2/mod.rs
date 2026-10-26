@@ -664,6 +664,10 @@ pub(crate) struct InnerWebView {
   pub env: ICoreWebView2Environment,
   custom_protocol_admission: InFlightAdmission,
   cleanup: RefCell<Option<NativeCleanupDebt>>,
+  /// Present only for a page a person reads. It is set while a Save As the
+  /// browser asked for is in flight, and is the only thing that lets
+  /// `SaveAsUIShowing` through; a view without it denies every Save As.
+  save_as: Option<Rc<Cell<bool>>>,
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
@@ -1143,6 +1147,10 @@ impl InnerWebView {
       }
     }
     let custom_protocol_admission = InFlightAdmission::new(CUSTOM_PROTOCOL_IN_FLIGHT_LIMIT);
+    let save_as = pl_attrs
+      .native_context_menu_handler
+      .is_some()
+      .then(|| Rc::new(Cell::new(false)));
     let webview = match Self::init_webview(
       parent,
       hwnd,
@@ -1154,6 +1162,7 @@ impl InnerWebView {
       is_child,
       &mut construction,
       &custom_protocol_admission,
+      save_as.clone(),
     ) {
       Ok(webview) => webview,
       Err(error) => {
@@ -1209,6 +1218,7 @@ impl InnerWebView {
       env,
       custom_protocol_admission,
       cleanup: RefCell::new(Some(cleanup)),
+      save_as,
       drag_drop_controller,
     })
   }
@@ -1476,6 +1486,7 @@ impl InnerWebView {
     is_child: bool,
     construction: &mut ControllerConstructionGuard,
     custom_protocol_admission: &InFlightAdmission,
+    save_as: Option<Rc<Cell<bool>>>,
   ) -> Result<ICoreWebView2> {
     let webview = unsafe { controller.CoreWebView2()? };
 
@@ -1523,6 +1534,7 @@ impl InnerWebView {
         &mut token,
         env,
         &pl_attrs,
+        &save_as,
       )?
     };
 
@@ -1659,11 +1671,14 @@ impl InnerWebView {
       // suppression. Require the current interface and cancel before
       // suppressing the dialog so a later HRESULT failure stays fail-closed.
       let webview25 = webview.cast::<ICoreWebView2_25>()?;
+      let gate = save_as.clone();
       webview25.add_SaveAsUIShowing(
-        &SaveAsUIShowingEventHandler::create(Box::new(|_, args| {
+        &SaveAsUIShowingEventHandler::create(Box::new(move |_, args| {
           if let Some(args) = args {
-            args.SetCancel(true)?;
-            args.SetSuppressDefaultDialog(true)?;
+            // Only a Save As the browser itself asked for passes.
+            let allowed = gate.as_ref().is_some_and(|gate| gate.get());
+            args.SetCancel(!allowed)?;
+            args.SetSuppressDefaultDialog(!allowed)?;
           }
           Ok(())
         })),
@@ -1774,6 +1789,7 @@ impl InnerWebView {
     token: &mut EventRegistrationToken,
     env: &ICoreWebView2Environment,
     pl_attrs: &super::PlatformSpecificWebViewAttributes,
+    save_as: &Option<Rc<Cell<bool>>>,
   ) -> Result<()> {
     // Page `window.close()` is only a request. The secure default deliberately
     // keeps the child HWND alive so an embedder cannot retain a logical view
@@ -2174,10 +2190,12 @@ impl InnerWebView {
       // filesystem surface denied even when selected download/edit menu items
       // are enabled. Registration is mandatory before any content can load.
       let core25: ICoreWebView2_25 = webview.cast()?;
+      let gate = save_as.clone();
       core25.add_SaveAsUIShowing(
-        &SaveAsUIShowingEventHandler::create(Box::new(|_, args| {
+        &SaveAsUIShowingEventHandler::create(Box::new(move |_, args| {
           if let Some(args) = args {
-            args.SetCancel(true)?;
+            let allowed = gate.as_ref().is_some_and(|gate| gate.get());
+            args.SetCancel(!allowed)?;
           }
           Ok(())
         })),
@@ -3472,6 +3490,26 @@ impl InnerWebView {
 
   pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
     unsafe { set_background_color(&self.controller, background_color) }
+  }
+
+  /// Shows WebView2's own Save As for the loaded document. Only a view a person
+  /// reads may; any other refuses, and a Save As the page starts is still
+  /// denied, because the gate is open only while this call is in flight.
+  pub fn show_save_as(&self) -> Result<()> {
+    let Some(gate) = self.save_as.clone() else {
+      return Err(windows::core::Error::from_hresult(E_ACCESSDENIED).into());
+    };
+    let webview = self.webview.cast::<ICoreWebView2_25>()?;
+    gate.set(true);
+    let closing = gate.clone();
+    let handler = ShowSaveAsUICompletedHandler::create(Box::new(move |_, _| {
+      closing.set(false);
+      Ok(())
+    }));
+    unsafe { webview.ShowSaveAsUI(&handler) }.map_err(|error| {
+      gate.set(false);
+      error.into()
+    })
   }
 
   pub fn set_memory_usage_level(&self, level: MemoryUsageLevel) -> Result<()> {

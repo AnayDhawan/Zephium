@@ -829,6 +829,13 @@ pub trait Engine {
     fn capture(&self, id: ItemId) -> NativeDispatch;
     /// Result arrives as `EngineEvent::HtmlExtracted`.
     fn extract_html(&self, id: ItemId) -> NativeDispatch;
+    /// Saves the page in front through the engine's own Save As: the web
+    /// engine's dialog on Windows, a save panel offering a web archive or the
+    /// page's source on macOS. Only a page a person reads is ever saved, and
+    /// nothing is written until they choose where.
+    fn save_page(&self, _id: ItemId) -> NativeDispatch {
+        NativeDispatch::Unsupported
+    }
     /// Starts watching the committed document's icon links: what they name
     /// arrives as `EngineEvent::FaviconCandidates` when the head first has
     /// icons and whenever they change until the page has loaded. One call per

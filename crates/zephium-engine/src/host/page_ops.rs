@@ -85,44 +85,97 @@ impl EngineHost {
     }
 
     pub(crate) fn extract_html(&self, id: ItemId) {
-        if let Some(view) = self.views.get(&id) {
-            let Some(epoch) = view.navigation.current_committed() else {
-                return;
-            };
-            let sink = self.sink.clone();
-            let permit = view.event_permit.clone();
-            let navigation = view.navigation.clone();
-            let script = EXTRACT_HTML_JS.replace("__MAX__", &MAX_HTML_CHARS.to_string());
-            let _ = view.evaluate_script_with_callback(&script, move |result| {
-                if !navigation.is_current(epoch) {
-                    return;
-                }
-                if result.len() > MAX_HTML_RESULT_BYTES {
-                    return;
-                }
-                let Ok(value) = serde_json::from_str::<String>(&result) else {
-                    return;
-                };
-                let (truncated, html) = if let Some(html) = value.strip_prefix('0') {
-                    (false, html)
-                } else if let Some(html) = value.strip_prefix('1') {
-                    (true, html)
-                } else {
-                    return;
-                };
-                if html.encode_utf16().count() > MAX_HTML_CHARS {
-                    return;
-                }
+        let Some(permit) = self.views.get(&id).map(|view| view.event_permit.clone()) else {
+            return;
+        };
+        let sink = self.sink.clone();
+        self.read_html(id, move |read| {
+            if let Some((html, truncated)) = read {
                 permit.emit(
                     &sink,
                     EngineEvent::HtmlExtracted {
                         id,
-                        html: html.to_owned(),
+                        html,
                         truncated,
                     },
                 );
-            });
+            }
+        });
+    }
+
+    /// Reads the serialized document of the committed page and hands it to
+    /// `done` with whether it was cut, or `None` when the page gave nothing
+    /// usable. `done` never runs for a page that has since navigated.
+    fn read_html(&self, id: ItemId, done: impl FnOnce(Option<(String, bool)>) + Send + 'static) {
+        let Some(view) = self.views.get(&id) else {
+            return;
+        };
+        let Some(epoch) = view.navigation.current_committed() else {
+            return;
+        };
+        let navigation = view.navigation.clone();
+        let script = EXTRACT_HTML_JS.replace("__MAX__", &MAX_HTML_CHARS.to_string());
+        let done = std::sync::Arc::new(std::sync::Mutex::new(Some(done)));
+        let on_result = done.clone();
+        let started = view.evaluate_script_with_callback(&script, move |result| {
+            if !navigation.is_current(epoch) {
+                return;
+            }
+            let read = (result.len() <= MAX_HTML_RESULT_BYTES)
+                .then(|| serde_json::from_str::<String>(&result).ok())
+                .flatten()
+                .and_then(|value| {
+                    let (truncated, html) = if let Some(html) = value.strip_prefix('0') {
+                        (false, html)
+                    } else {
+                        (true, value.strip_prefix('1')?)
+                    };
+                    (html.encode_utf16().count() <= MAX_HTML_CHARS)
+                        .then(|| (html.to_owned(), truncated))
+                });
+            if let Some(done) = on_result.lock().ok().and_then(|mut done| done.take()) {
+                done(read);
+            }
+        });
+        if started.is_err() {
+            if let Some(done) = done.lock().ok().and_then(|mut done| done.take()) {
+                done(None);
+            }
         }
+    }
+
+    /// Saves the page through the platform's own Save As. On macOS the page's
+    /// source is read first, so the panel can offer it beside the web
+    /// archive; a page that gives none still saves as an archive.
+    pub(crate) fn save_page(&self, id: ItemId) {
+        let Some(view) = self.views.get(&id) else {
+            return;
+        };
+        #[cfg(target_os = "macos")]
+        {
+            // The source is read beside the archive, which takes longer; the
+            // panel offers it if it has arrived by then.
+            let source = std::sync::Arc::new(std::sync::Mutex::new(None));
+            let slot = source.clone();
+            self.read_html(id, move |read| {
+                if let Ok(mut slot) = slot.lock() {
+                    *slot = read.map(|(html, _)| html);
+                }
+            });
+            let page = crate::platform::imp::native_webview(view);
+            if !crate::platform::macos::page_save::save_page(page, source) {
+                eprintln!("engine: Save As is unavailable here");
+            }
+        }
+        #[cfg(target_os = "windows")]
+        if let Err(error) = {
+            use wry::WebViewExtWindows;
+            view.show_save_as()
+        } {
+            eprintln!("engine: Save As is unavailable: {error}");
+        }
+        #[cfg(all(unix, not(target_os = "macos")))]
+        let _ = view;
     }
 
     /// One step of finding text in `id`. Results travel the view's own event

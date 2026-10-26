@@ -174,6 +174,12 @@ pub const REGISTRY: &[CommandSpec] = &[
     ),
     command("split.choose", "Split View…", Keys::NONE, Group::File),
     command(
+        "page.save",
+        "Save Page As…",
+        Keys::same("CmdOrCtrl+S"),
+        Group::File,
+    ),
+    command(
         "page.print",
         "Print…",
         Keys::same("CmdOrCtrl+P"),
