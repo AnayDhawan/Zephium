@@ -238,6 +238,7 @@
       if (command.id === "tab.copyLink") void tabs.copyMenuTargetLink().then(linkCopied);
       if (command.id === "page.copyLink") void tabs.copyActiveLink().then(linkCopied);
       if (command.id === "tab.clearSiteData") clearRequest.ask(tabs.takeMenuTargetUrl());
+      if (command.id === "page.clearSiteData") clearRequest.ask(tabs.activeTab()?.url);
       if (command.id === "find.show") findInPage.show(tabs.activeId());
       if (command.id === "find.next") findInPage.step(true, tabs.activeId());
       if (command.id === "find.previous") findInPage.step(false, tabs.activeId());

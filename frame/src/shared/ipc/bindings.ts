@@ -495,7 +495,7 @@ export const commands = {
 	tabMenuPopup: (id: string, x: number | null, y: number | null, context: TabMenuContext) => __TAURI_INVOKE<boolean>("tab_menu_popup", { id, x, y, context }),
 	bookmarkMenuPopup: (x: number | null, y: number | null, folder: boolean) => __TAURI_INVOKE<boolean>("bookmark_menu_popup", { x, y, folder }),
 	profileMenuPopup: (x: number | null, y: number | null) => __TAURI_INVOKE<boolean>("profile_menu_popup", { x, y }),
-	sidebarMenuPopup: (x: number | null, y: number | null, siteProtected: boolean | null, canHide: boolean, extensions: SidebarMenuExtension[], manageExtensions: boolean) => __TAURI_INVOKE<boolean>("sidebar_menu_popup", { x, y, siteProtected, canHide, extensions, manageExtensions }),
+	sidebarMenuPopup: (x: number | null, y: number | null, siteProtected: boolean | null, canHide: boolean, canClearData: boolean, extensions: SidebarMenuExtension[], manageExtensions: boolean) => __TAURI_INVOKE<boolean>("sidebar_menu_popup", { x, y, siteProtected, canHide, canClearData, extensions, manageExtensions }),
 	toolsMenuPopup: (x: number | null, y: number | null) => __TAURI_INVOKE<boolean>("tools_menu_popup", { x, y }),
 	/**
 	 *  New Tab has its own main-only entry. The actor revalidates the bound blank

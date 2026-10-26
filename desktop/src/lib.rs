@@ -3700,8 +3700,10 @@ fn execute_command(app: &tauri::AppHandle, id: &str) -> zephium_ipc::OperationAd
     }
     // Site protection acts on the frame's focused page state, and an
     // extension's button opens from the frame, which holds its action.
-    if matches!(id, PROTECTION_SITE_COMMAND | PROTECTION_HIDE_COMMAND)
-        || id.starts_with(EXTENSION_ACTION_COMMAND)
+    if matches!(
+        id,
+        PROTECTION_SITE_COMMAND | PROTECTION_HIDE_COMMAND | PAGE_CLEAR_SITE_DATA_COMMAND
+    ) || id.starts_with(EXTENSION_ACTION_COMMAND)
     {
         return if try_emit_to_privileged(app, MAIN_LABEL, EVENT_UI, &id) {
             accepted_ui_operation()
@@ -4943,6 +4945,7 @@ fn sidebar_menu_popup(
     y: f64,
     site_protected: Option<bool>,
     can_hide: bool,
+    can_clear_data: bool,
     extensions: Vec<SidebarMenuExtension>,
     manage_extensions: bool,
 ) -> bool {
@@ -4972,6 +4975,7 @@ fn sidebar_menu_popup(
         &keymap,
         site_protected,
         can_hide,
+        can_clear_data,
         &extensions,
         manage_extensions,
     ) else {
@@ -5715,6 +5719,10 @@ const SIDEBAR_MENU_COMMAND_IDS: [&str; 4] = [
 const PROTECTION_SITE_COMMAND: &str = "protection.site";
 const PROTECTION_HIDE_COMMAND: &str = "protection.hide";
 
+/// The rail's menu asks to clear the data of the page in front; the frame
+/// names the site in its confirmation, as it does for a tab's menu.
+const PAGE_CLEAR_SITE_DATA_COMMAND: &str = "page.clearSiteData";
+
 /// The bookmark panel arms the row it opened the menu on and applies the
 /// choice itself, through the same calls a click makes. Native only relays
 /// which entry was chosen, so it never holds a bookmark id.
@@ -5767,12 +5775,14 @@ struct TabMenuContext {
 }
 
 /// `site_protected` is the page's protection standing, absent where site
-/// controls do not apply; the frame owns both actions.
+/// controls do not apply; the frame owns both actions, and clearing the data
+/// of a page, offered where the page keeps any.
 fn build_sidebar_menu(
     handle: &tauri::AppHandle,
     overrides: &std::collections::HashMap<String, String>,
     site_protected: Option<bool>,
     can_hide: bool,
+    can_clear_data: bool,
     extensions: &[SidebarMenuExtension],
     manage_extensions: bool,
 ) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
@@ -5820,6 +5830,12 @@ fn build_sidebar_menu(
         };
         extension_items.push(item);
     }
+    let clear_rule = PredefinedMenuItem::separator(handle)?;
+    let clear = MenuItemBuilder::with_id(
+        PAGE_CLEAR_SITE_DATA_COMMAND,
+        menu_text::label("Clear Data for This Site…"),
+    )
+    .build(handle)?;
     let extension_rule = PredefinedMenuItem::separator(handle)?;
     let manage =
         MenuItemBuilder::with_id("extensions.manage", menu_text::label("Manage Extensions…"))
@@ -5827,6 +5843,12 @@ fn build_sidebar_menu(
     let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> = vec![&back, &forward, &reload];
     if let Some((rule, site, hide)) = &protection {
         items.extend([rule as &dyn IsMenuItem<tauri::Wry>, site, hide]);
+    }
+    if can_clear_data {
+        if protection.is_none() {
+            items.push(&clear_rule);
+        }
+        items.push(&clear);
     }
     if manage_extensions {
         items.push(&extension_rule);

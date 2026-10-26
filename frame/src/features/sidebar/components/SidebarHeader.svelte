@@ -9,6 +9,7 @@
   } from "@hugeicons/core-free-icons";
   import { tabs } from "$domain/tabs";
   import { blocker, siteMenuState } from "$domain/blocker";
+  import { pageSite } from "$domain/site-data";
   import { extensions } from "$domain/extensions";
   import { webext } from "$domain/webext";
   import { uiCommands as ui } from "$domain/ui-commands";
@@ -48,6 +49,11 @@
     const anchor = target.getBoundingClientRect();
     menuAnchor = anchor;
     const { siteProtected, canHide } = siteMenuState(blocker.status());
+    // A private window keeps nothing to clear, and only a web page has a site.
+    const canClearData =
+      tabs.profile()?.kind !== "incognito" &&
+      (active?.content ?? "web") === "web" &&
+      pageSite(active?.url) !== null;
     const listed = extensions
       .activeActions(tabs.profile()?.id ?? null, tabs.activeId())
       .map((action) => ({
@@ -61,6 +67,7 @@
       anchor.bottom,
       siteProtected,
       canHide,
+      canClearData,
       listed,
       webext.isAvailable(),
     );
