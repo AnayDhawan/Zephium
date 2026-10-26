@@ -514,7 +514,12 @@ notifications and screen capture are denied everywhere, and extension pages and
 offscreen documents deny media capture.
 The macOS coordinator loads the exact profile catalog only after a supported request from the
 focused resident tab, retains at most the two relevant rows, and serializes one
-browser-owned process-wide prompt. Navigation to another document, tab/profile
+browser-owned process-wide prompt. While chrome reports the expanded sidebar's
+address field on screen (never on a browser page such as Work), the prompt is a
+card under that field, where no page view overlaps, and the page stays on
+screen; otherwise it is a window-modal sheet and the content stage is removed
+while it shows. Opening a browser page over the asking tab dismisses it.
+Navigation to another document, tab/profile
 loss, window hide, shutdown, a two-minute Shell deadline, Store refusal, or
 identity mismatch all deny; the same document finishing its load or changing
 its address through the History API does not. One-time choices never write

@@ -52,12 +52,13 @@ impl Shell {
         };
         let present = tree.as_ref().is_some_and(|t| self.present(t));
         let mut l = layout::compute(win.size, win.mode, win.metrics, present);
-        // A browser-owned consent prompt is window-modal. Native page views
+        // A browser-owned consent sheet is window-modal. Native page views
         // are sibling views above chrome on every platform, so CSS alone
-        // cannot prevent a page from obscuring the prompt or receiving input
+        // cannot prevent a page from obscuring the sheet or receiving input
         // behind it. Remove content from the native stage and expand
-        // privileged chrome for exactly the lifetime of the retained prompt.
-        let privileged_overlay_active = self.page_permissions.is_visible()
+        // privileged chrome for exactly the lifetime of the retained sheet.
+        // A prompt in the sidebar needs neither: no page view overlaps it.
+        let privileged_overlay_active = self.page_permission_modal()
             || self.active_browser_page().is_some()
             || self.focus_covers();
         // `Items` marks a prospective view resident before its CreateView
@@ -133,7 +134,9 @@ impl Shell {
             dividers,
             work_pane,
         }));
-        self.engine.set_content(win.id, tree, l.content)
+        let applied = self.engine.set_content(win.id, tree, l.content);
+        self.reconcile_page_permission_placement();
+        applied
     }
 
     pub(super) fn locate_divider(&self, x: f64, y: f64) -> Option<GrabbedDivider> {

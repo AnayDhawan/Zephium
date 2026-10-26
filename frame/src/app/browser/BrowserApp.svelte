@@ -87,9 +87,13 @@
     });
   });
 
-  let pagePermissionPrompt = $derived(pagePermissions.prompt());
+  // A prompt in the sidebar leaves the page and chrome usable; only the
+  // sheet, shown without that column, holds the window.
+  let pagePermissionSheet = $derived(
+    pagePermissions.prompt()?.in_sidebar === false ? pagePermissions.prompt() : null,
+  );
   let consentActive = $derived(
-    pagePermissionPrompt !== null || webext.review() !== null || webext.accessRequest() !== null,
+    pagePermissionSheet !== null || webext.review() !== null || webext.accessRequest() !== null,
   );
 
   // Page keystrokes are matched natively (menu bar, engine key tables, the
@@ -230,8 +234,8 @@
   {#key webext.accessRequest()!.request}
     <WebExtensionAccessPrompt request={webext.accessRequest()!} />
   {/key}
-{:else if pagePermissionPrompt !== null}
-  {#key `${pagePermissionPrompt.profile_id}:${pagePermissionPrompt.item_id}:${pagePermissionPrompt.request_id}`}
-    <PagePermissionPrompt prompt={pagePermissionPrompt} />
+{:else if pagePermissionSheet !== null}
+  {#key `${pagePermissionSheet.profile_id}:${pagePermissionSheet.item_id}:${pagePermissionSheet.request_id}`}
+    <PagePermissionPrompt prompt={pagePermissionSheet} />
   {/key}
 {/if}

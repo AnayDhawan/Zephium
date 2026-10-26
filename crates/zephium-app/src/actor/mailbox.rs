@@ -1211,6 +1211,7 @@ fn command_is_critical(command: &Command) -> bool {
     matches!(
         command,
         Command::SetWindowFocused(false)
+            | Command::SetPagePermissionCardHost(false)
             | Command::BlockerReady(_)
             | Command::SetMemoryPressure(_)
             | Command::SidebarResizeGuide(None)

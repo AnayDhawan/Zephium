@@ -1759,6 +1759,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             browser_credentials::browser_credential_capability,
             browser_credentials::browser_passkey_authorization_request,
             page_permission_respond,
+            page_permission_card_host,
             tab_set_muted,
             media_player,
             site_permissions,
@@ -3350,6 +3351,20 @@ fn page_permission_respond(
             decision,
         },
     )
+}
+
+/// Whether the expanded sidebar's address field is on screen to hold the
+/// page-permission prompt. While it is not, the prompt is a window-modal
+/// sheet and the page leaves the screen.
+#[tauri::command]
+#[specta::specta]
+fn page_permission_card_host(caller: WebviewWindow, shell: State<'_, Handle>, available: bool) {
+    if !authorize(&caller, CallerPolicy::Main, "page_permission_card_host")
+        || shutdown_started(caller.app_handle())
+    {
+        return;
+    }
+    shell.dispatch(Command::SetPagePermissionCardHost(available));
 }
 
 static SITE_PERMISSIONS_QUERY_IN_FLIGHT: AtomicBool = AtomicBool::new(false);

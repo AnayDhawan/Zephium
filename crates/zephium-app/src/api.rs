@@ -481,6 +481,9 @@ pub enum Command {
     SetSidebarWidth(f64, bool),
     /// Transient Windows resize feedback only; no width or layout mutation.
     SidebarResizeGuide(Option<f64>),
+    /// Whether the expanded sidebar is on screen to show a page-permission
+    /// prompt under its address field.
+    SetPagePermissionCardHost(bool),
     ShowBrowserPage(Option<BrowserPage>),
     /// Shows the transient Work browser pane over an existing Space tab or a
     /// fresh tab navigated to `Url`. `rect` is window-local and clamped.

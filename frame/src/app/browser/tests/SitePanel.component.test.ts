@@ -18,7 +18,8 @@ const native = vi.hoisted(() => ({
   setProtected: vi.fn(async (_protect: boolean) => true),
   status: null as unknown as BlockerStatusView,
 }));
-vi.mock("$domain/permissions", () => ({
+vi.mock("$domain/permissions", async (original) => ({
+  ...(await original<typeof import("$domain/permissions")>()),
   sitePermissions: { list: native.list, set: native.set },
 }));
 vi.mock("$domain/blocker", async (original) => ({

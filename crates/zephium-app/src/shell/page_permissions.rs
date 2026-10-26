@@ -96,6 +96,8 @@ pub(super) struct PagePermissionPromptState {
     pending: Option<PendingPagePermission>,
     documents: Vec<DocumentDecision>,
     failed_until_restart: bool,
+    card_host: bool,
+    projected_in_sidebar: std::cell::Cell<Option<bool>>,
 }
 
 impl PagePermissionPromptState {
@@ -135,6 +137,10 @@ impl PagePermissionPromptState {
     #[cfg(test)]
     pub(super) fn remembered_documents(&self) -> usize {
         self.documents.len()
+    }
+
+    pub(super) fn record_projected_placement(&self, in_sidebar: Option<bool>) {
+        self.projected_in_sidebar.set(in_sidebar);
     }
 
     fn exact(&self, profile: ProfileId, item: ItemId, request: PagePermissionRequestId) -> bool {
@@ -345,9 +351,46 @@ impl Shell {
             && self.window_focused
             && self.windows.focused().is_some_and(|window| {
                 window.profile == profile
-                    && (window.active == Some(item) || self.work_pane_shows(item))
+                    && match self.active_browser_page() {
+                        None => window.active == Some(item),
+                        Some(_) => self.work_pane_shows(item),
+                    }
             })
             && self.items.tab(item).is_some_and(TabState::has_view)
+    }
+
+    /// The prompt sits under the address field of the expanded sidebar:
+    /// privileged chrome that no page view overlaps, so the page stays on
+    /// screen and the rest of the chrome stays usable. Chrome reports when
+    /// that field is on screen. A browser page never qualifies: Work floats
+    /// its page anywhere over the window.
+    pub(super) fn page_permission_in_sidebar(&self) -> bool {
+        self.page_permissions.card_host && self.active_browser_page().is_none()
+    }
+
+    /// With the sidebar compact or out of view the prompt falls back to a
+    /// window-modal sheet, and layout takes the content stage away while it
+    /// shows; see `relayout_with`.
+    pub(super) fn page_permission_modal(&self) -> bool {
+        self.page_permissions.is_visible() && !self.page_permission_in_sidebar()
+    }
+
+    pub(super) fn set_page_permission_card_host(&mut self, available: bool) {
+        self.page_permissions.card_host = available;
+        if self.page_permissions.is_visible() {
+            let _ = self.relayout();
+        }
+    }
+
+    /// Every layout that takes the page off the stage or puts it back also
+    /// moves a visible prompt between the sheet and the sidebar.
+    pub(super) fn reconcile_page_permission_placement(&self) {
+        if self.page_permissions.is_visible()
+            && self.page_permissions.projected_in_sidebar.get()
+                != Some(self.page_permission_in_sidebar())
+        {
+            self.project_page_permission_prompt();
+        }
     }
 
     pub(super) fn on_page_permission_request(

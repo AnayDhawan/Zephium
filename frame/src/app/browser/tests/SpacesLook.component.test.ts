@@ -22,6 +22,7 @@ vi.mock("$shared/ipc/bindings", async () => {
   const { mockBindings } = await import("$shared/testing/bindings");
   const ok = async () => ({ accepted: true, operation_id: null });
   return mockBindings({
+    pagePermissionCardHost: async () => {},
     tabsBootstrap: async () => {},
     sidebarSetWidth: async () => {},
     sidebarResize: async () => false,

@@ -40,8 +40,11 @@ impl Shell {
                         kinds,
                         rememberable: self.page_permissions.visible_rememberable(),
                         processing,
+                        in_sidebar: self.page_permission_in_sidebar(),
                     })
                 });
+        self.page_permissions
+            .record_projected_placement(prompt.as_ref().map(|prompt| prompt.in_sidebar));
         (self.emit)(Projection::PagePermissionPrompt(PagePermissionPromptView {
             projection_revision: format!("{:032x}", self.next_projection_revision()),
             prompt,

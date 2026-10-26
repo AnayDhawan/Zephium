@@ -11,7 +11,10 @@ vi.mock("$domain/permissions", () => ({
 }));
 afterEach(() => vi.clearAllMocks());
 
-const prompt = (rememberable: boolean): PagePermissionPromptEntryView => ({
+// Clicks in the first half second after the prompt appears are ignored.
+const settle = () => new Promise((resolve) => setTimeout(resolve, 550));
+
+const prompt = (rememberable: boolean, in_sidebar = false): PagePermissionPromptEntryView => ({
   profile_id: "00000000000000000000000901",
   item_id: "00000000000000000000000902",
   request_id: "0000000000000007",
@@ -19,6 +22,7 @@ const prompt = (rememberable: boolean): PagePermissionPromptEntryView => ({
   kinds: ["camera", "microphone"],
   rememberable,
   processing: false,
+  in_sidebar,
 });
 
 test("a saved profile offers the three choices and sends each one", async () => {
@@ -30,6 +34,7 @@ test("a saved profile offers the three choices and sends each one", async () => 
     .element(screen.getByText("Zephium will ask again next time."))
     .not.toBeInTheDocument();
   await expect.element(screen.getByRole("button", { name: "Never allow" })).toHaveFocus();
+  await settle();
   for (const [name, decision] of [
     ["Allow while visiting the site", "always_allow"],
     ["Allow this time", "allow_once"],
@@ -48,6 +53,7 @@ test("a private profile offers only one-time choices", async () => {
     .element(screen.getByRole("button", { name: "Allow while visiting the site" }))
     .not.toBeInTheDocument();
   await expect.element(screen.getByRole("button", { name: "Never allow" })).not.toBeInTheDocument();
+  await settle();
   await screen.getByRole("button", { name: "Allow this time" }).click();
   expect(native.respond).toHaveBeenLastCalledWith(shown, "allow_once");
   await screen.getByRole("button", { name: "Don't allow" }).click();
@@ -69,6 +75,42 @@ test("a location request names what the site will learn", async () => {
   await expect
     .element(screen.getByText("Granting access lets this site know where you are."))
     .toBeVisible();
+  await settle();
   await screen.getByRole("button", { name: "Allow while visiting the site" }).click();
   expect(native.respond).toHaveBeenLastCalledWith(shown, "always_allow");
+});
+
+test("a prompt in the sidebar is a card that leaves the page in view", async () => {
+  const shown = prompt(true, true);
+  const screen = await render(PagePermissionPrompt, { prompt: shown });
+  const card = screen.getByRole("alertdialog");
+  await expect.element(card).toBeVisible();
+  expect(card.element().closest(".fixed")).toBeNull();
+  expect(card.element().getAttribute("aria-modal")).toBeNull();
+  await expect.element(screen.getByText("https://meet.example")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Never allow" })).toHaveFocus();
+
+  // A click that lands as the card appears is not an answer.
+  await screen.getByRole("button", { name: "Allow this time" }).click();
+  expect(native.respond).not.toHaveBeenCalled();
+  await settle();
+  await screen.getByRole("button", { name: "Allow this time" }).click();
+  expect(native.respond).toHaveBeenLastCalledWith(shown, "allow_once");
+
+  await screen.getByRole("button", { name: "Never allow" }).element().focus();
+  await userEvent.keyboard("{Escape}");
+  expect(native.respond).toHaveBeenLastCalledWith(shown, "dismiss");
+});
+
+test("the card leaves keys and focus with whatever else has them", async () => {
+  const field = document.createElement("input");
+  document.body.append(field);
+  field.focus();
+  const shown = prompt(true, true);
+  const screen = await render(PagePermissionPrompt, { prompt: shown });
+  await expect.element(screen.getByRole("alertdialog")).toBeVisible();
+  expect(document.activeElement).toBe(field);
+  await userEvent.keyboard("{Escape}");
+  expect(native.respond).not.toHaveBeenCalled();
+  field.remove();
 });

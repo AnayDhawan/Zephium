@@ -955,6 +955,9 @@ impl Shell {
                 }
                 let _ = self.relayout_with(animate);
             }
+            Command::SetPagePermissionCardHost(available) => {
+                self.set_page_permission_card_host(available)
+            }
             Command::SidebarResizeGuide(width) => {
                 if let Some(win) = self.windows.focused() {
                     let zone = width.filter(|width| width.is_finite()).map(|width| {

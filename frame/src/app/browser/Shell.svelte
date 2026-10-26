@@ -15,6 +15,7 @@
   import { loadClearSiteData, loadSettings } from "$features/settings";
   import { EssentialTile } from "$features/essentials";
   import { AddressField, SiteDetails, SiteHead, findInPage } from "$features/address";
+  import { SidebarPagePermission } from "$features/permissions";
   import { Dock } from "$features/dock";
   import { DownloadPulse, DownloadStatus } from "$features/downloads";
   import { loadMediaPlayer } from "$features/media";
@@ -378,6 +379,8 @@
                 </UtilityTray>
               {/snippet}
             </AddressField>
+            <!-- Work floats its page over the whole window, sidebar included. -->
+            {#if !inWork}<SidebarPagePermission />{/if}
 
             <HidingBar />
             {#if splitting}<p class="shrink-0 px-3 pb-1 text-[12px] text-accent" aria-live="polite">

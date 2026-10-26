@@ -383,6 +383,10 @@ pub struct PagePermissionPromptEntryView {
     pub rememberable: bool,
     /// True while an exact durable remember-decision transaction is pending.
     pub processing: bool,
+    /// Shown as a card under the address field of the expanded sidebar, with
+    /// the page still on screen. Otherwise a window-modal sheet, with the
+    /// page taken off screen until it is answered.
+    pub in_sidebar: bool,
 }
 
 /// Exact replacement for the one process-wide page permission surface.

@@ -246,6 +246,7 @@ impl Shell {
         self.browser_after_return = None;
         let previous = self.browser_page;
         self.browser_page = page.map(|page| (window, page));
+        self.cancel_page_permission_if_not_foreground();
         self.drop_divider();
         if page != Some(crate::BrowserPage::Work) {
             self.retire_work_pane();

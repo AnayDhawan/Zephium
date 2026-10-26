@@ -1191,3 +1191,84 @@ fn ending_the_private_session_forgets_its_one_time_answers() {
         [(261, PagePermissionRequestSettlement::Allow)]
     );
 }
+
+fn watch_prompts(shell: &mut Shell) -> Arc<Mutex<Vec<Option<bool>>>> {
+    let shown = Arc::new(Mutex::new(Vec::new()));
+    let sink = shown.clone();
+    let previous = std::mem::replace(&mut shell.emit, Box::new(|_| {}));
+    shell.emit = Box::new(move |projection| {
+        if let Projection::PagePermissionPrompt(view) = &projection {
+            sink.lock()
+                .unwrap()
+                .push(view.prompt.as_ref().map(|prompt| prompt.in_sidebar));
+        }
+        previous(projection);
+    });
+    shown
+}
+
+fn page_on_screen(engine: &FakeEngine) -> bool {
+    engine
+        .layout_regions
+        .lock()
+        .unwrap()
+        .last()
+        .copied()
+        .flatten()
+        .is_some()
+}
+
+#[test]
+fn a_prompt_in_the_sidebar_leaves_the_page_on_screen() {
+    let (mut shell, engine, _screen, _queue, profile, item) =
+        ready_shell(Arc::new(FakeStore::default()));
+    make_private(&mut shell, profile);
+    let shown = watch_prompts(&mut shell);
+    let last = || *shown.lock().unwrap().last().unwrap();
+
+    // Compact or hidden sidebar: a sheet over the window, page off screen.
+    ask(&mut shell, profile, item, &camera(271));
+    assert_eq!(last(), Some(false));
+    assert!(!page_on_screen(&engine));
+
+    shell.handle(Command::SetPagePermissionCardHost(true));
+    assert_eq!(last(), Some(true));
+    assert!(page_on_screen(&engine));
+
+    shell.handle(Command::SetPagePermissionCardHost(false));
+    assert_eq!(last(), Some(false));
+    assert!(!page_on_screen(&engine));
+
+    shell.handle(Command::SetPagePermissionCardHost(true));
+    answer(
+        &mut shell,
+        profile,
+        item,
+        &camera(271),
+        PagePermissionPromptDecision::AllowOnce,
+    );
+    assert_eq!(last(), None);
+    assert!(page_on_screen(&engine));
+    assert_eq!(
+        settled(&engine),
+        [(271, PagePermissionRequestSettlement::Allow)]
+    );
+}
+
+#[test]
+fn opening_a_browser_page_dismisses_the_prompt_in_the_sidebar() {
+    let (mut shell, engine, _screen, _queue, profile, item) =
+        ready_shell(Arc::new(FakeStore::default()));
+    make_private(&mut shell, profile);
+    shell.handle(Command::SetPagePermissionCardHost(true));
+    ask(&mut shell, profile, item, &camera(281));
+    assert!(shell.page_permissions.is_visible());
+
+    let _ = shell.handle_operation(Command::ShowBrowserPage(Some(crate::BrowserPage::Settings)));
+
+    assert!(!shell.page_permissions.has_pending());
+    assert_eq!(
+        settled(&engine),
+        [(281, PagePermissionRequestSettlement::Deny)]
+    );
+}

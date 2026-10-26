@@ -374,6 +374,12 @@ export const commands = {
 	 *  but cannot mint or alter authority.
 	 */
 	pagePermissionRespond: (profileId: string, itemId: string, requestId: string, decision: PagePermissionPromptDecisionInput) => __TAURI_INVOKE<OperationAdmission>("page_permission_respond", { profileId, itemId, requestId, decision }),
+	/**
+	 *  Whether the expanded sidebar's address field is on screen to hold the
+	 *  page-permission prompt. While it is not, the prompt is a window-modal
+	 *  sheet and the page leaves the screen.
+	 */
+	pagePermissionCardHost: (available: boolean) => __TAURI_INVOKE<void>("page_permission_card_host", { available }),
 	tabSetMuted: (id: string, muted: boolean) => __TAURI_INVOKE<OperationAdmission>("tab_set_muted", { id, muted }),
 	mediaPlayer: (id: string, action: MediaPlayerAction) => __TAURI_INVOKE<OperationAdmission>("media_player", { id, action }),
 	/**
@@ -2413,6 +2419,12 @@ export type PagePermissionPromptEntryView = {
 	rememberable: boolean,
 	/**  True while an exact durable remember-decision transaction is pending. */
 	processing: boolean,
+	/**
+	 *  Shown as a card under the address field of the expanded sidebar, with
+	 *  the page still on screen. Otherwise a window-modal sheet, with the
+	 *  page taken off screen until it is answered.
+	 */
+	in_sidebar: boolean,
 };
 
 /**  Exact replacement for the one process-wide page permission surface. */
