@@ -47,8 +47,6 @@ mod page_permissions;
     any(target_os = "macos", target_os = "windows")
 ))]
 pub(crate) mod page_reader;
-#[cfg(target_os = "macos")]
-mod password_focus;
 mod permits;
 mod popup_sites;
 mod profiles;

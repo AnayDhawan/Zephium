@@ -20,6 +20,7 @@ const TITLES: Record<string, () => string> = {
   "page.devtools": m.command_page_devtools,
   "tab.close": m.command_tab_close,
   "page.copyLink": m.command_page_copy_link,
+  "page.autofillPassword": m.command_page_autofill_password,
   "find.show": m.command_find_show,
   "find.next": m.command_find_next,
   "find.previous": m.command_find_previous,

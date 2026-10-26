@@ -178,6 +178,19 @@ impl EngineHost {
         let _ = view;
     }
 
+    /// Run-owned agent pages are never in `views`, so they never get the
+    /// panel.
+    #[cfg(target_os = "macos")]
+    pub(crate) fn autofill_password(&self, id: ItemId) {
+        let Some(view) = self.views.get(&id) else {
+            return;
+        };
+        let page = crate::platform::imp::native_webview(view);
+        if !crate::platform::macos::autofill::show_passwords(&page) {
+            eprintln!("engine: AutoFill has no focused field here");
+        }
+    }
+
     /// One step of finding text in `id`. Results travel the view's own event
     /// permit, so a result from a view since replaced is never delivered.
     pub(crate) fn find(&mut self, id: ItemId, request: Option<FindRequest>) {
@@ -235,6 +248,22 @@ impl EngineHost {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn autofill_reaches_only_a_tabs_own_view() {
+        let source = include_str!("page_ops.rs");
+        let body = source
+            .split_once("pub(crate) fn autofill_password(")
+            .unwrap()
+            .1
+            .split_once("\n    }\n")
+            .unwrap()
+            .0;
+        assert!(body.contains("self.views.get(&id)"));
+        for agent in ["agent", "work_resources", "Work"] {
+            assert!(!body.contains(agent), "{agent}");
+        }
+    }
 
     #[test]
     fn zoom_settlement_keeps_the_last_proven_native_scale_on_failure() {

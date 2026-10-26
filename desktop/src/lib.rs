@@ -5535,8 +5535,10 @@ fn build_menu(
         .select_all_with_text(menu_text::label("Select All"))
         .separator()
         .item(&find)
-        .item(&item("page.copyLink")?)
-        .build()?;
+        .item(&item("page.copyLink")?);
+    #[cfg(target_os = "macos")]
+    let edit = edit.separator().item(&item("page.autofillPassword")?);
+    let edit = edit.build()?;
     let appearance = SubmenuBuilder::new(handle, menu_text::label("Appearance"))
         .item(&item("theme.system")?)
         .item(&item("theme.light")?)

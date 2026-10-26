@@ -1140,7 +1140,6 @@ impl RetirementGate {
             | event @ EngineEvent::FaviconRasterFailed { id, .. }
             | event @ EngineEvent::FaviconCandidates { id, .. }
             | event @ EngineEvent::FaviconImage { id, .. }
-            | event @ EngineEvent::PasswordFieldFocused { id }
             | event @ EngineEvent::DiscardSafety { id, .. }
             | event @ EngineEvent::NavState { id, .. }
             | event @ EngineEvent::HistoryEntries { id, .. }
@@ -3128,13 +3127,13 @@ impl Engine for WebviewEngine {
         self.run_for_active_item(id, move |h| h.save_page(id))
     }
 
-    fn discover_favicon(&self, id: ItemId) -> NativeDispatch {
-        self.run_for_active_item(id, move |h| h.discover_favicon(id))
+    #[cfg(target_os = "macos")]
+    fn autofill_password(&self, id: ItemId) -> NativeDispatch {
+        self.run_for_active_item(id, move |h| h.autofill_password(id))
     }
 
-    #[cfg(target_os = "macos")]
-    fn watch_password_focus(&self, id: ItemId) -> NativeDispatch {
-        self.run_for_active_item(id, move |h| h.watch_password_focus(id))
+    fn discover_favicon(&self, id: ItemId) -> NativeDispatch {
+        self.run_for_active_item(id, move |h| h.discover_favicon(id))
     }
 
     fn rasterize_favicon(&self, id: ItemId, url: &str) -> NativeDispatch {

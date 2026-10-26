@@ -211,6 +211,12 @@ pub const REGISTRY: &[CommandSpec] = &[
         Group::Edit,
     ),
     command(
+        "page.autofillPassword",
+        "AutoFill Password…",
+        Keys::NONE,
+        Group::Edit,
+    ),
+    command(
         "sidebar.toggleCompact",
         "Compact Mode",
         Keys::same("CmdOrCtrl+Shift+S"),
@@ -604,6 +610,10 @@ pub const REGISTRY: &[CommandSpec] = &[
     command("theme.dark", "Appearance: Dark", Keys::NONE, Group::Global),
 ];
 
+/// Commands only macOS carries out. WebView2 offers saved passwords itself
+/// as a field takes focus, so Windows has nothing to open.
+const MAC_ONLY: &[&str] = &["page.autofillPassword"];
+
 /// Overrides one person may hold. Bounded so a stored keymap can never grow
 /// past the registry it describes.
 pub const MAX_OVERRIDES: usize = 64;
@@ -653,6 +663,7 @@ pub fn resolve(overrides: &HashMap<String, String>) -> Vec<ResolvedCommand> {
 fn resolve_on(overrides: &HashMap<String, String>, platform: Platform) -> Vec<ResolvedCommand> {
     REGISTRY
         .iter()
+        .filter(|c| platform == Platform::Mac || !MAC_ONLY.contains(&c.id))
         .map(|c| {
             let canonical =
                 |text: &str| Accelerator::parse(text, platform).map(|a| a.format(platform));
@@ -766,6 +777,17 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn autofill_password_is_offered_only_on_macos() {
+        let offered = |platform| {
+            resolve_on(&HashMap::new(), platform)
+                .iter()
+                .any(|c| c.id == "page.autofillPassword")
+        };
+        assert!(offered(Platform::Mac));
+        assert!(!offered(Platform::Other));
     }
 
     #[test]

@@ -351,8 +351,6 @@ pub(crate) struct FakeEngine {
     data_calls: Mutex<Vec<(Partition, zephium_core::browsing_data::EngineDataCall)>>,
     data_reply: Mutex<Option<zephium_core::browsing_data::EngineDataReply>>,
     download_calls: Mutex<Vec<(Partition, zephium_core::downloads::DownloadCall)>>,
-    watches_password_focus: std::sync::atomic::AtomicBool,
-    password_watches: Mutex<Vec<ItemId>>,
 }
 
 impl FakeEngine {
@@ -844,22 +842,16 @@ impl Engine for FakeEngine {
         self.log(format!("save {id}"));
         self.native_admission()
     }
+    fn autofill_password(&self, id: ItemId) -> NativeDispatch {
+        self.log(format!("autofill {id}"));
+        self.native_admission()
+    }
     fn discover_favicon(&self, id: ItemId) -> NativeDispatch {
         self.log(format!("discover {id}"));
         self.native_admission()
     }
     fn rasterize_favicon(&self, id: ItemId, url: &str) -> NativeDispatch {
         self.log(format!("rasterize {id} {url}"));
-        self.native_admission()
-    }
-    fn watch_password_focus(&self, id: ItemId) -> NativeDispatch {
-        if !self
-            .watches_password_focus
-            .load(std::sync::atomic::Ordering::Acquire)
-        {
-            return NativeDispatch::Unsupported;
-        }
-        self.password_watches.lock().unwrap().push(id);
         self.native_admission()
     }
     fn native_favicons(&self) -> bool {
@@ -2248,7 +2240,6 @@ fn acknowledge_safe_discard(shell: &mut Shell, id: ItemId, probe: DiscardProbeId
 
 mod actor_integration;
 mod audio;
-mod autofill_hint;
 mod blocker;
 mod bootstrap;
 mod browsing_data;

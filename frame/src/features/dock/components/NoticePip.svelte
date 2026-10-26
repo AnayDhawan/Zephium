@@ -8,7 +8,6 @@
     Delete02Icon,
     Download01Icon,
     HourglassIcon,
-    Key01Icon,
     Link04Icon,
   } from "@hugeicons/core-free-icons";
   import * as notices from "$session/notice.svelte";
@@ -19,7 +18,6 @@
     download: Download01Icon,
     focus: HourglassIcon,
     data: Delete02Icon,
-    autofill: Key01Icon,
   };
   /** A glyph reads faster than a sentence, so it leaves sooner. */
   const LINGER = 1600;

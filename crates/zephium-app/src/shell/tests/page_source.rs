@@ -197,3 +197,40 @@ fn save_page_goes_to_the_engine_only_for_a_loaded_page_in_front() {
     assert_eq!(source_tab.outcome, OperationOutcome::NoOp);
     assert_eq!(saves(&engine), 1);
 }
+
+#[test]
+fn autofill_password_asks_the_engine_only_for_the_loaded_page_in_front() {
+    let (mut shell, engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let page = active_id(&screen);
+    let asked = |engine: &FakeEngine| -> Vec<String> {
+        engine
+            .calls()
+            .into_iter()
+            .filter(|call| call.starts_with("autofill "))
+            .collect()
+    };
+    let run =
+        |shell: &mut Shell| shell.handle_operation(Command::Run("page.autofillPassword".into()));
+
+    assert_eq!(run(&mut shell).outcome, OperationOutcome::NoOp);
+    navigate_and_commit(&mut shell, page, "login.example");
+    assert_eq!(run(&mut shell).outcome, OperationOutcome::Deferred);
+    assert_eq!(asked(&engine), [format!("autofill {page}")]);
+
+    // Chrome's own pages are not web pages, and Work is never offered it.
+    for covering in [crate::BrowserPage::Settings, crate::BrowserPage::Work] {
+        shell.handle_operation(Command::ShowBrowserPage(Some(covering)));
+        assert_eq!(run(&mut shell).outcome, OperationOutcome::NoOp);
+    }
+    shell.handle_operation(Command::ShowBrowserPage(None));
+    assert_eq!(asked(&engine).len(), 1);
+
+    // A private window's page gets the system's passwords like any other.
+    shell.handle(Command::Run("window.newPrivate".into()));
+    let private = active_id(&screen);
+    assert!(shell.incognito_profile(shell.windows.focused().unwrap().profile));
+    navigate_and_commit(&mut shell, private, "login.example");
+    assert_eq!(run(&mut shell).outcome, OperationOutcome::Deferred);
+    assert_eq!(asked(&engine).last(), Some(&format!("autofill {private}")));
+}

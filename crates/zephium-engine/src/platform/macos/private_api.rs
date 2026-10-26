@@ -1,13 +1,14 @@
-//! WebKit's private selectors Zephium relies on. Each use is guarded by
-//! `respondsToSelector:` and degrades to a feature that is unavailable, so a
-//! release of macOS that drops one is silent. This names which are gone.
+//! WebKit's and AppKit's private selectors Zephium relies on. Each use is
+//! guarded by `respondsToSelector:` and degrades to a feature that is
+//! unavailable, so a release of macOS that drops one is silent. This names
+//! which are gone.
 
 use std::ffi::CStr;
 
 use objc2::ffi::protocol_getMethodDescription;
 use objc2::runtime::{AnyClass, AnyProtocol, Bool, Sel};
 
-/// Selectors WebKit implements on its own classes.
+/// Instance methods the private classes implement.
 const IMPLEMENTED: &[(&CStr, &[&CStr])] = &[
     (
         c"WKWebView",
@@ -26,7 +27,15 @@ const IMPLEMENTED: &[(&CStr, &[&CStr])] = &[
         &[c"_removeAllUserScriptsAssociatedWithContentWorld:"],
     ),
     (c"_WKContentRuleListAction", &[c"blockedLoad"]),
+    (
+        c"NSAutoFillHeuristicController",
+        &[c"showAutoFillPasswordsPopoverForTextInputContext:"],
+    ),
 ];
+
+/// Class methods, such as a shared instance.
+const CLASS_METHODS: &[(&CStr, &[&CStr])] =
+    &[(c"NSAutoFillHeuristicController", &[c"sharedInstance"])];
 
 /// Callbacks WebKit sends to a delegate that implements them. Only the
 /// protocol that declares one can say it still exists. The find callbacks
@@ -39,25 +48,34 @@ const DELEGATED: &[(&CStr, &[&CStr])] = &[(
     ],
 )];
 
-/// The private selectors this WebKit lacks, as `Owner.selector`. An owner
-/// that is itself missing is named alone.
+/// The private selectors this macOS lacks, as `Owner.selector`, or
+/// `Owner.+selector` for a class method. An owner that is itself missing is
+/// named alone.
 pub fn missing() -> Vec<String> {
-    missing_in(IMPLEMENTED, DELEGATED)
+    missing_in(IMPLEMENTED, CLASS_METHODS, DELEGATED)
 }
 
 type Table = [(&'static CStr, &'static [&'static CStr])];
 
-fn missing_in(implemented: &Table, delegated: &Table) -> Vec<String> {
+fn missing_in(implemented: &Table, class_methods: &Table, delegated: &Table) -> Vec<String> {
     let mut gone = Vec::new();
-    for (class, selectors) in implemented {
-        let name = class.to_string_lossy();
-        let Some(class) = AnyClass::get(class) else {
-            gone.push(name.into_owned());
-            continue;
-        };
-        for selector in *selectors {
-            if class.instance_method(Sel::register(selector)).is_none() {
-                gone.push(format!("{name}.{}", selector.to_string_lossy()));
+    for (table, prefix) in [(implemented, ""), (class_methods, "+")] {
+        for (class, selectors) in table {
+            let name = class.to_string_lossy();
+            let Some(class) = AnyClass::get(class) else {
+                gone.push(name.into_owned());
+                continue;
+            };
+            for selector in *selectors {
+                let sel = Sel::register(selector);
+                let found = if prefix.is_empty() {
+                    class.instance_method(sel)
+                } else {
+                    class.class_method(sel)
+                };
+                if found.is_none() {
+                    gone.push(format!("{name}.{prefix}{}", selector.to_string_lossy()));
+                }
             }
         }
     }
@@ -93,6 +111,7 @@ mod tests {
                 (c"WKWebView", &[c"_hideFindUI", c"_noSuchSelector"]),
                 (c"_WKNoSuchClass", &[c"_clear"]),
             ],
+            &[(c"WKWebView", &[c"handlesURLScheme:", c"_noSuchClassMethod"])],
             &[
                 (
                     c"WKNavigationDelegatePrivate",
@@ -106,6 +125,7 @@ mod tests {
             [
                 "WKWebView._noSuchSelector",
                 "_WKNoSuchClass",
+                "WKWebView.+_noSuchClassMethod",
                 "WKNavigationDelegatePrivate._webView:noSuchCallback:",
                 "NoSuchProtocol",
             ]

@@ -112,6 +112,19 @@ impl Shell {
         mutation_result(native)
     }
 
+    /// Opens the system's saved passwords at the field in focus on the page
+    /// in front. Private windows too: the passwords are the system's, and
+    /// nothing is kept by Zephium.
+    pub(super) fn operation_autofill_password(&mut self) -> OperationDisposition {
+        let id = match self.loaded_page_in_front() {
+            Ok(id) => id,
+            Err(refused) => return refused,
+        };
+        let mut native = NativeWork::default();
+        native.record(self.engine.autofill_password(id));
+        mutation_result(native)
+    }
+
     pub(super) fn on_html_extracted(&mut self, id: ItemId, html: String, truncated: bool) {
         if self.sources.awaiting != Some(id) {
             return;

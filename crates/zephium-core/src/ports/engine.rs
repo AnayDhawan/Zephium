@@ -836,6 +836,13 @@ pub trait Engine {
     fn save_page(&self, _id: ItemId) -> NativeDispatch {
         NativeDispatch::Unsupported
     }
+    /// Opens the system's saved-passwords panel at the text field focused in
+    /// the page, as the page's right-click AutoFill menu does. Nothing opens
+    /// unless the page has the keyboard and a field in it has focus. WebView2
+    /// offers saved passwords itself as a field takes focus.
+    fn autofill_password(&self, _id: ItemId) -> NativeDispatch {
+        NativeDispatch::Unsupported
+    }
     /// Starts watching the committed document's icon links: what they name
     /// arrives as `EngineEvent::FaviconCandidates` when the head first has
     /// icons and whenever they change until the page has loaded. One call per
@@ -851,14 +858,6 @@ pub trait Engine {
     /// declared candidates then only back it up.
     fn native_favicons(&self) -> bool {
         false
-    }
-    /// Waits in the committed document for the person to put the caret in a
-    /// password field by clicking it or tabbing to it, and then reports
-    /// `EngineEvent::PasswordFieldFocused` once. Field values are never read.
-    /// A later call replaces the earlier watch. Engines that keep their own
-    /// password fill answer `Unsupported`.
-    fn watch_password_focus(&self, _id: ItemId) -> NativeDispatch {
-        NativeDispatch::Unsupported
     }
     /// Asynchronously asks the exact live native-view generation and its
     /// current committed navigation whether it is safe to discard. A missing
@@ -1526,10 +1525,6 @@ pub enum EngineEvent {
         page_url: String,
         complete: bool,
         candidates: Vec<crate::icon::IconCandidate>,
-    },
-    /// The person focused a password field in the page of `id`.
-    PasswordFieldFocused {
-        id: ItemId,
     },
     /// The icon the web engine itself chose for a page, as a bounded PNG. The
     /// privileged side decodes it with the same decoders as any fetched icon.
