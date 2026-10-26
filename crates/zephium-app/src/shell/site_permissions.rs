@@ -293,6 +293,10 @@ impl Shell {
                 )
             });
         }
+        if let Some(page_kind) = kind.page() {
+            self.page_permissions
+                .forget_site(profile, &origin, page_kind);
+        }
         let Some(queue) = self.self_queue.as_ref() else {
             return Some(operation_result(
                 OperationOutcome::Rejected,

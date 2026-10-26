@@ -132,13 +132,15 @@ pub enum ShutdownOutcome {
 
 /// Browser-owned response vocabulary for one exact page capability request.
 /// `Always*` is authority to mutate the durable per-profile catalog; `*Once`
-/// never writes policy.
+/// never writes policy and holds for the asking document until its tab shows
+/// another one. `Dismiss` refuses this request only.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PagePermissionPromptDecision {
     AllowOnce,
     AlwaysAllow,
     DenyOnce,
     AlwaysDeny,
+    Dismiss,
 }
 
 /// Ordered result of a trusted profile content-policy status query.

@@ -4568,6 +4568,7 @@ mod tests {
             EngineEvent::PermissionRequested {
                 id,
                 profile,
+                navigation: zephium_core::ports::engine::NavigationPresentationId::from_raw(1),
                 request: zephium_core::permissions::PagePermissionRequest {
                     id: zephium_core::permissions::PagePermissionRequestId::new(1).unwrap(),
                     origin: zephium_core::permissions::PageOrigin::parse_exact(
@@ -4631,6 +4632,7 @@ mod tests {
                 id: delivered,
                 profile: delivered_profile,
                 request,
+                ..
             } if *delivered == id
                 && *delivered_profile == profile
                 && request.id.get() == 1

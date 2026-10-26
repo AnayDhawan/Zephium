@@ -282,6 +282,7 @@ impl Shell {
                 effects.extend(self.focus_tab(active));
             }
         }
+        self.cancel_page_permission_for_profile(session.profile);
         self.apply_profile_tombstone(session.profile);
         self.engine.erase_profile_data(
             session.profile,

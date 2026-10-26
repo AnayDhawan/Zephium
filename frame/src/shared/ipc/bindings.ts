@@ -2397,7 +2397,7 @@ export type PagePermissionKindView = "camera" | "microphone" | "geolocation";
 
 export type PagePermissionPromptChanged = PagePermissionPromptView;
 
-export type PagePermissionPromptDecisionInput = "allow_once" | "always_allow" | "deny_once" | "always_deny";
+export type PagePermissionPromptDecisionInput = "allow_once" | "always_allow" | "deny_once" | "always_deny" | "dismiss";
 
 /**
  *  One exact, foreground page-permission request. Every identity is an opaque

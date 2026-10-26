@@ -4,11 +4,12 @@
 //! their opaque identity, a bounded authority tuple, and at most two durable
 //! catalog rows. The catalog is never loaded at startup. A remembered Allow
 //! reaches native code only after Store has reported and this coordinator has
-//! re-observed the exact durable decision.
+//! re-observed the exact durable decision. One-time answers live here only,
+//! for the committed document that asked.
 
 use zephium_core::ids::PagePermissionGrantId;
 use zephium_core::permissions::{
-    PagePermissionCatalog, PagePermissionCatalogRevision, PagePermissionChange,
+    PageOrigin, PagePermissionCatalog, PagePermissionCatalogRevision, PagePermissionChange,
     PagePermissionGrant, PagePermissionKind, PagePermissionPatch, PagePermissionRequest,
     PagePermissionRequestId, PagePermissionRequestKind, PagePermissionRequestSettlement,
     RememberedPagePermission,
@@ -19,7 +20,8 @@ use zephium_core::ports::store::{
 
 use super::*;
 
-const PAGE_PERMISSION_SHELL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(25);
+const PAGE_PERMISSION_SHELL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+const MAX_DOCUMENT_DECISIONS: usize = 32;
 const PAGE_PERMISSION_PROMPTS_ENABLED: bool = cfg!(any(
     test,
     all(
@@ -63,6 +65,7 @@ enum PagePermissionPhase {
 struct PendingPagePermission {
     profile: ProfileId,
     item: ItemId,
+    navigation: NavigationPresentationId,
     request: PagePermissionRequest,
     rememberable: bool,
     deadline: std::time::Instant,
@@ -75,9 +78,23 @@ struct PagePermissionOperationCompletion {
     reason: OperationReason,
 }
 
+/// "Allow this time" or "Don't allow" for one capability, held for the exact
+/// tab, origin and committed document that asked, like Chrome's one-time
+/// grants. Never written; a durable decision for the site still wins.
+#[derive(Clone, Debug)]
+struct DocumentDecision {
+    profile: ProfileId,
+    item: ItemId,
+    navigation: NavigationPresentationId,
+    origin: PageOrigin,
+    kind: PagePermissionKind,
+    decision: RememberedPagePermission,
+}
+
 #[derive(Default)]
 pub(super) struct PagePermissionPromptState {
     pending: Option<PendingPagePermission>,
+    documents: Vec<DocumentDecision>,
     failed_until_restart: bool,
 }
 
@@ -115,6 +132,11 @@ impl PagePermissionPromptState {
         self.failed_until_restart
     }
 
+    #[cfg(test)]
+    pub(super) fn remembered_documents(&self) -> usize {
+        self.documents.len()
+    }
+
     fn exact(&self, profile: ProfileId, item: ItemId, request: PagePermissionRequestId) -> bool {
         self.pending.as_ref().is_some_and(|pending| {
             pending.profile == profile && pending.item == item && pending.request.id == request
@@ -131,6 +153,80 @@ impl PagePermissionPromptState {
             return None;
         }
         self.pending.take()
+    }
+
+    fn document_decision(
+        &self,
+        pending: &PendingPagePermission,
+        kind: PagePermissionKind,
+    ) -> Option<RememberedPagePermission> {
+        self.documents
+            .iter()
+            .find(|entry| {
+                entry.profile == pending.profile
+                    && entry.item == pending.item
+                    && entry.navigation == pending.navigation
+                    && entry.origin == pending.request.origin
+                    && entry.kind == kind
+            })
+            .map(|entry| entry.decision)
+    }
+
+    fn remember_for_document(
+        &mut self,
+        pending: &PendingPagePermission,
+        decision: RememberedPagePermission,
+    ) {
+        // Answers for an earlier document of this tab can never match again.
+        self.documents.retain(|entry| {
+            entry.item != pending.item
+                || (entry.navigation == pending.navigation
+                    && !(entry.origin == pending.request.origin
+                        && request_kinds(pending.request.kind).contains(&entry.kind)))
+        });
+        for kind in request_kinds(pending.request.kind) {
+            if self.documents.len() >= MAX_DOCUMENT_DECISIONS {
+                // Forgetting the oldest only means that page is asked again.
+                self.documents.remove(0);
+            }
+            self.documents.push(DocumentDecision {
+                profile: pending.profile,
+                item: pending.item,
+                navigation: pending.navigation,
+                origin: pending.request.origin.clone(),
+                kind: *kind,
+                decision,
+            });
+        }
+    }
+
+    pub(super) fn forget_documents_except(
+        &mut self,
+        item: ItemId,
+        navigation: NavigationPresentationId,
+    ) {
+        self.documents
+            .retain(|entry| entry.item != item || entry.navigation == navigation);
+    }
+
+    pub(super) fn forget_documents_of_item(&mut self, item: ItemId) {
+        self.documents.retain(|entry| entry.item != item);
+    }
+
+    pub(super) fn forget_documents_of_profile(&mut self, profile: ProfileId) {
+        self.documents.retain(|entry| entry.profile != profile);
+    }
+
+    /// A change in Site settings replaces any one-time answer for the site.
+    pub(super) fn forget_site(
+        &mut self,
+        profile: ProfileId,
+        origin: &PageOrigin,
+        kind: PagePermissionKind,
+    ) {
+        self.documents.retain(|entry| {
+            entry.profile != profile || entry.origin != *origin || entry.kind != kind
+        });
     }
 }
 
@@ -176,30 +272,33 @@ fn empty_authorities(request: &PagePermissionRequest) -> Vec<RetainedAuthority> 
         .collect()
 }
 
-fn remembered_decision(authorities: &[RetainedAuthority]) -> Option<RememberedPagePermission> {
-    // A remembered block dominates an atomic combined request even if the
-    // other capability has never been decided. Prompting in that state would
-    // let an Allow Once gesture bypass durable denial.
-    if authorities.iter().any(|entry| {
-        entry
-            .grant
-            .as_ref()
-            .is_some_and(|grant| grant.decision == RememberedPagePermission::Deny)
-    }) {
-        return Some(RememberedPagePermission::Deny);
-    }
-    if authorities.is_empty() || authorities.iter().any(|entry| entry.grant.is_none()) {
-        return None;
-    }
-    authorities
+/// What is already decided for every requested capability: the durable row
+/// where one exists, otherwise this document's one-time answer.
+fn decided(
+    authorities: &[RetainedAuthority],
+    document: impl Fn(PagePermissionKind) -> Option<RememberedPagePermission>,
+) -> Option<RememberedPagePermission> {
+    let decisions: Vec<_> = authorities
         .iter()
-        .all(|entry| {
+        .map(|entry| {
             entry
                 .grant
                 .as_ref()
-                .is_some_and(|grant| grant.decision == RememberedPagePermission::Allow)
+                .map(|grant| grant.decision)
+                .or_else(|| document(entry.kind))
         })
-        .then_some(RememberedPagePermission::Allow)
+        .collect();
+    // A block dominates an atomic combined request even if the other
+    // capability has never been decided. Prompting in that state would let
+    // an Allow Once gesture bypass the denial.
+    if decisions.contains(&Some(RememberedPagePermission::Deny)) {
+        return Some(RememberedPagePermission::Deny);
+    }
+    (!decisions.is_empty()
+        && decisions
+            .iter()
+            .all(|decision| *decision == Some(RememberedPagePermission::Allow)))
+    .then_some(RememberedPagePermission::Allow)
 }
 
 fn durable_decision_matches(
@@ -255,6 +354,7 @@ impl Shell {
         &mut self,
         profile: ProfileId,
         item: ItemId,
+        navigation: NavigationPresentationId,
         request: PagePermissionRequest,
     ) {
         let profile_kind = self.profiles.get(profile).map(|profile| profile.kind);
@@ -294,14 +394,29 @@ impl Shell {
                 authorities: empty_authorities(&request),
             }
         };
-        self.page_permissions.pending = Some(PendingPagePermission {
+        let pending = PendingPagePermission {
             profile,
             item,
+            navigation,
             request,
             rememberable,
             deadline,
             phase,
-        });
+        };
+        if !rememberable {
+            let authorities = empty_authorities(&pending.request);
+            if let Some(decision) = decided(&authorities, |kind| {
+                self.page_permissions.document_decision(&pending, kind)
+            }) {
+                let settlement = match decision {
+                    RememberedPagePermission::Allow => PagePermissionRequestSettlement::Allow,
+                    RememberedPagePermission::Deny => PagePermissionRequestSettlement::Deny,
+                };
+                let _ = self.settle_native_page_permission(profile, item, request_id, settlement);
+                return;
+            }
+        }
+        self.page_permissions.pending = Some(pending);
         if let Some(queue) = &self.self_queue {
             queue.schedule_page_permission(profile, item, request_id, deadline);
         }
@@ -382,7 +497,7 @@ impl Shell {
             self.cancel_page_permission_request(profile, item, request);
             return;
         }
-        let Some(pending) = self.page_permissions.pending.as_ref() else {
+        let Some(pending) = self.page_permissions.pending.clone() else {
             return;
         };
         let phase = pending.phase.clone();
@@ -427,7 +542,9 @@ impl Shell {
 
         match phase {
             PagePermissionPhase::Loading => {
-                if let Some(decision) = remembered_decision(&authorities) {
+                if let Some(decision) = decided(&authorities, |kind| {
+                    self.page_permissions.document_decision(&pending, kind)
+                }) {
                     let _ = self
                         .complete_page_permission_request(profile, item, request, decision, None);
                     return;
@@ -569,12 +686,23 @@ impl Shell {
         let (desired, remember) = match decision {
             PagePermissionPromptDecision::AllowOnce => (RememberedPagePermission::Allow, false),
             PagePermissionPromptDecision::AlwaysAllow => (RememberedPagePermission::Allow, true),
-            PagePermissionPromptDecision::DenyOnce => (RememberedPagePermission::Deny, false),
+            PagePermissionPromptDecision::DenyOnce | PagePermissionPromptDecision::Dismiss => {
+                (RememberedPagePermission::Deny, false)
+            }
             PagePermissionPromptDecision::AlwaysDeny => (RememberedPagePermission::Deny, true),
         };
         if !remember {
+            let answered = self
+                .page_permissions
+                .pending
+                .clone()
+                .filter(|_| decision != PagePermissionPromptDecision::Dismiss);
             let native =
                 self.complete_page_permission_request(profile, item, request, desired, None);
+            if let Some(answered) = answered.filter(|_| native == NativeDispatch::Scheduled) {
+                self.page_permissions
+                    .remember_for_document(&answered, desired);
+            }
             return Some(if native == NativeDispatch::Scheduled {
                 operation_result(OperationOutcome::Applied, OperationReason::MutationApplied)
             } else {
@@ -781,7 +909,31 @@ impl Shell {
         self.cancel_page_permission_request(pending.profile, pending.item, pending.request.id);
     }
 
+    /// Another document committed in `item`: what the earlier one was asked
+    /// or answered ends with it.
+    pub(super) fn end_page_permission_documents_except(
+        &mut self,
+        item: ItemId,
+        navigation: NavigationPresentationId,
+    ) {
+        self.page_permissions
+            .forget_documents_except(item, navigation);
+        if let Some(pending) = self
+            .page_permissions
+            .pending
+            .as_ref()
+            .filter(|pending| pending.item == item && pending.navigation != navigation)
+        {
+            self.cancel_page_permission_request(pending.profile, pending.item, pending.request.id);
+        }
+    }
+
+    pub(super) fn forget_page_permission_documents_of_item(&mut self, item: ItemId) {
+        self.page_permissions.forget_documents_of_item(item);
+    }
+
     pub(super) fn cancel_page_permission_for_profile(&mut self, profile: ProfileId) {
+        self.page_permissions.forget_documents_of_profile(profile);
         let Some(pending) = self
             .page_permissions
             .pending

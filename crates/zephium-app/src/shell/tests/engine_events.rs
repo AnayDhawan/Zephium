@@ -266,6 +266,7 @@ fn page_permission_completion_is_explicitly_denied_before_and_after_bootstrap() 
     let event = |request| EngineEvent::PermissionRequested {
         id,
         profile,
+        navigation: zephium_core::ports::engine::NavigationPresentationId::from_raw(1),
         request: PagePermissionRequest {
             id: PagePermissionRequestId::new(request).unwrap(),
             origin: PageOrigin::parse_exact("https://permissions.example").unwrap(),

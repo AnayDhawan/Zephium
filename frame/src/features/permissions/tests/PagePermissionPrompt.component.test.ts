@@ -54,12 +54,12 @@ test("a private profile offers only one-time choices", async () => {
   expect(native.respond).toHaveBeenLastCalledWith(shown, "deny_once");
 });
 
-test("Escape answers this request only", async () => {
+test("Escape dismisses the request so the page may ask again", async () => {
   const shown = prompt(true);
   const screen = await render(PagePermissionPrompt, { prompt: shown });
   await expect.element(screen.getByRole("button", { name: "Never allow" })).toHaveFocus();
   await userEvent.keyboard("{Escape}");
-  expect(native.respond).toHaveBeenLastCalledWith(shown, "deny_once");
+  expect(native.respond).toHaveBeenLastCalledWith(shown, "dismiss");
 });
 
 test("a location request names what the site will learn", async () => {

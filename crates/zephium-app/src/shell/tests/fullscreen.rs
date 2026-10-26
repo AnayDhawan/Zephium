@@ -188,6 +188,7 @@ fn a_permission_prompt_takes_fullscreen_away() {
     shell.handle(Command::Engine(EngineEvent::PermissionRequested {
         id: page,
         profile,
+        navigation: shell.presentation.presented_navigations[&page].0,
         request: PagePermissionRequest {
             id: PagePermissionRequestId::new(7).unwrap(),
             origin: PageOrigin::parse_exact("https://video.example").unwrap(),

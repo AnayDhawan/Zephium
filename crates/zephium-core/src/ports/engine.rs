@@ -1647,6 +1647,9 @@ pub enum EngineEvent {
     PermissionRequested {
         id: ItemId,
         profile: ProfileId,
+        /// The committed document that asked. The engine settles an Allow
+        /// only while this document is still the view's current one.
+        navigation: NavigationPresentationId,
         request: PagePermissionRequest,
     },
     /// The tab's site, or its proxy, asks the person to sign in. The native

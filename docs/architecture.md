@@ -502,7 +502,7 @@ and denies malformed metadata, overflow, handler panic, unknown settlement,
 and delegate teardown. Engine admission is stricter: at most one request per
 physical view and eight process-wide, bound to the exact profile, item,
 physical-view permit, and committed navigation epoch. Shell settlement,
-navigation, close/profile retirement, and a 30-second watchdog use an
+navigation, close/profile retirement, and a 125-second watchdog use an
 independent fixed terminal channel; an `Allow` is downgraded to denial after
 any identity or epoch change.
 
@@ -514,10 +514,16 @@ notifications and screen capture are denied everywhere, and extension pages and
 offscreen documents deny media capture.
 The macOS coordinator loads the exact profile catalog only after a supported request from the
 focused resident tab, retains at most the two relevant rows, and serializes one
-browser-owned process-wide prompt. Navigation, tab/profile loss, window hide,
-shutdown, a 25-second Shell deadline, Store refusal, or identity mismatch all
-deny. One-time choices never write policy. A remembered denial dominates an
-atomic camera-and-microphone request; a remembered Allow reaches WebKit only
+browser-owned process-wide prompt. Navigation to another document, tab/profile
+loss, window hide, shutdown, a two-minute Shell deadline, Store refusal, or
+identity mismatch all deny; the same document finishing its load or changing
+its address through the History API does not. One-time choices never write
+policy. Allow this time and Don't allow are held in memory for the exact tab,
+origin and committed document that asked, so its later requests settle without
+a prompt until the tab shows another document or closes, or the private session
+ends. A saved decision still wins, and changing the site in Site settings
+forgets them. Escape refuses that one request and remembers nothing. A
+remembered or one-time denial dominates an atomic camera-and-microphone request; a remembered Allow reaches WebKit only
 after an atomic CAS mutation and a second exact catalog read observe every
 requested capability as allowed. Conflict and outcome-unknown results are
 reconciled but never blindly retried. The prompt offers Allow while visiting

@@ -45,9 +45,10 @@ impl Shell {
                 EngineEvent::PermissionRequested {
                     id,
                     profile,
+                    navigation,
                     request,
                 } => {
-                    self.on_page_permission_request(*profile, *id, request.clone());
+                    self.on_page_permission_request(*profile, *id, *navigation, request.clone());
                     return;
                 }
                 _ => {
@@ -66,6 +67,7 @@ impl Shell {
                 id,
                 profile,
                 request,
+                ..
             } = &event
             {
                 let _ = self.engine.settle_page_permission_request(
@@ -82,9 +84,16 @@ impl Shell {
         // completion. Close the browser-owned surface in the same actor turn
         // so stale consent never follows a document, renderer, or profile.
         match &event {
-            EngineEvent::UrlChanged { id, .. }
-            | EngineEvent::PresentationPending { id, .. }
-            | EngineEvent::PresentationReady { id, .. }
+            // Only another document ends a prompt and the one-time answers.
+            // The same document finishing its load, or changing its address
+            // in place through the History API, keeps both.
+            EngineEvent::PresentationPending { id, navigation, .. }
+            | EngineEvent::PresentationReady { id, navigation, .. } => {
+                self.end_page_permission_documents_except(*id, *navigation);
+            }
+            // The engine refuses a waiting request as soon as its tab starts
+            // another navigation; the prompt goes with it.
+            EngineEvent::LoadingChanged { id, loading: true }
             | EngineEvent::NavigationFailed { id, .. }
             | EngineEvent::NavigationFailureReported { id, .. }
             | EngineEvent::ViewCreationFailed { id }
@@ -100,6 +109,7 @@ impl Shell {
                 if capture_invalidated {
                     // Its native sign-in request went with the view.
                     self.end_http_auth_prompt(*id, None);
+                    self.forget_page_permission_documents_of_item(*id);
                     self.items.set_media_capture(*id, None);
                     self.silence_tab_audio(*id);
                     // A replacement view starts out of fullscreen.
@@ -473,9 +483,10 @@ impl Shell {
             EngineEvent::PermissionRequested {
                 id,
                 profile,
+                navigation,
                 request,
             } => {
-                self.on_page_permission_request(profile, id, request);
+                self.on_page_permission_request(profile, id, navigation, request);
             }
             EngineEvent::DownloadRequested { .. } => {}
             EngineEvent::PresentationPending {

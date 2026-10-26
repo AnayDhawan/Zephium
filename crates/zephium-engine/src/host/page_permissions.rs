@@ -31,7 +31,9 @@ use super::permits::EventPermit;
 use super::EngineHost;
 
 pub(super) use zephium_core::permissions::MAX_PENDING_PAGE_PERMISSION_REQUESTS;
-const PAGE_PERMISSION_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+// Outlives the Shell's two-minute prompt deadline, so a prompt still on
+// screen always has its native request behind it.
+const PAGE_PERMISSION_REQUEST_TIMEOUT: Duration = Duration::from_secs(125);
 
 struct PendingPagePermissionRequest {
     profile: ProfileId,
@@ -295,6 +297,7 @@ impl EngineHost {
             EngineEvent::PermissionRequested {
                 id: item,
                 profile,
+                navigation: epoch.presentation_id(),
                 request,
             },
         );
@@ -472,6 +475,6 @@ mod tests {
             assert!(request.is_none());
         }
         assert_eq!(MAX_PENDING_PAGE_PERMISSION_REQUESTS, 8);
-        assert_eq!(PAGE_PERMISSION_REQUEST_TIMEOUT, Duration::from_secs(30));
+        assert_eq!(PAGE_PERMISSION_REQUEST_TIMEOUT, Duration::from_secs(125));
     }
 }

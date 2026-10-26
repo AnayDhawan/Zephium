@@ -253,6 +253,7 @@ impl Shell {
             .then(|| self.closed_record(id, unix_millis()))
             .flatten();
         self.cancel_page_permission_for_item(id);
+        self.forget_page_permission_documents_of_item(id);
         self.cancel_pending_presentation(id);
         self.cancel_favicon_attempt(id);
         if self.work_pane.as_ref().is_some_and(|pane| pane.tab == id) {
@@ -469,6 +470,7 @@ impl Shell {
             .collect::<Vec<_>>();
         self.native_openers.remove(&id);
         self.cancel_page_permission_for_item(id);
+        self.forget_page_permission_documents_of_item(id);
         self.cancel_pending_presentation(id);
         self.cancel_favicon_attempt(id);
         if matches!(
@@ -834,6 +836,7 @@ impl Shell {
             return;
         }
         self.cancel_page_permission_for_item(child);
+        self.forget_page_permission_documents_of_item(child);
         self.cancel_pending_presentation(child);
         self.cancel_favicon_attempt(child);
         self.cancel_discard_probe(child);

@@ -3297,6 +3297,7 @@ enum PagePermissionPromptDecisionInput {
     AlwaysAllow,
     DenyOnce,
     AlwaysDeny,
+    Dismiss,
 }
 
 /// Answers only the exact Shell-projected foreground page request. Origin and
@@ -3337,6 +3338,7 @@ fn page_permission_respond(
         PagePermissionPromptDecisionInput::AlwaysAllow => PagePermissionPromptDecision::AlwaysAllow,
         PagePermissionPromptDecisionInput::DenyOnce => PagePermissionPromptDecision::DenyOnce,
         PagePermissionPromptDecisionInput::AlwaysDeny => PagePermissionPromptDecision::AlwaysDeny,
+        PagePermissionPromptDecisionInput::Dismiss => PagePermissionPromptDecision::Dismiss,
     };
     dispatch_operation(
         caller.app_handle(),

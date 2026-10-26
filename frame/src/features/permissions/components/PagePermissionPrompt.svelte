@@ -50,7 +50,7 @@
       event.preventDefault();
       event.stopPropagation();
       // Closing the prompt decides nothing beyond this request.
-      if (!busy) respond("deny_once");
+      if (!busy) respond("dismiss");
       return;
     }
     if (event.key !== "Tab") return;
