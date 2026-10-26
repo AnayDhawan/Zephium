@@ -16,11 +16,13 @@ function startOfDay(time: number, daysAgo = 0): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() - daysAgo).getTime();
 }
 
-function sectionOf(modified: number, today: number): SectionKey {
+type Boundaries = { today: number; yesterday: number; week: number; month: number };
+
+function sectionOf(modified: number, { today, yesterday, week, month }: Boundaries): SectionKey {
   if (modified >= today) return { kind: "today" };
-  if (modified >= startOfDay(today, 1)) return { kind: "yesterday" };
-  if (modified >= startOfDay(today, 7)) return { kind: "week" };
-  if (modified >= startOfDay(today, 30)) return { kind: "month" };
+  if (modified >= yesterday) return { kind: "yesterday" };
+  if (modified >= week) return { kind: "week" };
+  if (modified >= month) return { kind: "month" };
   const date = new Date(modified);
   return { kind: "calendar", year: date.getFullYear(), month: date.getMonth() };
 }
@@ -34,12 +36,18 @@ function idOf(key: SectionKey): string {
 export function sections(items: NoteSummary[], now: number, ranked: boolean): Section[] {
   if (ranked) return items.length ? [{ key: { kind: "results" }, id: "results", items }] : [];
   const today = startOfDay(now);
+  const boundaries = {
+    today,
+    yesterday: startOfDay(today, 1),
+    week: startOfDay(today, 7),
+    month: startOfDay(today, 30),
+  };
   const result: Section[] = [];
   const pinned = items.filter((item) => item.pinned);
   if (pinned.length) result.push({ key: { kind: "pinned" }, id: "pinned", items: pinned });
   for (const item of items) {
     if (item.pinned) continue;
-    const key = sectionOf(Number(item.modified_at), today);
+    const key = sectionOf(Number(item.modified_at), boundaries);
     const id = idOf(key);
     const last = result.at(-1);
     if (last?.id === id) last.items.push(item);
