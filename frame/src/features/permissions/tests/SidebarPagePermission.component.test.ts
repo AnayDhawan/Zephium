@@ -35,6 +35,7 @@ const prompt = (in_sidebar: boolean): PagePermissionPromptEntryView => ({
   rememberable: true,
   processing: false,
   in_sidebar,
+  blocked_by_system: false,
 });
 
 test("the sidebar holds prompts while it is mounted", async () => {

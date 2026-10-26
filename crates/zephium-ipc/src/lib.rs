@@ -387,6 +387,9 @@ pub struct PagePermissionPromptEntryView {
     /// the page still on screen. Otherwise a window-modal sheet, with the
     /// page taken off screen until it is answered.
     pub in_sidebar: bool,
+    /// The operating system refuses Zephium this capability; chrome says
+    /// where to turn it on.
+    pub blocked_by_system: bool,
 }
 
 /// Exact replacement for the one process-wide page permission surface.

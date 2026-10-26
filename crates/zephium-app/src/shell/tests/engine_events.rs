@@ -271,6 +271,7 @@ fn page_permission_completion_is_explicitly_denied_before_and_after_bootstrap() 
             id: PagePermissionRequestId::new(request).unwrap(),
             origin: PageOrigin::parse_exact("https://permissions.example").unwrap(),
             kind: PagePermissionRequestKind::Single(PagePermissionKind::Camera),
+            blocked_by_system: false,
         },
     };
 

@@ -2425,6 +2425,11 @@ export type PagePermissionPromptEntryView = {
 	 *  page taken off screen until it is answered.
 	 */
 	in_sidebar: boolean,
+	/**
+	 *  The operating system refuses Zephium this capability; chrome says
+	 *  where to turn it on.
+	 */
+	blocked_by_system: boolean,
 };
 
 /**  Exact replacement for the one process-wide page permission surface. */

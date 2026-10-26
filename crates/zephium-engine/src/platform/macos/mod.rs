@@ -153,6 +153,7 @@ pub use agentic_semantic_probe::{
 
 use dispatch2::DispatchObject as _;
 
+pub(crate) use location::blocked_by_system as location_blocked_by_system;
 pub(crate) use native::permission_owner_is_focused;
 #[cfg(feature = "native-page-permission-probes")]
 pub(crate) use native::run_page_permission_probe;

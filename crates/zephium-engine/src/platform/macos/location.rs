@@ -141,6 +141,24 @@ pub(crate) fn serve(view: &WKWebView) {
     }
 }
 
+/// Whether macOS will refuse Zephium a position: Location Services is off,
+/// or the person or a profile turned it off for Zephium. Asking the system
+/// first is left to the moment a site is allowed, so an undecided Mac is not
+/// blocked.
+pub(crate) fn blocked_by_system() -> bool {
+    let Some(mtm) = MainThreadMarker::new() else {
+        return false;
+    };
+    let Some(status) = with_state(mtm, |state| unsafe { state.manager.authorizationStatus() })
+    else {
+        return false;
+    };
+    matches!(
+        status,
+        CLAuthorizationStatus::Denied | CLAuthorizationStatus::Restricted
+    ) || !unsafe { CLLocationManager::locationServicesEnabled_class() }
+}
+
 struct Client {
     manager: WKTypeRef,
     high_accuracy: bool,

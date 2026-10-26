@@ -4578,6 +4578,7 @@ mod tests {
                     kind: zephium_core::permissions::PagePermissionRequestKind::Single(
                         zephium_core::ports::engine::PermissionKind::Camera,
                     ),
+                    blocked_by_system: false,
                 },
             },
             EngineEvent::DownloadRequested {

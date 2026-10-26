@@ -12,6 +12,7 @@ fn request(id: u64, kind: PagePermissionRequestKind) -> PagePermissionRequest {
         id: PagePermissionRequestId::new(id).unwrap(),
         origin: PageOrigin::parse_exact("https://media.example").unwrap(),
         kind,
+        blocked_by_system: false,
     }
 }
 
@@ -1271,4 +1272,29 @@ fn opening_a_browser_page_dismisses_the_prompt_in_the_sidebar() {
         settled(&engine),
         [(281, PagePermissionRequestSettlement::Deny)]
     );
+}
+
+#[test]
+fn a_location_request_macos_refuses_tells_chrome_so() {
+    let (mut shell, _engine, _screen, _queue, profile, item) =
+        ready_shell(Arc::new(FakeStore::default()));
+    make_private(&mut shell, profile);
+    let shown = Arc::new(Mutex::new(Vec::new()));
+    let sink = shown.clone();
+    shell.emit = Box::new(move |projection| {
+        if let Projection::PagePermissionPrompt(view) = projection {
+            sink.lock().unwrap().push(view.prompt);
+        }
+    });
+    let location = PagePermissionRequest {
+        blocked_by_system: true,
+        ..request(
+            301,
+            PagePermissionRequestKind::Single(PagePermissionKind::Geolocation),
+        )
+    };
+    ask(&mut shell, profile, item, &location);
+    let prompt = shown.lock().unwrap().last().cloned().flatten().unwrap();
+    assert_eq!(prompt.kinds, [PagePermissionKindView::Geolocation]);
+    assert!(prompt.blocked_by_system);
 }

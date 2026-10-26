@@ -154,7 +154,18 @@ fn core_request_from_components(
         WryRequestKind::CameraAndMicrophone => PagePermissionRequestKind::CameraAndMicrophone,
         _ => return None,
     };
-    Some(PagePermissionRequest { id, origin, kind })
+    #[cfg(target_os = "macos")]
+    let blocked_by_system = kind
+        == PagePermissionRequestKind::Single(PagePermissionKind::Geolocation)
+        && crate::platform::imp::location_blocked_by_system();
+    #[cfg(not(target_os = "macos"))]
+    let blocked_by_system = false;
+    Some(PagePermissionRequest {
+        id,
+        origin,
+        kind,
+        blocked_by_system,
+    })
 }
 
 pub(super) fn admit_native_request(

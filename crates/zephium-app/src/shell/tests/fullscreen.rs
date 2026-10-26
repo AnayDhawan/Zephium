@@ -193,6 +193,7 @@ fn a_permission_prompt_takes_fullscreen_away() {
             id: PagePermissionRequestId::new(7).unwrap(),
             origin: PageOrigin::parse_exact("https://video.example").unwrap(),
             kind: PagePermissionRequestKind::CameraAndMicrophone,
+            blocked_by_system: false,
         },
     }));
     assert!(shell.page_permissions.is_visible());

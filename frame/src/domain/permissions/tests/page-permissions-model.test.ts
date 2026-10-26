@@ -22,6 +22,7 @@ function prompt(value: number, requestId = "0000000000000001"): PagePermissionPr
       rememberable: true,
       processing: false,
       in_sidebar: true,
+      blocked_by_system: false,
     },
   };
 }

@@ -41,6 +41,7 @@ impl Shell {
                         rememberable: self.page_permissions.visible_rememberable(),
                         processing,
                         in_sidebar: self.page_permission_in_sidebar(),
+                        blocked_by_system: request.blocked_by_system,
                     })
                 });
         self.page_permissions

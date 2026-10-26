@@ -38,6 +38,13 @@
           : m.page_permission_title_microphone({ site }),
   );
   let icon = $derived(location ? Location01Icon : camera ? Camera01Icon : Mic01Icon);
+  // macOS gives no position to a browser the person turned it off for.
+  let systemOff = $derived(location && prompt.blocked_by_system);
+  let described = $derived(
+    [systemOff && "page-permission-system", !prompt.rememberable && "page-permission-private"]
+      .filter(Boolean)
+      .join(" ") || undefined,
+  );
 
   // The card leaves a person typing in chrome where they are; focus in a
   // page view stays there whatever chrome focuses.
@@ -167,7 +174,7 @@
     bind:this={dialog}
     role="alertdialog"
     aria-labelledby="page-permission-title"
-    aria-describedby={prompt.rememberable ? undefined : "page-permission-private"}
+    aria-describedby={described}
     class="page-permission"
     data-zephium-page-permission-prompt
   >
@@ -175,6 +182,9 @@
       <Icon {icon} size={14} />
       <p id="page-permission-title" class="title">{title}</p>
     </div>
+    {#if systemOff}
+      <p id="page-permission-system" class="detail">{m.page_permission_location_off()}</p>
+    {/if}
     {#if !prompt.rememberable}
       <p id="page-permission-private" class="detail">{m.page_permission_private()}</p>
     {/if}
@@ -188,7 +198,7 @@
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="page-permission-title"
-      aria-describedby={prompt.rememberable ? undefined : "page-permission-private"}
+      aria-describedby={described}
       class="w-[min(360px,calc(100vw-32px))] rounded-panel border border-border-strong bg-raised p-4 text-start shadow-[var(--shadow-overlay)]"
       data-zephium-page-permission-prompt
     >
@@ -206,6 +216,12 @@
           {title}
         </h1>
       </div>
+
+      {#if systemOff}
+        <p id="page-permission-system" class="mt-3 text-[11.5px] leading-4 text-muted">
+          {m.page_permission_location_off()}
+        </p>
+      {/if}
 
       {#if !prompt.rememberable}
         <p id="page-permission-private" class="mt-3 text-[11.5px] leading-4 text-muted">

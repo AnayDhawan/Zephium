@@ -23,6 +23,7 @@ const prompt = (rememberable: boolean, in_sidebar = false): PagePermissionPrompt
   rememberable,
   processing: false,
   in_sidebar,
+  blocked_by_system: false,
 });
 
 test("a saved profile offers the three choices and sends each one", async () => {
@@ -82,6 +83,20 @@ test("a location request names the exact site, scheme and port when not secure",
   await settle();
   await screen.getByRole("button", { name: "Allow while visiting the site" }).click();
   expect(native.respond).toHaveBeenLastCalledWith(shown, "always_allow");
+});
+
+test("a location request says where to turn location on when macOS refuses it", async () => {
+  const off = "Turn on Location Services for Zephium in System Settings › Privacy & Security.";
+  const location = { ...prompt(true, true), kinds: ["geolocation" as const] };
+  const allowed = await render(PagePermissionPrompt, { prompt: location });
+  await expect.element(allowed.getByText(off)).not.toBeInTheDocument();
+  allowed.unmount();
+
+  const refused = await render(PagePermissionPrompt, {
+    prompt: { ...location, blocked_by_system: true },
+  });
+  await expect.element(refused.getByText(off)).toBeVisible();
+  await expect.element(refused.getByRole("alertdialog")).toHaveAccessibleDescription(off);
 });
 
 test("a prompt in the sidebar is a card that leaves the page in view", async () => {
