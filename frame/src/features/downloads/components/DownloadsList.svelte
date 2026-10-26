@@ -67,7 +67,7 @@
 
   /** Newest first, under the day each began. */
   let days = $derived.by(() => {
-    rates.retain(session.entries.map((entry) => entry.id));
+    rates.retain(session.entries);
     const grouped: { label: string; entries: DownloadView[] }[] = [];
     const newest = session.entries.toSorted((a, b) => Number(b.created_at) - Number(a.created_at));
     for (const entry of newest) {
