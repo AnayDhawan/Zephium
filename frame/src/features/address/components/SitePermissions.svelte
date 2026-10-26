@@ -1,18 +1,5 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { IconSvgElement } from "@hugeicons/svelte";
-  import {
-    Camera01Icon,
-    ClipboardIcon,
-    Download01Icon,
-    ExternalLinkIcon,
-    Location01Icon,
-    Mic01Icon,
-    MusicNote01Icon,
-    Notification01Icon,
-    Rotate360Icon,
-    TextFontIcon,
-  } from "@hugeicons/core-free-icons";
   import * as m from "$shared/i18n/messages";
   import type {
     SitePermissionDecisionView,
@@ -21,7 +8,6 @@
   } from "$shared/ipc/bindings";
   import { sitePermissions } from "$domain/permissions";
   import Button from "$shared/ui/Button";
-  import Icon from "$shared/ui/Icon";
   import SegmentedControl from "$shared/ui/SegmentedControl";
   import {
     choiceOf,
@@ -55,18 +41,6 @@
     local_fonts: m.site_permission_local_fonts,
     automatic_downloads: m.permission_automatic_downloads,
     popups: m.permission_popups,
-  };
-  const icons: Record<SitePermissionKindView, IconSvgElement> = {
-    camera: Camera01Icon,
-    microphone: Mic01Icon,
-    geolocation: Location01Icon,
-    notifications: Notification01Icon,
-    clipboard_read: ClipboardIcon,
-    midi: MusicNote01Icon,
-    sensors: Rotate360Icon,
-    local_fonts: TextFontIcon,
-    automatic_downloads: Download01Icon,
-    popups: ExternalLinkIcon,
   };
   const options = $derived([
     { value: "allow", label: m.permission_allow() },
@@ -178,9 +152,6 @@
       <ul>
         {#each shown as kind (kind)}
           <li>
-            <span class="ui-menu-icon" aria-hidden="true"
-              ><Icon icon={icons[kind]} size={16} /></span
-            >
             <span class="name">
               <span aria-hidden="true">{labels[kind]()}</span>
               {#if inUse.has(kind)}<span class="use">{m.site_info_in_use()}</span>{/if}
@@ -237,10 +208,9 @@
     list-style: none;
   }
 
-  /* The icon, the name and the choice, in the rhythm of every row of the
-     panel. The name takes what the choice leaves and may run to a second
-     line; only when even its longest word has no room does the choice drop
-     under it. */
+  /* The name and the choice, from the edge the panel's icons start at. The
+     name takes what the choice leaves and may run to a second line; only
+     when even its longest word has no room does the choice drop under it. */
   li {
     display: flex;
     flex-wrap: wrap;
@@ -248,11 +218,6 @@
     gap: 0 8px;
     min-block-size: var(--menu-row);
     padding: 2px var(--menu-item-inset);
-  }
-
-  /* The name starts where every row's does, a gutter past the icon. */
-  .ui-menu-icon {
-    margin-inline-end: 2px;
   }
 
   .name {

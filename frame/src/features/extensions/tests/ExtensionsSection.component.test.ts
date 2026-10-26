@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-svelte";
+import { userEvent } from "vitest/browser";
 import "$styles/global.css";
 import "$shared/ui/Menu/surface.css";
 import ExtensionsSection from "../components/ExtensionsSection.svelte";
@@ -122,30 +123,37 @@ test("Manage extensions opens the extensions page and leaves the panel", async (
 // The panel's width at the default 240px column, less its own padding.
 const panelWidth = "228px";
 
-test("one row at the default column: the name, each extension's button, and the way on", async () => {
+const rect = (element: Element) => element.getBoundingClientRect();
+
+test("one row at the default column: the name and the way on at the left, each extension's button at the right", async () => {
   native.actions = [action("a"), action("b"), action("c")];
   const screen = await render(ExtensionsSection);
   screen.container.style.inlineSize = panelWidth;
   const row = screen.container.querySelector<HTMLElement>(".row")!;
-  const name = screen.getByText("Extensions", { exact: true });
-  await expect.element(name).toBeVisible();
+  const manage = screen.getByRole("button", { name: "Manage extensions" });
+  await expect.element(manage).toBeVisible();
+  await expect.element(manage).toHaveTextContent("Extensions");
   expect(row.offsetHeight).toBe(34);
+  expect(row.querySelector(".ui-menu-icon")).toBeNull();
 
-  const rect = (element: Element) => element.getBoundingClientRect();
   const tiles = [...row.querySelectorAll<HTMLElement>("button[data-extension-install]")];
   expect(tiles).toHaveLength(3);
-  const chevron = row.querySelector(".chevron")!;
-  expect(row.querySelector(".ui-menu-icon svg")).not.toBeNull();
-  // Name, then the buttons, then the chevron, left to right on one line.
-  expect(rect(name.element()).right).toBeLessThanOrEqual(rect(tiles[0]!).left);
-  expect(rect(tiles[2]!).right).toBeLessThanOrEqual(rect(chevron).left);
+  const button = manage.element();
+  expect(rect(button).right).toBeLessThanOrEqual(rect(tiles[0]!).left);
+  expect(rect(button).left).toBe(rect(row).left);
+  // The name's text starts where the icons of the rows around it do.
+  expect(Math.round(rect(button.querySelector(".name")!).left - rect(row).left)).toBe(8);
+  // The buttons end at the row's end, each on the same line and the same size.
+  expect(rect(row).right - rect(tiles[2]!).right).toBeLessThanOrEqual(4.5);
   for (const tile of tiles) {
     expect(Math.abs(rect(tile).top - rect(tiles[0]!).top)).toBeLessThan(1);
+    expect(rect(tile).width).toBe(28);
     expect(rect(tile).bottom).toBeLessThanOrEqual(rect(row).bottom);
   }
+  expect(rect(button).height).toBe(28);
 });
 
-test("the rest of the row, name and chevron included, opens the manager", async () => {
+test("the way to manage them is the name and its chevron, not the row", async () => {
   native.actions = [action("a")];
   const screen = await render(ExtensionsSection);
   screen.container.style.inlineSize = panelWidth;
@@ -153,21 +161,57 @@ test("the rest of the row, name and chevron included, opens the manager", async 
   await expect.element(manage).toBeVisible();
   const row = screen.container.querySelector<HTMLElement>(".row")!;
   const button = manage.element();
-  const centre = (element: Element) => {
-    const rect = element.getBoundingClientRect();
-    return [rect.left + rect.width / 2, rect.top + rect.height / 2] as const;
-  };
-  for (const part of [".name", ".chevron", ".ui-menu-icon"]) {
-    const [x, y] = centre(row.querySelector(part)!);
-    expect(document.elementFromPoint(x, y)).toBe(button);
+  const tile = row.querySelector<HTMLElement>("button[data-extension-install]")!;
+
+  expect(rect(button).width).toBeLessThan(rect(row).width / 2);
+  const gap = [
+    (rect(button).right + rect(tile).left) / 2,
+    rect(row).top + rect(row).height / 2,
+  ] as const;
+  expect(rect(tile).left - rect(button).right).toBeGreaterThan(40);
+  const under = document.elementFromPoint(...gap);
+  expect(button.contains(under)).toBe(false);
+  expect(tile.contains(under)).toBe(false);
+  await userEvent.click(under!);
+  expect(native.open).not.toHaveBeenCalled();
+
+  await expect.element(manage).toBeVisible();
+  const centre = (element: Element) =>
+    [
+      rect(element).left + rect(element).width / 2,
+      rect(element).top + rect(element).height / 2,
+    ] as const;
+  for (const part of [".name", ".chevron"]) {
+    expect(
+      document.elementFromPoint(...centre(button.querySelector(part)!))!.closest("button"),
+    ).toBe(button);
   }
-  // Only the extension's own button keeps the pointer.
-  const tile = row.querySelector("button[data-extension-install]")!;
-  const [x, y] = centre(tile);
-  expect(tile.contains(document.elementFromPoint(x, y))).toBe(true);
-  const rect = button.getBoundingClientRect();
-  await manage.click({ position: { x: 20, y: rect.height / 2 } });
+  expect(tile.contains(document.elementFromPoint(...centre(tile)))).toBe(true);
+  await manage.click();
   expect(native.open).toHaveBeenCalledExactlyOnceWith("extensions");
+});
+
+test("each button has its own hover, and the others keep none", async () => {
+  native.actions = [action("a"), action("b")];
+  const screen = await render(ExtensionsSection);
+  screen.container.style.inlineSize = panelWidth;
+  const a = screen.getByRole("button", { name: "Extension a" });
+  const b = screen.getByRole("button", { name: "Extension b" });
+  const manage = screen.getByRole("button", { name: "Manage extensions" });
+  // Whether a button has a plate of its own: the fill is not fully transparent.
+  const lit = (locator: typeof a) => {
+    const fill = getComputedStyle(locator.element()).backgroundColor;
+    return Number(/,\s*([\d.]+)\)$/u.exec(fill)?.[1] ?? 1) > 0;
+  };
+  expect(lit(a) || lit(b) || lit(manage)).toBe(false);
+  await a.hover();
+  await expect.poll(() => lit(a)).toBe(true);
+  expect(lit(b)).toBe(false);
+  expect(lit(manage)).toBe(false);
+  await manage.hover();
+  await expect.poll(() => lit(manage)).toBe(true);
+  await expect.poll(() => lit(a)).toBe(false);
+  expect(lit(b)).toBe(false);
 });
 
 test("many extensions wrap beside the name instead of leaving the row", async () => {
@@ -178,17 +222,15 @@ test("many extensions wrap beside the name instead of leaving the row", async ()
   await expect.element(screen.getByRole("button", { name: "Extension x8" })).toBeVisible();
   expect(row.offsetHeight).toBeGreaterThan(34);
   expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth);
-  const box = row.getBoundingClientRect();
+  const box = rect(row);
   for (const tile of row.querySelectorAll("button[data-extension-install]")) {
-    const rect = tile.getBoundingClientRect();
-    expect(rect.left).toBeGreaterThanOrEqual(box.left);
-    expect(rect.right).toBeLessThanOrEqual(box.right);
-    expect(rect.top).toBeGreaterThanOrEqual(box.top);
-    expect(rect.bottom).toBeLessThanOrEqual(box.bottom);
+    expect(rect(tile).left).toBeGreaterThanOrEqual(box.left);
+    expect(rect(tile).right).toBeLessThanOrEqual(box.right);
+    expect(rect(tile).top).toBeGreaterThanOrEqual(box.top);
+    expect(rect(tile).bottom).toBeLessThanOrEqual(box.bottom);
   }
-  expect(screen.container.querySelector(".name")!.scrollWidth).toBeLessThanOrEqual(
-    screen.container.querySelector(".name")!.clientWidth,
-  );
+  const name = screen.container.querySelector(".manage .name")!;
+  expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth);
 });
 
 test("the keyboard reaches the manager and then each extension, each with a ring", async () => {

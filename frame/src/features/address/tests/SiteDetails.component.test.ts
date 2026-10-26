@@ -272,7 +272,7 @@ test("there is no link to Site settings and no explanatory text", async () => {
 // The panel's width at the default 240px column, less its own padding.
 const panelWidth = "228px";
 
-test("every row leads with an icon on one axis, then its name, then its control", async () => {
+test("a permission is its name and its choice, with no icon; zoom and Clear data keep theirs on one axis", async () => {
   const kinds: SitePermissionKindView[] = [
     "camera",
     "microphone",
@@ -291,11 +291,12 @@ test("every row leads with an icon on one axis, then its name, then its control"
   screen.container.style.inlineSize = panelWidth;
   await expect.element(screen.getByRole("radiogroup", { name: "Camera" })).toBeVisible();
 
+  expect(screen.container.querySelectorAll("li svg")).toHaveLength(0);
   const icons = [...screen.container.querySelectorAll<HTMLElement>(".ui-menu-icon")];
-  expect(icons).toHaveLength(kinds.length + 2);
+  expect(icons).toHaveLength(2);
   for (const icon of icons) expect(icon.querySelector("svg")).not.toBeNull();
-  expect(icons.map((icon) => Math.round(icon.getBoundingClientRect().left))).toEqual(
-    icons.map(() => Math.round(icons[0]!.getBoundingClientRect().left)),
+  expect(Math.round(icons[0]!.getBoundingClientRect().left)).toBe(
+    Math.round(icons[1]!.getBoundingClientRect().left),
   );
 
   // The choice stays on its name's line: a name that is long takes two lines
@@ -305,6 +306,8 @@ test("every row leads with an icon on one axis, then its name, then its control"
     const name = row.querySelector(".name")!.getBoundingClientRect();
     expect(row.offsetHeight, row.textContent ?? "").toBeLessThanOrEqual(38);
     expect(control.left).toBeGreaterThanOrEqual(name.right);
+    // Names start where the icons do.
+    expect(Math.round(name.left)).toBe(Math.round(icons[0]!.getBoundingClientRect().left));
   }
 
   const zoom = screen.getByRole("group", { name: "Page zoom" }).element() as HTMLElement;

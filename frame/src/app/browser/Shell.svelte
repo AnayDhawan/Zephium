@@ -34,7 +34,7 @@
   import { requestTab } from "$session/work-tab.svelte";
   import { expanded as sidebarWidth } from "$session/sidebar-mode.svelte";
   import { uiCommands as ui } from "$domain/ui-commands";
-  import { untrack, type Component } from "svelte";
+  import { untrack, type Component, type Snippet } from "svelte";
   import { clearRequest } from "$domain/site-data";
   import { BlockerShield, HidingBar, hideElements, toggleSiteProtection } from "$features/blocker";
 
@@ -371,8 +371,10 @@
                   warning={page?.warning}
                 >
                   {#snippet children(open)}
-                    <SiteHead {page} />
-                    <BlockerShield {open} />
+                    {#snippet siteHead(name: string | null, control?: Snippet)}
+                      <SiteHead {page} label={name}>{@render control?.()}</SiteHead>
+                    {/snippet}
+                    <BlockerShield {open} head={page ? siteHead : undefined} />
                     <ExtensionsSection />
                     <SiteDetails {page} {open} />
                   {/snippet}

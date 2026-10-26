@@ -1,14 +1,20 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import { ShieldAlertIcon, ShieldCheckIcon } from "@hugeicons/core-free-icons";
   import * as m from "$shared/i18n/messages";
   import Icon from "$shared/ui/Icon";
-  import { restingAddress, type SitePage } from "../lib/address-model";
+  import type { SitePage } from "../lib/address-model";
 
-  /** Who the page is from and whether the connection can be trusted. A secure
-   *  page says so on its shield alone; one that is not says why in words. */
-  let { page }: { page: SitePage | null } = $props();
+  /** The first row of the panel: a shield that says whether the connection can
+   *  be trusted, what the control at the row's end does, and the control. A
+   *  secure page says so on its shield alone; one that is not says why in words
+   *  under the name. With no `label` the status itself takes the name's place. */
+  let {
+    page,
+    label = null,
+    children,
+  }: { page: SitePage | null; label?: string | null; children?: Snippet } = $props();
 
-  let host = $derived(restingAddress(page?.url));
   let secure = $derived(page?.security === "secure");
   let status = $derived(
     page?.security === "untrusted"
@@ -20,7 +26,7 @@
 </script>
 
 {#if page}
-  <header>
+  <div class="head">
     <span
       class="mark"
       role="img"
@@ -31,19 +37,20 @@
       <Icon icon={secure ? ShieldCheckIcon : ShieldAlertIcon} size={16} />
     </span>
     <span class="words">
-      <span class="host" title={host}>{host}</span>
-      {#if !secure}<span class="status">{status}</span>{/if}
+      <span class="name">{label ?? status}</span>
+      {#if label && !secure}<span class="status">{status}</span>{/if}
     </span>
-  </header>
+    {@render children?.()}
+  </div>
 {/if}
 
 <style>
-  header {
+  .head {
     display: flex;
     align-items: center;
     gap: 10px;
     min-block-size: var(--menu-row);
-    padding-inline: var(--menu-item-inset);
+    padding: 2px var(--menu-item-inset);
   }
 
   .mark {
@@ -65,15 +72,13 @@
     min-inline-size: 0;
   }
 
-  .host {
-    overflow: hidden;
+  .name {
     color: var(--color-text);
     font-size: var(--text-body);
-    font-weight: 600;
-    letter-spacing: -0.005em;
-    line-height: 18px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-weight: 450;
+    line-height: 16px;
+    overflow-wrap: break-word;
+    text-wrap: balance;
   }
 
   .status {

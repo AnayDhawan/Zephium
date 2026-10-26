@@ -1,14 +1,16 @@
 <script lang="ts">
-  import { untrack } from "svelte";
-  import { ShieldBanIcon } from "@hugeicons/core-free-icons";
+  import { untrack, type Snippet } from "svelte";
   import * as m from "$shared/i18n/messages";
   import { blocker, shieldPresentation } from "$domain/blocker";
-  import Icon from "$shared/ui/Icon";
 
   /** The blocking section of the site panel. Its controls load the first time
    *  the panel is open, a failed load is tried again at the next, and the
-   *  standing is read afresh at every opening. */
-  let { open }: { open: boolean } = $props();
+   *  standing is read afresh at every opening. `head` draws the section's first
+   *  row, whose mark is the page's own: given what the switch is called, and
+   *  the switch once there is one. It is drawn without a name when blocking is
+   *  absent, so the row is there whatever blocking is. */
+  let { open, head }: { open: boolean; head?: Snippet<[name: string | null, control?: Snippet]> } =
+    $props();
   let Menu = $state<typeof import("./ProtectionMenu.svelte").default | null>(null);
   let failed = $state(false);
   let loading = false;
@@ -29,32 +31,16 @@
   let shield = $derived(shieldPresentation(blocker.status()));
 </script>
 
-{#if Menu}
-  <Menu {open} />
-{:else if shield.visible}
-  <section class="protection" aria-label={m.site_info_blocking()} data-tray-tools>
-    <div class="head">
-      <span class="ui-menu-icon" aria-hidden="true"><Icon icon={ShieldBanIcon} size={16} /></span>
-      <span class="title">{m.site_info_blocking()}</span>
-    </div>
+{#if Menu && shield.visible}
+  <Menu {head} />
+{:else if head || (failed && shield.visible)}
+  <section class="protection" data-tray-tools>
+    {#if head}{@render head(shield.visible ? m.site_info_blocking() : null)}{/if}
     {#if failed}<p class="failure" role="status">{m.surface_render_failed()}</p>{/if}
   </section>
 {/if}
 
 <style>
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-block-size: var(--menu-row);
-    padding-inline: var(--menu-item-inset);
-  }
-
-  .title {
-    font-size: var(--text-body);
-    line-height: 18px;
-  }
-
   .failure {
     margin: 0 var(--menu-item-inset) 4px;
     color: var(--color-warning);

@@ -1,22 +1,22 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import {
     ArrowRight01Icon,
     Cancel01Icon,
+    CursorPointer01Icon,
     ListViewIcon,
     ReloadIcon,
     ShieldBanIcon,
-    ViewOffIcon,
   } from "@hugeicons/core-free-icons";
   import * as m from "$shared/i18n/messages";
   import { blocker, blockerSites, hiding, shieldPresentation } from "$domain/blocker";
-  import { tabs } from "$domain/tabs";
   import type { BlockerSiteAction } from "$shared/ipc/bindings";
-  import { commands } from "$shared/ipc/bindings";
   import Icon from "$shared/ui/Icon";
   import Switch from "$shared/ui/Switch";
 
-  /** Reads the day's count each time `open` turns true. */
-  let { open }: { open: boolean } = $props();
+  /** What blocking says and does for the page in front. `head` draws the first
+   *  row; see BlockerShield. */
+  let { head }: { head?: Snippet<[name: string | null, control?: Snippet]> } = $props();
   let status = $derived(blocker.status());
   let shield = $derived(shieldPresentation(status));
   let site = $derived(status.site);
@@ -33,30 +33,8 @@
     managing = false;
   });
 
-  let blockedToday = $state<number | null>(null);
-  // The day's count belongs to the profile, so it reads on pages without a
-  // site too (the new tab); keyed to the id, as `site` is new on every event.
-  let profile = $derived(tabs.profile()?.id);
-  $effect(() => {
-    if (!open || !profile) return;
-    let current = true;
-    void commands
-      .blockerStats(profile)
-      .then((result) => {
-        if (current) blockedToday = result.status === "ok" ? result.data.today : null;
-      })
-      .catch(() => {});
-    return () => {
-      current = false;
-    };
-  });
-
-  // Active and counting, the row tells it in a number beside the name, and
-  // anything else needs its words: protection that is off, starting or in
+  // What the page's own row cannot say: protection that is off, starting or in
   // trouble. A site paused is shown by its switch.
-  let counting = $derived(
-    status.protection === "active" && site?.paused !== true && blockedToday !== null,
-  );
   let standing = $derived(
     status.protection === "disabled"
       ? m.site_info_blocking_off()
@@ -64,11 +42,15 @@
         ? m.site_info_blocking_starting()
         : status.protection === "degraded"
           ? m.site_info_blocking_attention()
-          : site?.paused
-            ? m.site_info_blocking_paused()
-            : blockedToday === null
-              ? m.site_info_blocking_on()
-              : m.site_info_blocking_count({ count: blockedToday.toLocaleString() }),
+          : "",
+  );
+  let present = $derived(
+    shield.visible &&
+      (head !== undefined ||
+        standing !== "" ||
+        status.desired_enabled !== true ||
+        (site !== null && on) ||
+        failure !== ""),
   );
 
   function ok(result: blocker.BlockerMutationResult) {
@@ -118,33 +100,30 @@
   }
 </script>
 
-{#if shield.visible}
-  <section class="protection" aria-label={m.site_info_blocking()} data-tray-tools>
-    <div class="head" title={standing}>
-      <span class="ui-menu-icon" aria-hidden="true"><Icon icon={ShieldBanIcon} size={16} /></span>
-      <span class="words">
-        <span class="title" aria-hidden="true">{m.site_info_blocking()}</span>
-        {#if counting}
-          <span class="count"
-            ><span aria-hidden="true">{blockedToday?.toLocaleString()}</span><span class="sr-only"
-              >{standing}</span
-            ></span
-          >
-        {/if}
-      </span>
-      {#if on && site?.ready}
-        <Switch
-          label={m.site_info_blocking()}
-          labelHidden
-          checked={!site.paused}
-          disabled={busy || site.busy}
-          onchange={(value) => void setProtected(value)}
-        />
-      {/if}
-    </div>
+{#snippet control()}
+  {#if on && site?.ready}
+    <Switch
+      label={m.site_info_blocking()}
+      labelHidden
+      checked={!site.paused}
+      disabled={busy || site.busy}
+      onchange={(value) => void setProtected(value)}
+    />
+  {/if}
+{/snippet}
 
-    {#if status.protection !== "active"}
-      <p class="standing" class:warning={shield.tone === "warning"}>{standing}</p>
+{#if present}
+  <section class="protection" data-tray-tools>
+    {#if head}{@render head(m.site_info_blocking(), control)}{/if}
+
+    {#if standing !== ""}
+      <p
+        class="standing"
+        class:headed={head !== undefined}
+        class:warning={shield.tone === "warning"}
+      >
+        {standing}
+      </p>
     {/if}
 
     {#if status.desired_enabled !== true}
@@ -168,7 +147,9 @@
           disabled={busy || site.busy}
           onclick={() => void hide()}
         >
-          <span class="ui-menu-icon" aria-hidden="true"><Icon icon={ViewOffIcon} size={16} /></span>
+          <span class="ui-menu-icon" aria-hidden="true"
+            ><Icon icon={CursorPointer01Icon} size={16} /></span
+          >
           <span class="label">{m.site_info_hide_elements()}</span>
         </button>
       {:else}
@@ -240,59 +221,18 @@
     min-inline-size: 0;
   }
 
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-block-size: var(--menu-row);
-    padding-inline: var(--menu-item-inset);
-  }
-
-  /* The name starts where every row's does, a gutter past the icon. */
-  .head .ui-menu-icon {
-    margin-inline-end: 2px;
-  }
-
-  /* The name, and beside it the day's count while it fits. What does not fit
-     on the line wraps below it and is clipped, so the name is never the
-     thing that gives way for the number. */
-  .words {
-    display: flex;
-    flex: 1;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0 8px;
-    min-inline-size: 0;
-    block-size: 18px;
-    overflow: hidden;
-  }
-
-  .title {
-    flex: 0 1 auto;
-    max-inline-size: 100%;
-    overflow: hidden;
-    font-size: var(--text-body);
-    font-weight: 450;
-    line-height: 18px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .count {
-    flex: none;
-    color: var(--color-muted);
-    font-size: var(--text-label);
-    font-variant-numeric: tabular-nums;
-    line-height: 18px;
-  }
-
-  /* Under the name, where the icon's column ends. */
+  /* Under the page's own row, in its words' column; with no row, where every
+     row's icon starts. */
   .standing {
-    margin-block: -4px 4px;
-    margin-inline: calc(var(--menu-item-inset) + 26px) var(--menu-item-inset);
+    margin: 0 var(--menu-item-inset) 4px;
     color: var(--color-muted);
     font-size: var(--text-caption);
     line-height: 14px;
+  }
+
+  .standing.headed {
+    margin-block-start: -4px;
+    margin-inline-start: calc(var(--menu-item-inset) + 26px);
   }
 
   .standing.warning {
@@ -333,8 +273,10 @@
     text-wrap: balance;
   }
 
-  .row .count {
+  .count {
+    color: var(--color-muted);
     font-size: var(--text-caption);
+    font-variant-numeric: tabular-nums;
   }
 
   .chevron {

@@ -16,6 +16,10 @@ const native = vi.hoisted(() => ({
   set: vi.fn(async (..._args: unknown[]) => true),
   refresh: vi.fn(async () => {}),
   setProtected: vi.fn(async (_protect: boolean) => true),
+  stats: vi.fn(async () => ({
+    status: "ok" as const,
+    data: { today: 42, last7Days: 0, days: [] },
+  })),
   status: null as unknown as BlockerStatusView,
   extensions: false,
 }));
@@ -38,10 +42,7 @@ vi.mock("$shared/ipc/bindings", async () => {
     tabsBootstrap: async () => {},
     pagePermissionCardHost: async () => {},
     runCommand: async () => ({ accepted: true, operation_id: null }),
-    blockerStats: async () => ({
-      status: "ok" as const,
-      data: { today: 42, last7Days: 0, days: [] },
-    }),
+    blockerStats: native.stats,
   });
 });
 
@@ -113,29 +114,52 @@ test("the address field has one control, at its end, and no zoom badge", async (
   await expect.element(screen.getByRole("button", { name: /Page zoom/u })).not.toBeInTheDocument();
 });
 
-test("one panel, top to bottom: the site, blocking, its permissions, zoom, and its data", async () => {
+test("one panel, top to bottom: the shield with blocking, its permissions, zoom, and its data, and no host", async () => {
   const screen = await shell({ zoom: 125 });
   await screen.getByRole("button", { name: "Site information" }).click();
   const panel = screen.getByRole("group", { name: "Site information" });
 
-  const host = panel.getByText("meet.example");
   const secure = panel.getByRole("img", { name: "Secure" });
-  const blocking = panel.getByRole("switch", { name: "Ad blocking" });
+  const blocking = panel.getByRole("switch", { name: "Block on this site" });
+  const hide = panel.getByRole("button", { name: "Hide elements…" });
   const camera = panel.getByRole("radiogroup", { name: "Camera" });
   const zoom = panel.getByRole("group", { name: "Page zoom" });
   const clear = panel.getByRole("button", { name: "Clear data for this site…" });
-  await expect.element(host).toBeVisible();
   await expect.element(secure).toBeVisible();
   await expect.element(blocking).toBeChecked();
-  await expect.element(panel.getByText("42", { exact: true })).toBeVisible();
+  await expect.element(hide).toBeVisible();
   await expect.element(camera.getByRole("radio", { name: "Allow" })).toBeChecked();
   await expect.element(zoom.getByRole("status")).toHaveTextContent("125%");
   await expect.element(clear).toBeVisible();
 
-  const order = [host, blocking, camera, zoom, clear].map((locator) => locator.element());
+  const order = [secure, blocking, hide, camera, zoom, clear].map((locator) => locator.element());
   for (let at = 1; at < order.length; at++) expect(before(order[at - 1]!, order[at]!)).toBe(true);
 
-  expect(panel.element().textContent).not.toContain("Site settings");
+  const text = panel.element().textContent ?? "";
+  expect(text).not.toContain("meet.example");
+  expect(text).not.toContain("Site settings");
+  expect(text).not.toMatch(/blocked today|Ad blocking|\b42\b/u);
+  expect(native.stats).not.toHaveBeenCalled();
+});
+
+test("the shield and the switch are one row: the shield leads, what the switch does follows, the switch ends it", async () => {
+  const screen = await shell();
+  await screen.getByRole("button", { name: "Site information" }).click();
+  const panel = screen.getByRole("group", { name: "Site information" });
+  await expect.element(panel.getByRole("switch", { name: "Block on this site" })).toBeVisible();
+  const head = panel.element().querySelector<HTMLElement>(".protection .head")!;
+  const rect = (element: Element) => element.getBoundingClientRect();
+  const shield = head.querySelector(".mark")!;
+  const name = head.querySelector(".name")!;
+  const toggle = head.querySelector("[role=switch]")!;
+  expect(rect(shield).right).toBeLessThanOrEqual(rect(name).left);
+  expect(rect(name).right).toBeLessThanOrEqual(rect(toggle).left);
+  expect(
+    Math.abs(rect(shield).top + rect(shield).height / 2 - (rect(head).top + rect(head).height / 2)),
+  ).toBeLessThan(1);
+  expect(head.offsetHeight).toBe(34);
+  expect(head.querySelectorAll("svg")).toHaveLength(1);
+  expect(head.querySelector(".status")).toBeNull();
 });
 
 test("a page at its default zoom with no decisions has just the site, blocking and its data", async () => {
@@ -148,7 +172,7 @@ test("a page at its default zoom with no decisions has just the site, blocking a
   const screen = await shell();
   await screen.getByRole("button", { name: "Site information" }).click();
   const panel = screen.getByRole("group", { name: "Site information" });
-  await expect.element(panel.getByRole("switch", { name: "Ad blocking" })).toBeVisible();
+  await expect.element(panel.getByRole("switch", { name: "Block on this site" })).toBeVisible();
   await expect.poll(() => native.list.mock.calls.length).toBe(1);
   await expect.element(panel.getByRole("radiogroup")).not.toBeInTheDocument();
   await expect.element(panel.getByRole("group", { name: "Page zoom" })).not.toBeInTheDocument();
@@ -158,11 +182,11 @@ test("a page at its default zoom with no decisions has just the site, blocking a
     .toBeVisible();
 });
 
-test("the panel is as wide as the field, with groups divided and every row on one line", async () => {
+test("the panel is as wide as the field, with two groups divided and every row on one line", async () => {
   const screen = await shell({ zoom: 125 });
   await screen.getByRole("button", { name: "Site information" }).click();
   const panel = screen.getByRole("group", { name: "Site information" });
-  await expect.element(panel.getByRole("switch", { name: "Ad blocking" })).toBeVisible();
+  await expect.element(panel.getByRole("switch", { name: "Block on this site" })).toBeVisible();
   await expect.element(panel.getByRole("group", { name: "Page zoom" })).toBeVisible();
 
   const field = screen.container
@@ -178,42 +202,44 @@ test("the panel is as wide as the field, with groups divided and every row on on
 
   const body = panel.element().querySelector<HTMLElement>("[data-tray-body]")!;
   const line = (row: Element) => (row as HTMLElement).offsetHeight;
-  expect(line(body.querySelector("header")!)).toBeLessThanOrEqual(36);
   expect(line(body.querySelector(".protection .head")!)).toBe(34);
+  expect(line(panel.getByRole("button", { name: "Hide elements…" }).element())).toBe(34);
   expect(line(panel.getByRole("group", { name: "Page zoom" }).element())).toBe(34);
   expect(line(panel.getByRole("button", { name: "Clear data for this site…" }).element())).toBe(34);
 
-  // Three groups, so two dividers: the site, what acts on the page, what the
-  // site has; and the extensions would share the second group's.
+  // What acts on the page, and what the site has: one divider between.
   const dividers = [...body.children].filter(
     (child) => parseFloat(getComputedStyle(child).borderTopWidth) > 0,
   );
-  expect(dividers).toHaveLength(2);
+  expect(dividers).toHaveLength(1);
 });
 
-test("with extensions, the blocking and the extensions are one group between two dividers", async () => {
+test("with extensions, they join the blocking in its group; the label opens the manager, each extension its own", async () => {
   native.extensions = true;
   const screen = await shell({ zoom: 125 });
   await screen.getByRole("button", { name: "Site information" }).click();
   const panel = screen.getByRole("group", { name: "Site information" });
-  await expect.element(panel.getByRole("button", { name: "Manage extensions" })).toBeVisible();
+  const manage = panel.getByRole("button", { name: "Manage extensions" });
+  await expect.element(manage).toBeVisible();
   await expect.element(panel.getByRole("button", { name: "Hide elements…" })).toBeVisible();
 
   const body = panel.element().querySelector<HTMLElement>("[data-tray-body]")!;
-  const sections = [...body.children];
-  const ruled = sections.filter((child) => parseFloat(getComputedStyle(child).borderTopWidth) > 0);
-  expect(ruled.map((child) => child.className.replace(/\s*svelte-\w+/gu, ""))).toEqual([
-    "protection",
-    "details",
-  ]);
+  const ruled = [...body.children].filter(
+    (child) => parseFloat(getComputedStyle(child).borderTopWidth) > 0,
+  );
+  expect(ruled.map((child) => child.className.replace(/\s*svelte-\w+/gu, ""))).toEqual(["details"]);
   const row = body.querySelector<HTMLElement>(".extensions .row")!;
   expect(row.offsetHeight).toBe(34);
+  expect(row.querySelector(".ui-menu-icon")).toBeNull();
+  const edge = body.getBoundingClientRect().left;
   expect(
     [...body.querySelectorAll<HTMLElement>(".ui-menu-icon")].every(
-      (icon) =>
-        Math.round(icon.getBoundingClientRect().left - body.getBoundingClientRect().left) === 8,
+      (icon) => Math.round(icon.getBoundingClientRect().left - edge) === 8,
     ),
   ).toBe(true);
+  expect(
+    Math.round(manage.element().querySelector(".name")!.getBoundingClientRect().left - edge),
+  ).toBe(8);
 });
 
 test("an unencrypted page keeps the warning in view, and the panel says why", async () => {
@@ -228,7 +254,9 @@ test("an unencrypted page keeps the warning in view, and the panel says why", as
     name: "Site information, Connection is not encrypted",
   });
   await expect.element(panel.getByText("Not secure")).toBeVisible();
+  await expect.element(panel.getByRole("img", { name: "Not secure" })).toBeVisible();
   expect(panel.element().textContent).not.toContain("Secure");
+  expect(panel.element().textContent).not.toContain("meet.example");
 });
 
 test("a certificate the person continued past is not secure either", async () => {
@@ -242,15 +270,20 @@ test("a certificate the person continued past is not secure either", async () =>
     .toBeVisible();
 });
 
-test("a new tab has the panel too, for blocking and extensions, without a site", async () => {
+test("a new tab has the panel too, for its extensions, with no site and no blocking to switch", async () => {
+  native.extensions = true;
   const screen = await shell({ url: null });
   await screen.getByRole("button", { name: "Utilities" }).click();
   const panel = screen.getByRole("group", { name: "Utilities" });
-  await expect.element(panel.getByText("42", { exact: true })).toBeVisible();
+  await expect.element(panel.getByRole("button", { name: "Manage extensions" })).toBeVisible();
+  await expect.element(panel.getByRole("switch")).not.toBeInTheDocument();
+  await expect.element(panel.getByRole("img")).not.toBeInTheDocument();
   await expect
     .element(panel.getByRole("button", { name: "Clear data for this site…" }))
     .not.toBeInTheDocument();
+  expect(panel.element().textContent).not.toMatch(/\b42\b/u);
   expect(native.list).not.toHaveBeenCalled();
+  expect(native.stats).not.toHaveBeenCalled();
 });
 
 test("Escape closes the panel and returns to the glyph", async () => {

@@ -81,17 +81,14 @@
 
 <style>
   /* Right of the row's name, wrapping onto more lines when there are more
-     than fit. Only the tiles take the pointer; between them it falls through
-     to the row under, which opens the manager. */
+     than fit. */
   .actions {
-    position: relative;
     display: flex;
     flex: 1 1 0;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 2px;
     min-inline-size: 0;
-    pointer-events: none;
   }
 
   .actions:empty {
@@ -101,15 +98,14 @@
   .actions .tile {
     display: grid;
     place-items: center;
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     padding: 0;
     border: 0;
     border-radius: var(--radius-inset);
     background: none;
     cursor: default;
     outline: none;
-    pointer-events: auto;
     transition: background-color var(--motion-instant) var(--ease-smooth);
   }
 
