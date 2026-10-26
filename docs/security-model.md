@@ -373,8 +373,10 @@ is not a shipping WKWebView API. The feature-only loopback probe is therefore co
 and linted in macOS CI but not executed there. On macOS, privileged views use a retained
 deny-only UIDelegate for media capture, device orientation/motion and file selection;
 optional dialog and popup methods are omitted so WebKit takes its cancel/no-dialog
-defaults. All privileged responses also deny ambient features through
-`Permissions-Policy` where the engine supports each directive. A signed packaged
+defaults. Privileged responses deny ambient features through `Permissions-Policy`
+where the engine supports each directive. Clipboard writes are allowed for the
+privileged origin itself so explicit Copy controls can work; clipboard reads
+remain denied. This policy is not applied to, or delegated to, page WebViews. A signed packaged
 WKWebView/TCC check on the supported OS lines remains a release gate for the macOS
 broker. Foreground human macOS tabs
 use the native download broker described below. Foreground human Windows views
