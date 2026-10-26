@@ -19,7 +19,7 @@ const ISSUES: &str = "help.issues";
 pub(crate) fn url(id: &str) -> Option<&'static str> {
     match id {
         DOCS => Some("https://zephium.app/docs"),
-        RELEASES => Some("https://github.com/zephium-browser/Zephium/releases"),
+        RELEASES => Some("https://zephium.app/changelog"),
         ISSUES => Some("https://github.com/zephium-browser/Zephium/issues"),
         _ => None,
     }
@@ -85,7 +85,7 @@ mod tests {
     #[test]
     fn links_lead_to_the_documentation_the_releases_and_the_issue_tracker() {
         assert_eq!(url(DOCS), Some("https://zephium.app/docs"));
-        assert!(url(RELEASES).is_some_and(|url| url.starts_with("https://github.com/")));
+        assert_eq!(url(RELEASES), Some("https://zephium.app/changelog"));
         assert!(url(ISSUES).is_some_and(|url| url.ends_with("/issues")));
         assert_eq!(url(ABOUT), None);
         assert_eq!(url(DIAGNOSTICS), None);
