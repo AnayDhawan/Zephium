@@ -54,5 +54,5 @@ test("only a prompt placed in the sidebar shows there", async () => {
   native.prompt = prompt(true);
   const card = await render(SidebarPagePermission);
   await expect.element(card.getByRole("alertdialog")).toBeVisible();
-  await expect.element(card.getByText("https://meet.example")).toBeVisible();
+  await expect.element(card.getByText("meet.example wants to use your camera")).toBeVisible();
 });

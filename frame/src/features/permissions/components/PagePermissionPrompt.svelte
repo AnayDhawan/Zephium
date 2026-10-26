@@ -23,23 +23,19 @@
   let camera = $derived(prompt.kinds.includes("camera"));
   let microphone = $derived(prompt.kinds.includes("microphone"));
   let location = $derived(prompt.kinds.includes("geolocation"));
+  // The exact origin names the site, as Chrome does: only a secure scheme
+  // goes unsaid; http and any port stay in view.
+  let site = $derived(
+    prompt.origin.startsWith("https://") ? prompt.origin.slice("https://".length) : prompt.origin,
+  );
   let title = $derived(
     location
-      ? m.page_permission_title_location()
+      ? m.page_permission_title_location({ site })
       : camera && microphone
-        ? m.page_permission_title_both()
+        ? m.page_permission_title_both({ site })
         : camera
-          ? m.page_permission_title_camera()
-          : m.page_permission_title_microphone(),
-  );
-  let detail = $derived(
-    location
-      ? m.page_permission_detail_location()
-      : camera && microphone
-        ? m.page_permission_detail_both()
-        : camera
-          ? m.page_permission_detail_camera()
-          : m.page_permission_detail_microphone(),
+          ? m.page_permission_title_camera({ site })
+          : m.page_permission_title_microphone({ site }),
   );
   let icon = $derived(location ? Location01Icon : camera ? Camera01Icon : Mic01Icon);
 
@@ -171,20 +167,16 @@
     bind:this={dialog}
     role="alertdialog"
     aria-labelledby="page-permission-title"
-    aria-describedby="page-permission-origin page-permission-detail"
+    aria-describedby={prompt.rememberable ? undefined : "page-permission-private"}
     class="page-permission"
     data-zephium-page-permission-prompt
   >
     <div class="head">
       <Icon {icon} size={14} />
-      <div class="words">
-        <p id="page-permission-title" class="title">{title}</p>
-        <p id="page-permission-origin" class="origin">{prompt.origin}</p>
-      </div>
+      <p id="page-permission-title" class="title">{title}</p>
     </div>
-    <p id="page-permission-detail" class="detail">{detail}</p>
     {#if !prompt.rememberable}
-      <p class="detail">{m.page_permission_ask_again()}</p>
+      <p id="page-permission-private" class="detail">{m.page_permission_private()}</p>
     {/if}
     {@render status()}
     {@render choices("compact")}
@@ -196,37 +188,28 @@
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="page-permission-title"
-      aria-describedby="page-permission-origin page-permission-detail"
+      aria-describedby={prompt.rememberable ? undefined : "page-permission-private"}
       class="w-[min(360px,calc(100vw-32px))] rounded-panel border border-border-strong bg-raised p-4 text-start shadow-[var(--shadow-overlay)]"
       data-zephium-page-permission-prompt
     >
-      <div class="flex items-start gap-3">
+      <div class="flex items-center gap-3">
         <span
           class="flex h-9 w-9 shrink-0 items-center justify-center rounded-control-compact bg-accent-soft text-accent"
           aria-hidden="true"
         >
           <Icon {icon} size={19} />
         </span>
-        <div class="min-w-0 flex-1">
-          <h1 id="page-permission-title" class="text-[14px] leading-5 font-semibold text-text">
-            {title}
-          </h1>
-          <p
-            id="page-permission-origin"
-            class="mt-0.5 text-[11.5px] leading-4 break-all text-muted"
-          >
-            {prompt.origin}
-          </p>
-        </div>
+        <h1
+          id="page-permission-title"
+          class="min-w-0 flex-1 text-[14px] leading-5 font-semibold [overflow-wrap:anywhere] text-text"
+        >
+          {title}
+        </h1>
       </div>
 
-      <p id="page-permission-detail" class="mt-3 text-[11.5px] leading-4 text-text">
-        {detail}
-      </p>
-
       {#if !prompt.rememberable}
-        <p class="mt-3 rounded-row bg-fill px-2.5 py-2 text-[10.5px] leading-4 text-muted">
-          {m.page_permission_ask_again()}
+        <p id="page-permission-private" class="mt-3 text-[11.5px] leading-4 text-muted">
+          {m.page_permission_private()}
         </p>
       {/if}
 
@@ -259,11 +242,8 @@
     color: var(--color-muted);
   }
 
-  .words {
-    min-inline-size: 0;
-  }
-
   .title {
+    min-inline-size: 0;
     margin: 0;
     font-size: 12px;
     font-weight: 500;
@@ -271,7 +251,6 @@
     overflow-wrap: anywhere;
   }
 
-  .origin,
   .detail {
     margin: 0;
     color: var(--color-muted);

@@ -28,10 +28,11 @@ const prompt = (rememberable: boolean, in_sidebar = false): PagePermissionPrompt
 test("a saved profile offers the three choices and sends each one", async () => {
   const shown = prompt(true);
   const screen = await render(PagePermissionPrompt, { prompt: shown });
-  await expect.element(screen.getByText("Use your camera and microphone?")).toBeVisible();
-  await expect.element(screen.getByText("https://meet.example")).toBeVisible();
   await expect
-    .element(screen.getByText("Zephium will ask again next time."))
+    .element(screen.getByText("meet.example wants to use your camera and microphone"))
+    .toBeVisible();
+  await expect
+    .element(screen.getByText("Private windows don't save this choice."))
     .not.toBeInTheDocument();
   await expect.element(screen.getByRole("button", { name: "Never allow" })).toHaveFocus();
   await settle();
@@ -48,7 +49,7 @@ test("a saved profile offers the three choices and sends each one", async () => 
 test("a private profile offers only one-time choices", async () => {
   const shown = prompt(false);
   const screen = await render(PagePermissionPrompt, { prompt: shown });
-  await expect.element(screen.getByText("Zephium will ask again next time.")).toBeVisible();
+  await expect.element(screen.getByText("Private windows don't save this choice.")).toBeVisible();
   await expect
     .element(screen.getByRole("button", { name: "Allow while visiting the site" }))
     .not.toBeInTheDocument();
@@ -68,12 +69,15 @@ test("Escape dismisses the request so the page may ask again", async () => {
   expect(native.respond).toHaveBeenLastCalledWith(shown, "dismiss");
 });
 
-test("a location request names what the site will learn", async () => {
-  const shown = { ...prompt(true), kinds: ["geolocation" as const] };
+test("a location request names the exact site, scheme and port when not secure", async () => {
+  const shown = {
+    ...prompt(true),
+    origin: "http://maps.example:8080",
+    kinds: ["geolocation" as const],
+  };
   const screen = await render(PagePermissionPrompt, { prompt: shown });
-  await expect.element(screen.getByText("Know your location?")).toBeVisible();
   await expect
-    .element(screen.getByText("Granting access lets this site know where you are."))
+    .element(screen.getByText("http://maps.example:8080 wants to know your location"))
     .toBeVisible();
   await settle();
   await screen.getByRole("button", { name: "Allow while visiting the site" }).click();
@@ -87,7 +91,9 @@ test("a prompt in the sidebar is a card that leaves the page in view", async () 
   await expect.element(card).toBeVisible();
   expect(card.element().closest(".fixed")).toBeNull();
   expect(card.element().getAttribute("aria-modal")).toBeNull();
-  await expect.element(screen.getByText("https://meet.example")).toBeVisible();
+  await expect
+    .element(screen.getByText("meet.example wants to use your camera and microphone"))
+    .toBeVisible();
   await expect.element(screen.getByRole("button", { name: "Never allow" })).toHaveFocus();
 
   // A click that lands as the card appears is not an answer.
