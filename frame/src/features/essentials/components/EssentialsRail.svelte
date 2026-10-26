@@ -57,6 +57,7 @@
 <ul
   bind:this={list}
   class="rail-sites"
+  data-under-panel
   data-essentials-drop
   data-over={tabDrag.overEssentials()}
   role="list"

@@ -15,6 +15,9 @@
 
   let { compact = false }: { compact?: boolean } = $props();
 
+  // The disc is 36px and its ring a 1.5px stroke along its edge.
+  const RING = 17.25;
+
   let player = $derived(mediaPlayer.view());
   // Native sends the position as of each change; between changes it is
   // arithmetic, redrawn once a second only while something plays.
@@ -65,8 +68,9 @@
 
 {#if player}
   {#if compact}
-    <!-- The rail has room for the site and what plays it: a disc ringed by
-         its progress, which plays or pauses. -->
+    <!-- The rail has room for the site and what plays it: a plate like its
+         other buttons, ringed by how far it has played from the top, which
+         plays or pauses. -->
     <button
       type="button"
       class="media-disc"
@@ -76,14 +80,15 @@
       onclick={toggle}
     >
       <svg class="media-ring" viewBox="0 0 36 36" aria-hidden="true">
-        <circle cx="18" cy="18" r="16.5" pathLength="100" />
-        {#if duration !== null}<circle
+        <circle class="media-ring-track" cx="18" cy="18" r={RING} />
+        {#if duration !== null && progress > 0}<circle
             class="media-ring-fill"
             cx="18"
             cy="18"
-            r="16.5"
+            r={RING}
             pathLength="100"
             stroke-dasharray={`${progress * 100} 100`}
+            transform="rotate(-90 18 18)"
           />{/if}
       </svg>
       <span class="media-disc-icon">
@@ -462,23 +467,33 @@
     gap: 2px;
   }
 
-  /* The rail: the site in a disc ringed by how far it has played. */
+  /* The rail: the site on the plate of the profile button below it, the same
+     size, centred in the column and a rail step above the rule, ringed by how
+     far it has played. */
   .media-disc {
     position: relative;
     display: grid;
     flex: none;
     place-items: center;
+    align-self: center;
     width: 36px;
     height: 36px;
+    margin-block-start: 8px;
     padding: 0;
     border: 0;
     border-radius: var(--radius-capsule);
-    background: var(--color-tile);
-    box-shadow: var(--shine), var(--shadow-tile);
+    background: var(--row-active);
+    box-shadow: var(--shine-top);
     color: var(--color-text);
     cursor: default;
     animation: player-in var(--motion-base) var(--ease-emphasized) both;
-    transition: scale var(--motion-slow) var(--ease-spring);
+    transition:
+      background-color var(--motion-fast) var(--ease-out),
+      scale var(--motion-slow) var(--ease-spring);
+  }
+
+  .media-disc:hover {
+    background: var(--row-pressed);
   }
 
   .media-disc:focus-visible {
@@ -494,10 +509,12 @@
   .media-ring {
     position: absolute;
     inset: 0;
-    rotate: -90deg;
+    width: 100%;
+    height: 100%;
     fill: none;
     stroke: var(--color-fill-strong);
     stroke-width: 1.5;
+    pointer-events: none;
   }
 
   .media-ring-fill {
@@ -507,6 +524,8 @@
 
   .media-disc-icon,
   .media-disc-glyph {
+    display: grid;
+    place-items: center;
     grid-area: 1 / 1;
     transition:
       opacity var(--motion-fast) var(--ease-out),
@@ -514,8 +533,6 @@
   }
 
   .media-disc-glyph {
-    display: grid;
-    place-items: center;
     opacity: 0;
     scale: 0.6;
   }
