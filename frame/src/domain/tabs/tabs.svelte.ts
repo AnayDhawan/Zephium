@@ -120,7 +120,7 @@ export const close = (id: string) => void commands.tabsClose(id);
 export const loneNewTab = (id: string) => {
   const all = state.tabs;
   const tab = all.length === 1 ? all[0] : undefined;
-  return tab?.id === id && !tab.url && (tab.content ?? "web") === "web";
+  return tab?.id === id && !tab.url && !tab.failure && (tab.content ?? "web") === "web";
 };
 export const navigate = (id: string, input: string) => void commands.tabsNavigate(id, input);
 

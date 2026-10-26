@@ -1058,6 +1058,29 @@ fn closing_the_only_new_tab_changes_nothing() {
 }
 
 #[test]
+fn the_only_tab_whose_first_page_failed_closes_into_a_new_tab() {
+    let (mut shell, _engine, screen) = setup();
+    shell.handle(Command::Bootstrap);
+    let (_, space) = focused_scope(&shell);
+    let failed = active_id(&screen);
+    shell.handle(Command::Navigate {
+        id: failed,
+        input: "localhost:9".into(),
+    });
+    shell.handle(Command::Engine(EngineEvent::ViewCreationFailed {
+        id: failed,
+    }));
+    assert!(shell.items.tab(failed).unwrap().failure.is_some());
+
+    let disposition = shell.handle_operation(Command::Close(failed));
+
+    assert_ne!(disposition.outcome, OperationOutcome::NoOp);
+    let replacement = active_id(&screen);
+    assert_ne!(replacement, failed);
+    assert_eq!(today_of(&shell, space), vec![replacement]);
+}
+
+#[test]
 fn the_only_new_tab_is_kept_beside_essentials_but_a_typed_one_is_replaced() {
     let (mut shell, _engine, screen) = setup();
     shell.handle(Command::Bootstrap);

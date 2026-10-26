@@ -399,10 +399,14 @@ impl Shell {
             .unwrap_or_default()
     }
 
-    /// A New Tab page nothing has been loaded or typed into.
+    /// A New Tab page nothing has been loaded or typed into. A tab whose
+    /// first page failed also has no address, but it is a page, not this.
     pub(super) fn is_untouched_new_tab(&self, id: ItemId) -> bool {
         self.items.tab(id).is_some_and(|tab| {
-            tab.url.is_none() && !tab.loading && tab.content == zephium_core::item::TabContent::Web
+            tab.url.is_none()
+                && tab.failure.is_none()
+                && !tab.loading
+                && tab.content == zephium_core::item::TabContent::Web
         }) && self.items.pending_navigation_request(id).is_none()
     }
 
