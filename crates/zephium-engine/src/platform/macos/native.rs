@@ -292,6 +292,7 @@ pub fn configure(
     }
 
     unsafe { wk.setInspectable(true) };
+    super::location::serve(&wk);
     // Pinch magnifies the page the way Safari's does; page zoom stays separate.
     unsafe { wk.setAllowsMagnification(true) };
     let view: &NSView = &wk;

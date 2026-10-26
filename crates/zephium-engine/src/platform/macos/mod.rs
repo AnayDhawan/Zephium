@@ -47,6 +47,7 @@ pub(crate) mod autofill;
 mod content_filter;
 mod credentials;
 mod find;
+mod location;
 mod native;
 mod navigation;
 pub(crate) mod page_save;
