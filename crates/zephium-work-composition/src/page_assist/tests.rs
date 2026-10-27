@@ -1374,6 +1374,69 @@ async fn the_log_carries_counts_and_names_never_page_or_model_text() {
 }
 
 #[tokio::test]
+async fn a_search_waits_before_disclosing_page_text() {
+    let h = harness(vec![
+        tool(
+            "go_to",
+            json!({"target": "search: confidential client budget 71329 euros"}),
+        ),
+        say("Done."),
+    ]);
+    h.ask("Summarize this page", true).await.unwrap();
+    for _ in 0..200 {
+        if h.state().await != PageAssistReplyStateV1::Working {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    assert_eq!(h.state().await, PageAssistReplyStateV1::Waiting);
+    assert!(h.tabs.0.lock().unwrap().is_empty());
+    let conversation = h.conversation().await;
+    assert!(h
+        .service
+        .decide(&conversation, 2, 0, PageAssistDecisionV1::Decline));
+    h.settle().await;
+    assert!(h.tabs.0.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn stopping_a_search_revokes_the_pending_approval() {
+    let h = harness(vec![tool(
+        "go_to",
+        json!({"target": "search: private marker"}),
+    )]);
+    h.ask("Read this page", true).await.unwrap();
+    for _ in 0..200 {
+        if h.state().await == PageAssistReplyStateV1::Waiting {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    assert_eq!(h.state().await, PageAssistReplyStateV1::Waiting);
+    assert!(h.service.stop(SPACE));
+    h.settle().await;
+    let conversation = h.conversation().await;
+    assert!(!h
+        .service
+        .decide(&conversation, 2, 0, PageAssistDecisionV1::Approve));
+    assert!(h.tabs.0.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn unreviewable_searches_are_refused_without_navigation() {
+    for query in ["x".repeat(513), "hidden\u{202e}query".into()] {
+        let h = harness(vec![
+            tool("go_to", json!({"target": format!("search: {query}")})),
+            say("Refused."),
+        ]);
+        h.ask("Read this page", true).await.unwrap();
+        h.settle().await;
+        assert!(h.tabs.0.lock().unwrap().is_empty());
+        assert!(h.tool_result(1).1);
+    }
+}
+
+#[tokio::test]
 async fn go_to_searches_opens_in_front_and_reads_the_page() {
     let h = harness(vec![
         tool(
@@ -1384,6 +1447,22 @@ async fn go_to_searches_opens_in_front_and_reads_the_page() {
         say("Opened the search."),
     ]);
     h.ask("Open Wikipedia's page on Rust", false).await.unwrap();
+    for _ in 0..200 {
+        if h.state().await == PageAssistReplyStateV1::Waiting {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    assert_eq!(h.state().await, PageAssistReplyStateV1::Waiting);
+    assert!(h.tabs.0.lock().unwrap().is_empty());
+    assert!(
+        matches!(&h.blocks().await[0], PageAssistBlockV1::Search { destination, query, .. }
+        if destination == "duckduckgo.com" && query == "rust programming language wikipedia")
+    );
+    let conversation = h.conversation().await;
+    assert!(h
+        .service
+        .decide(&conversation, 2, 0, PageAssistDecisionV1::Approve));
     h.settle().await;
     assert_eq!(
         *h.tabs.0.lock().unwrap(),
