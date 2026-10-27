@@ -63,6 +63,8 @@ jobs:
         with:
           ref: refs/tags/${{ env.TAG }}
           persist-credentials: false
+      - name: Bind release provenance to the workflow tag
+        run: bash scripts/release/check_tag_ref.sh
       - name: Assess Windows publisher signing configuration
         id: signpath
         env:
@@ -147,10 +149,8 @@ jobs:
           echo "::error::No successful main CI run exists for release commit ${candidate}."
           exit 1
 
-  # The component suite runs only on demand elsewhere, so every release runs
-  # it and shows its result. It does not hold the builds or the draft yet:
-  # some of its tests have never passed on GitHub's macOS runner while they
-  # pass locally on the same WebKit build. Gate again once they do.
+  # Every release runs the component suite; a failure blocks the draft.
+  # Builds run concurrently, but publication requires every component shard.
   components:
     needs: gate
     permissions:
@@ -435,7 +435,7 @@ jobs:
 
   publish:
     name: Draft release
-    needs: [gate, ci, macos, windows]
+    needs: [gate, ci, components, macos, windows]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

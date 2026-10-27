@@ -87,16 +87,82 @@ existing install on its current version.
    git push origin v1.0.0-beta.1
    ```
 
-6. **Review the draft** once the workflow finishes: install the DMG and the
-   Windows installer, check the notes, then **Publish**. Keep "Set as the
+6. **Review the draft** once the workflow finishes. For a stable version,
+   complete the exact-artifact qualification below and use **Publish qualified
+   stable release**. For a prerelease, install the DMG and Windows installer and
+   review the notes before publication. Keep "Set as the
    latest release" checked and leave "Set as a pre-release" unchecked, even for
    betas: `releases/latest` skips pre-releases, and both the website and the
    updater resolve through it.
 
-To rebuild a tag (for example after a flaky runner), run **Actions → Release →
-Run workflow** with the tag, or `gh workflow run release.yml -f tag=v1.0.0-beta.1`.
+To rebuild a tag (for example after a flaky runner), select the same tag in
+both **Actions → Release → Run workflow → Use workflow from** and the `tag`
+input. With the CLI, pass the tag ref explicitly:
+
+```sh
+gh workflow run release.yml --ref v1.0.0-beta.1 -f tag=v1.0.0-beta.1
+```
+
+The [CLI defaults to the default branch](https://cli.github.com/manual/gh_workflow_run)
+without `--ref`. Release refuses a different workflow ref or checkout commit so
+its workflow `head_sha` and provenance describe the candidate's tag commit.
 An existing draft for that tag is replaced; a published release is never
 touched.
+
+## Stable qualification and publication
+
+Draft creation requires every WebKit component shard as well as main CI, both
+build/sign jobs and the release security gate. Components run without retries.
+A green hosted build proves source/API coverage; it does not supply device
+qualification. Drafts are candidates, not proof that native release gates passed.
+
+For a stable `vMAJOR.MINOR.PATCH` candidate, download the draft's final assets and
+retain device logs for **both** `darwin-aarch64` and `windows-x86_64`. Each platform
+must pass native behavior, hostile pages, teardown, profile erasure, endurance,
+platform signing, updater signing and provenance against these exact bytes.
+Record the OS/engine versions, named device and reviewer. A source change,
+rebuild, signature change or asset replacement invalidates that evidence.
+
+Upload `qualification.json` and the retained `qualification-*.log` files to the
+existing draft (`gh release upload <tag> <files>`). The draft must contain exactly
+the published assets below, `qualification.json`, and the evidence logs referenced
+by the manifest; any extra asset or unreferenced log is rejected. The manifest schema is:
+
+- `schema_version`: `1`; `commit`: the candidate's full lowercase Git SHA;
+  `tag`: its stable annotated tag; `qualified_at`: an RFC 3339 UTC timestamp.
+- `artifacts`: an object mapping **every** published filename listed below,
+  including `.sig`, `latest.json` and `SHA256SUMS`, to its lowercase SHA-256.
+- `platforms`: exactly `darwin-aarch64` and `windows-x86_64`. Each has nonempty
+  `os`, `engine`, `device`, `reviewer` strings and a `checks` object.
+- Every `checks` object has exactly `native`, `hostile_pages`, `teardown`,
+  `profile_erasure`, `endurance`, `platform_signature`, `updater_signature`,
+  `provenance`. Each value has `status: "passed"`, `file` naming a retained
+  `qualification-<name>.log`, and that file's `sha256`. Do not label pending
+  device work as passed or substitute a hosted unit test for a native check.
+
+Run the validator locally against the downloaded assets and evidence:
+
+```sh
+python3 scripts/release/validate_qualification.py <download-directory> \
+  --commit <candidate-sha> --tag <stable-tag>
+```
+
+The owner must create GitHub environment **`stable-release`** with required
+maintainer reviewers, prevent self-review, disallow administrator bypass where
+available, and restrict deployments to protected `main`/release tags. Protect
+`v*` tags against unauthorized creation, updates and deletion. Then dispatch
+**Publish qualified stable release** with the stable tag. It requires successful
+main CI and the complete release workflow for the same commit, verifies each
+artifact/evidence digest, refuses evidence older than seven days or future-dated,
+and verifies GitHub provenance before publishing the existing draft. The workflow
+never rebuilds or replaces the qualified assets.
+
+The manifest binds reviewed evidence to bytes; it cannot determine whether a
+human's device result is truthful. Environment approval is the accountable review
+of those retained results. Repository administrators can still publish through
+GitHub's UI/API or change protection settings; this workflow does not remove that
+administrative authority. The release policy requires stable publication through
+this gate. Environment/ruleset setup and actual native evidence remain owner work.
 
 ## Published assets
 

@@ -199,3 +199,11 @@ For every candidate, retain:
 
 Any source, lockfile, floor, exception, build image, signing input, or workflow
 change invalidates the prior evidence and requires a new candidate run.
+
+Stable publication uses the exact-draft manifest and protected-environment gate in
+[the release procedure](../.github/RELEASE.md#stable-qualification-and-publication).
+A candidate's component failures block its draft. Native evidence remains a
+reviewed device result, bound to every final asset digest and refreshed within
+seven days; a hosted green workflow does not supply it. Repository administrators
+retain GitHub's manual publication authority, so environment/ruleset setup and
+adherence to that stable-publication procedure are governance requirements.

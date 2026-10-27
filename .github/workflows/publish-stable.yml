@@ -1,0 +1,67 @@
+name: Publish qualified stable release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable stable draft tag (vMAJOR.MINOR.PATCH)
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: stable-publication-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify exact candidate and publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Configure required maintainers and restrict this environment to protected
+    # stable tags/main. Approval does not replace the evidence validator below.
+    environment: stable-release
+    permissions:
+      contents: write
+      attestations: read
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Require a stable annotated draft candidate
+        run: |
+          set -euo pipefail
+          [[ "${TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$(git cat-file -t "refs/tags/${TAG}")" == tag ]]
+          gh release view "${TAG}" --json isDraft --jq '.isDraft' | grep -qx true
+          echo "CANDIDATE=$(git rev-parse HEAD)" >> "${GITHUB_ENV}"
+          mkdir dist
+          gh release download "${TAG}" --dir dist
+
+      - name: Require the exact candidate's main CI and complete release workflow
+        run: |
+          set -euo pipefail
+          for workflow in ci.yml release.yml; do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs?head_sha=${CANDIDATE}&per_page=100" \
+              | jq -e --arg sha "${CANDIDATE}" '[.workflow_runs[] | select(.head_sha == $sha and .conclusion == "success")] | length > 0'
+          done
+
+      - name: Verify retained native qualification and final asset provenance
+        run: |
+          set -euo pipefail
+          python3 scripts/release/validate_qualification.py dist --commit "${CANDIDATE}" --tag "${TAG}"
+          for asset in Zephium-macOS-arm64.dmg Zephium-macOS-arm64.app.tar.gz Zephium-Windows-x64-setup.exe; do
+            gh attestation verify "dist/${asset}" --repo "${GITHUB_REPOSITORY}" \
+              --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release.yml" \
+              --source-digest "${CANDIDATE}"
+          done
+
+      - name: Publish the verified draft
+        run: gh release edit "${TAG}" --draft=false --prerelease=false --latest
