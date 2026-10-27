@@ -745,6 +745,9 @@ pub(crate) async fn work_sign_in_connection(
             else {
                 return Err(WorkError::Invalid);
             };
+            // An account switch revokes old sessions and pending confirmations,
+            // including when sign-in is cancelled or fails partway through.
+            let _authority_change = store.begin_change();
             let tokens =
                 zephium_app::work_connections::client::keychain::oauth_store(&owner, &server.id);
             let signed = sign_in_flow(&app, &owner, &id, url, tokens).await;

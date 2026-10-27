@@ -3,7 +3,7 @@
 //! secret, bearer tokens and OAuth credentials live in the login Keychain.
 use std::path::{Path, PathBuf};
 
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use serde_json::{json, Value};
 use zephium_ipc::work::{WorkServerV1, MAX_WORK_SERVERS};
@@ -32,6 +32,32 @@ pub enum StoreError {
 #[derive(Clone, Debug)]
 pub struct ConnectionStore {
     folder: PathBuf,
+    authority: Arc<Mutex<AuthorityState>>,
+}
+
+#[derive(Debug, Default)]
+struct AuthorityState {
+    generation: u64,
+    changing: usize,
+}
+impl AuthorityState {
+    fn advance(&mut self) {
+        self.generation = self
+            .generation
+            .checked_add(1)
+            .expect("connection generation exhausted");
+    }
+}
+
+/// Holds the authority closed through successful or failed credential/configuration writes.
+/// Dropping the lease revokes sessions captured before either boundary, including failures.
+pub struct ConnectionChange(Arc<Mutex<AuthorityState>>);
+impl Drop for ConnectionChange {
+    fn drop(&mut self) {
+        let mut authority = self.0.lock().unwrap_or_else(|p| p.into_inner());
+        authority.advance();
+        authority.changing -= 1;
+    }
 }
 
 fn valid_profile(profile: &str) -> bool {
@@ -42,7 +68,22 @@ impl ConnectionStore {
     pub fn new(data: &Path) -> Self {
         Self {
             folder: data.join("connections"),
+            authority: Default::default(),
         }
+    }
+
+    /// No session can capture authority while configuration or credentials change.
+    /// A global epoch bounds state and conservatively revokes all cached services.
+    pub fn begin_change(&self) -> ConnectionChange {
+        let mut authority = self.authority.lock().unwrap_or_else(|p| p.into_inner());
+        authority.advance();
+        authority.changing += 1;
+        ConnectionChange(self.authority.clone())
+    }
+
+    pub(crate) fn generation(&self) -> Option<u64> {
+        let authority = self.authority.lock().unwrap_or_else(|p| p.into_inner());
+        (authority.changing == 0).then_some(authority.generation)
     }
 
     fn path(&self, profile: &str) -> Result<PathBuf, StoreError> {
@@ -102,6 +143,7 @@ impl ConnectionStore {
         if !server.validate() {
             return Err(StoreError::Invalid);
         }
+        let _change = self.begin_change();
         let mut servers = self.servers(profile)?;
         let replaced = previous.unwrap_or(&server.id).to_owned();
         if server.id != replaced && servers.iter().any(|s| s.id == server.id) {
@@ -126,6 +168,7 @@ impl ConnectionStore {
         vault: &dyn zephium_mcp::keychain::SecretVault,
     ) -> Result<(), StoreError> {
         use zephium_mcp::keychain::KeychainError;
+        let _change = self.begin_change();
         let mut before = Vec::new();
         for account in secrets.keys() {
             let value = match vault.read(profile, &server.id, account) {
@@ -165,6 +208,7 @@ impl ConnectionStore {
         id: &str,
         vault: &dyn zephium_mcp::keychain::SecretVault,
     ) -> Result<(), StoreError> {
+        let _change = self.begin_change();
         vault
             .delete_server(profile, id)
             .map_err(|_| StoreError::Io)?;
@@ -173,6 +217,7 @@ impl ConnectionStore {
     }
 
     pub fn remove(&self, profile: &str, id: &str) -> Result<Vec<WorkServerV1>, StoreError> {
+        let _change = self.begin_change();
         let mut servers = self.servers(profile)?;
         servers.retain(|s| s.id != id);
         self.write(profile, servers.clone())?;
