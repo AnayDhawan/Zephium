@@ -1976,7 +1976,8 @@ fn validate_engine_windows_agent_context_boundary(
         "ContextConstructionProof::WindowsOwnedSelectedProfileEmptyInventory",
         "ContextConstructionProof::WindowsOwnedAutomationSubprofileEmptyInventory",
         "ifextensions_enabled{if!matches!(&profile,AgentOwnedProfile::Automation{..}){returnErr(AgentOwnedViewConstructionError::ExtensionIsolation);}",
-        "builder.with_browser_extension_startup_gate(move|environment,core|{",
+        "builder.with_browser_extension_startup_gate(move|environment,core|{crate::reputation::configure(core)?;",
+        "}else{builder=builder.with_browser_extension_startup_gate(|_,core|crate::reputation::configure(core));}",
         "if!super::same_environment(&expected_environment,environment){returnErr(windows::Win32::Foundation::E_ACCESSDENIED.into());}",
         "attest_profile(&expected_profile,environment,core,storage_class,&expected_path,)",
         "letitems=super::extensions::list(&profile)",
@@ -2095,10 +2096,11 @@ fn validate_engine_windows_agent_context_boundary(
         ("navigation gate", navigation.as_str()),
         ("host", host.as_str()),
     ] {
-        // Extension-enabled environments require Wry's pre-navigation gate even
-        // for Work's separate, extension-free automation subprofile. Admit only
-        // this adapter's one attestation hook; never extension loading or enablement.
-        let expected_gates = usize::from(label == "adapter");
+        // Every controller requires reputation configuration before Wry init.
+        // Extension-enabled environments additionally attest Work's separate,
+        // extension-free automation subprofile. Admit only these two mutually
+        // exclusive hooks; never extension loading or enablement.
+        let expected_gates = if label == "adapter" { 2 } else { 0 };
         if source
             .matches("with_browser_extension_startup_gate")
             .count()
@@ -15014,6 +15016,11 @@ mod tests {
             adapter.replace(
                 "if !matches!(&profile, AgentOwnedProfile::Automation { .. })",
                 "if false",
+            ),
+            adapter.replace("crate::reputation::configure(core)?;", ""),
+            adapter.replace(
+                "|_, core| crate::reputation::configure(core)",
+                "|_, _| Ok(())",
             ),
             format!("{adapter}\nsuper::extensions::add();"),
             format!("{adapter}\nwith_browser_extension_startup_gate();"),

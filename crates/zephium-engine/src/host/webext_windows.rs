@@ -722,6 +722,7 @@ impl super::EngineHost {
         let builder = wry::WebViewBuilder::new()
             .with_environment(environment)
             .with_browser_extension_startup_gate(move |environment, core| {
+                crate::reputation::configure(core)?;
                 startup.authenticate(environment, core)
             })
             .with_visible(false)
@@ -1305,7 +1306,10 @@ impl super::EngineHost {
         let message_base = base.clone();
         let built = wry::WebViewBuilder::new()
             .with_environment(environment)
-            .with_browser_extension_startup_gate(move |env, core| startup.authenticate(env, core))
+            .with_browser_extension_startup_gate(move |env, core| {
+                crate::reputation::configure(core)?;
+                startup.authenticate(env, core)
+            })
             .with_initialization_script(&initialization)
             .with_initialization_script(zephium_webext::windows::POPUP_SIZE_SCRIPT)
             .with_url("about:blank")

@@ -1891,6 +1891,7 @@ where
         let expected_path = expected_user_data_folder.to_owned();
         let expected_profile = profile.clone();
         builder = builder.with_browser_extension_startup_gate(move |environment, core| {
+            crate::reputation::configure(core)?;
             if !super::same_environment(&expected_environment, environment) {
                 return Err(windows::Win32::Foundation::E_ACCESSDENIED.into());
             }
@@ -1914,6 +1915,9 @@ where
             }
             Ok(())
         });
+    } else {
+        builder = builder
+            .with_browser_extension_startup_gate(|_, core| crate::reputation::configure(core));
     }
 
     let view = builder

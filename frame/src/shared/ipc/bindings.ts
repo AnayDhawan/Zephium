@@ -495,6 +495,7 @@ export const commands = {
 	launcherOpenAccessibility: () => __TAURI_INVOKE<void>("launcher_open_accessibility"),
 	settingGet: (key: string) => __TAURI_INVOKE<string | null>("setting_get", { key }),
 	settingSet: (key: string, value: string) => __TAURI_INVOKE<OperationAdmission>("setting_set", { key, value }),
+	windowsDiagnosticsSettings: () => __TAURI_INVOKE<boolean>("windows_diagnostics_settings"),
 	uiInfo: () => __TAURI_INVOKE<UiInfo>("ui_info"),
 	uiReady: () => __TAURI_INVOKE<boolean>("ui_ready"),
 	menuPopup: (x: number | null, y: number | null) => __TAURI_INVOKE<boolean>("menu_popup", { x, y }),

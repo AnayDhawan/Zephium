@@ -1445,11 +1445,13 @@ impl EngineHost {
             if let Some(environment) = cached_environment {
                 builder = builder.with_environment(environment);
             }
-            if let Some(startup) = extension_startup {
-                builder = builder.with_browser_extension_startup_gate(move |environment, core| {
-                    startup.authenticate(environment, core)
-                });
-            }
+            builder = builder.with_browser_extension_startup_gate(move |environment, core| {
+                crate::reputation::configure(core)?;
+                if let Some(startup) = &extension_startup {
+                    startup.authenticate(environment, core)?;
+                }
+                Ok(())
+            });
         }
 
         #[cfg(target_os = "macos")]
@@ -2799,13 +2801,13 @@ impl EngineHost {
             } else {
                 builder
             };
-            if let Some(startup) = startup {
-                builder.with_browser_extension_startup_gate(move |environment, core| {
-                    startup.authenticate(environment, core)
-                })
-            } else {
-                builder
-            }
+            builder.with_browser_extension_startup_gate(move |environment, core| {
+                crate::reputation::configure(core)?;
+                if let Some(startup) = &startup {
+                    startup.authenticate(environment, core)?;
+                }
+                Ok(())
+            })
         };
 
         let mut built = builder.build_as_child(&parent);
