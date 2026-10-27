@@ -4467,3 +4467,63 @@ fn imported_history_keeps_its_times_and_is_not_added_twice() {
     );
     assert_eq!(hub.import_history(ProfileId::from(99), &visits), None);
 }
+
+#[test]
+fn checked_history_pages_distinguish_queue_refusal_timeout_and_storage_errors_from_eof() {
+    let profile = ProfileId::from(1);
+    let (tx, _rx) = mpsc::sync_channel(0);
+    let store = test_store_with_sender(tx);
+    assert_eq!(
+        store.history_page_checked(profile, "", None, None, 10),
+        Err(HistoryPageError::NotAdmitted)
+    );
+    let (tx, _rx) = mpsc::sync_channel(1);
+    let store = test_store_with_sender(tx);
+    assert_eq!(
+        store.history_page_checked(profile, "", None, None, 10),
+        Err(HistoryPageError::TimedOut)
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let mut hub = Hub::open(dir.path().to_path_buf()).unwrap();
+    hub.save(&sample()).unwrap();
+    assert_eq!(
+        hub.history_page_checked(profile, "", None, None, 10),
+        Ok(Vec::new())
+    );
+    Connection::open(dir.path().join(format!("profile-{profile}.sqlite")))
+        .unwrap()
+        .execute_batch("DROP TABLE history")
+        .unwrap();
+    assert_eq!(
+        hub.history_page_checked(profile, "", None, None, 10),
+        Err(HistoryPageError::Failed)
+    );
+}
+
+#[test]
+fn checked_history_page_refuses_a_disallowed_sql_row_instead_of_shortening_a_full_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let profile = ProfileId::from(1);
+    let mut hub = Hub::open(dir.path().to_path_buf()).unwrap();
+    hub.save(&sample()).unwrap();
+    let visits: Vec<_> = (1..=201)
+        .map(|id| zephium_core::ports::store::ImportedVisit {
+            url: format!("https://visit{id}.example/"),
+            title: "Kept".into(),
+            visited_at: id,
+        })
+        .collect();
+    assert_eq!(hub.import_history(profile, &visits), Some(201));
+    let conn = Connection::open(dir.path().join(format!("profile-{profile}.sqlite"))).unwrap();
+    conn.execute(
+        "UPDATE history SET url = 'javascript:invalid' WHERE id = 100",
+        [],
+    )
+    .unwrap();
+    // The first 200 raw rows include this semantic corruption. Silently
+    // filtering it would produce 199 rows, masquerade as EOF, and lose id 1.
+    assert_eq!(
+        hub.history_page_checked(profile, "", None, None, 200),
+        Err(HistoryPageError::Invalid)
+    );
+}
