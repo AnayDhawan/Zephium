@@ -106,7 +106,7 @@ An exception in `deny.toml` requires an owner, reason, removal plan, and expiry
 within the bounded review horizon. On expiry, remove or upgrade the dependency;
 extending an exception is a new security decision and requires review.
 
-The complete pnpm graph is intentionally checked at `high` severity:
+The complete pnpm graph is intentionally checked at `moderate` severity:
 
 ```sh
 node scripts/ci/audit-dependencies.mjs
@@ -117,7 +117,9 @@ other build tools execute while producing signed artifacts. The only local
 exception is GHSA-vfj7-8cjw-p6xm in build-only braces 3.0.3: the command verifies
 all affected installed paths against exact patched-file hashes and exercises
 hostile patterns and direct ASTs before accepting its depth-limit mitigation.
-Other high/critical advisories and registry failures remain blocking. When this check
+Other moderate/high/critical advisories and registry failures remain blocking.
+Development-server code injection and file-disclosure advisories require explicit
+triage even when no public test-server exposure has been established. When this check
 fails:
 
 1. Confirm the advisory and affected resolved version against the package

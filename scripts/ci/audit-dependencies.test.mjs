@@ -47,3 +47,12 @@ test("altered patch bytes are rejected before package code executes", () => {
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+
+test("moderate development-server injection and file disclosure require triage", () => {
+  for (const id of ["GHSA-qxg6-89mg-rqv8", "GHSA-xp26-3454-mjgp"]) {
+    const audit = report({ severity: "moderate", github_advisory_id: id, module_name: "@vitest/mocker" });
+    audit.metadata.vulnerabilities = { high: 0, critical: 0, moderate: 1 };
+    assert.throws(() => inspect(audit), /Unresolved security advisories/);
+  }
+});

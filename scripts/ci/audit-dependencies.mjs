@@ -1,5 +1,6 @@
 // GHSA-vfj7-8cjw-p6xm is excepted only for the exact locally patched
-// braces 3.0.3 files. All other high/critical findings and registry errors fail.
+// braces 3.0.3 files. All other moderate/high/critical findings and registry errors fail.
+// Development-server injection and file-read advisories require explicit triage too.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync, existsSync, realpathSync } from "node:fs";
@@ -63,13 +64,14 @@ function installedEntry(path) {
 
 export function inspect(report, verify = verifyBraces) {
   assert.ok(report && !report.error && report.advisories && report.metadata, "Registry audit did not return a complete report");
-  const serious = Object.values(report.advisories).filter((item) => ["high", "critical"].includes(item.severity));
-  assert.equal(serious.length, report.metadata.vulnerabilities.high + report.metadata.vulnerabilities.critical,
+  const severities = ["moderate", "high", "critical"];
+  const serious = Object.values(report.advisories).filter((item) => severities.includes(item.severity));
+  assert.equal(serious.length, severities.reduce((total, severity) => total + (report.metadata.vulnerabilities[severity] ?? 0), 0),
     "Audit summary and advisory details disagree");
   const checked = new Set();
   const failures = [];
   for (const finding of Object.values(report.advisories)) {
-    if (!["high", "critical"].includes(finding.severity)) continue;
+    if (!severities.includes(finding.severity)) continue;
     if (finding.github_advisory_id !== advisory || finding.module_name !== "braces") {
       failures.push(`${finding.module_name}: ${finding.github_advisory_id ?? finding.title}`);
       continue;
