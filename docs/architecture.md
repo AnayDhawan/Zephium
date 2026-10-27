@@ -249,6 +249,9 @@ Single Cargo workspace monorepo, frontend included. Per-platform native code is
 │   ├── zephium-agentic          pure browser-execution identity, lifecycle,
 │   │                            semantic, action, policy, and probe contracts;
 │   │                            native fixtures remain release-excluded.
+│   ├── zephium-agent-runtime    platform-independent execution ownership for
+│   │                            browser agents; owns neither a browser
+│   │                            implementation nor a provider.
 │   ├── zephium-agent-controller bounded, policy-authorized semantic browser
 │   │                            controllers.
 │   ├── zephium-agent-provider-transport
