@@ -144,9 +144,9 @@ along.
 ### Extensions (in progress)
 
 Chrome extension compatibility is active work, not yet enabled in release
-builds. Vimium, Dark Reader and 1Password have been validated on macOS, with
-Windows parity underway. See [docs/architecture.md](docs/architecture.md)
-for the current scope.
+builds. Vimium, Dark Reader and 1Password have real workflow evidence on
+macOS, with Windows parity underway. See
+[docs/architecture.md](docs/architecture.md) for the current scope.
 
 ### Bring everything with you
 
