@@ -268,6 +268,7 @@ impl Lab {
                         id,
                         root,
                         grants,
+                        external_native_messaging: false,
                         inspectable: true,
                     };
                     this.runtime.load(spec, move |result| {

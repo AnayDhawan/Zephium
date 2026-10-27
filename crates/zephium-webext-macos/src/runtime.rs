@@ -44,6 +44,8 @@ pub struct ExtensionSpec {
     /// A prepared package directory.
     pub root: PathBuf,
     pub grants: Grants,
+    /// External hosts are separate from the compatibility native transport.
+    pub external_native_messaging: bool,
     pub inspectable: bool,
 }
 
@@ -57,6 +59,7 @@ pub struct LoadedExtension {
 
 pub(crate) struct Loaded {
     pub(crate) context: Retained<WKWebExtensionContext>,
+    pub(crate) external_native_messaging: bool,
 }
 
 /// One profile's state. WebKit gives an extension the same identifier in
@@ -570,10 +573,13 @@ fn activate(
     for error in unsafe { context.errors() }.iter() {
         shared.log(&context, LogLevel::Warning, &describe(Some(&error)));
     }
-    shared
-        .loaded
-        .borrow_mut()
-        .insert(spec.id, Loaded { context });
+    shared.loaded.borrow_mut().insert(
+        spec.id,
+        Loaded {
+            context,
+            external_native_messaging: spec.external_native_messaging,
+        },
+    );
     Ok(loaded)
 }
 
@@ -614,8 +620,8 @@ fn apply_grants(
                 }
             }
         }
-        // The internal bridge and native hosts are reached through native
-        // messaging, which the browser authorizes itself.
+        // This grant is transport for the browser's reserved bridges only.
+        // The external-host broker checks separate original reviewed authority.
         context.setPermissionStatus_forPermission(granted, &NSString::from_str("nativeMessaging"));
         // With a custom scheme registered, WebKit counts other extensions'
         // pages as part of <all_urls>; Chrome never does.

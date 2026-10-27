@@ -109,12 +109,19 @@ fn open(
 ) -> Result<Rc<Connection>, String> {
     // The browser's own bridges never reach this point; outside hosts are
     // only for extensions that declared them, as the install review showed.
-    let declared = unsafe { context.webExtension().requestedPermissions() }
-        .containsObject(&NSString::from_str("nativeMessaging"));
-    if !declared {
+    let extension = unsafe { context.uniqueIdentifier() }.to_string();
+    let allowed = shared
+        .loaded
+        .borrow()
+        .get(&extension)
+        .is_some_and(|loaded| {
+            loaded.external_native_messaging
+                && std::ptr::eq(&*loaded.context, context)
+                && unsafe { context.hasPermission(&NSString::from_str("nativeMessaging")) }
+        });
+    if !allowed {
         return Err("Access to native messaging requires nativeMessaging permission.".into());
     }
-    let extension = unsafe { context.uniqueIdentifier() }.to_string();
     let running = CONNECTIONS.with(|connections| {
         connections
             .borrow()
