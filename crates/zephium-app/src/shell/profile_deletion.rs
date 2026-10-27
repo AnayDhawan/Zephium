@@ -22,6 +22,13 @@ pub(super) enum ProfileDeletionPhase {
     /// `AlreadyAuthorized` proved the barrier, but an exact journal read is
     /// still needed to choose native erasure versus local-only finalization.
     ResolveAuthorizedJournal,
+    NotesReady {
+        native_erasure_verified: bool,
+    },
+    NotesInFlight {
+        attempt: u64,
+        native_erasure_verified: bool,
+    },
     NativeReady,
     NativeInFlight {
         attempt: u64,
@@ -63,8 +70,12 @@ impl ProfileDeletionState {
     }
 }
 
+pub(super) enum ProfileDeletionProof {
+    NotesReleased,
+    NativeErased(ProfileDataErasureOutcome),
+}
 pub(super) type ProfileDeletionInbox =
-    Arc<Mutex<std::collections::HashMap<ProfileId, (u64, ProfileDataErasureOutcome)>>>;
+    Arc<Mutex<std::collections::HashMap<ProfileId, (u64, ProfileDeletionProof)>>>;
 
 pub(super) struct ProfileDeletionCoordinator {
     pub(super) states: std::collections::HashMap<ProfileId, ProfileDeletionState>,
@@ -348,6 +359,7 @@ impl Shell {
             Authorize,
             ReconcileAuthorization(bool),
             ResolveAuthorizedJournal,
+            ReleaseNotes,
             EraseNative,
             Finalize,
             None,
@@ -363,6 +375,8 @@ impl Shell {
                     may_reauthorize, ..
                 } => Action::ReconcileAuthorization(may_reauthorize),
                 ProfileDeletionPhase::ResolveAuthorizedJournal => Action::ResolveAuthorizedJournal,
+                ProfileDeletionPhase::NotesReady { .. } => Action::ReleaseNotes,
+                ProfileDeletionPhase::NotesInFlight { .. } => Action::None,
                 ProfileDeletionPhase::NativeReady => Action::EraseNative,
                 ProfileDeletionPhase::NativeInFlight { .. } => Action::None,
                 ProfileDeletionPhase::FinalizeReady => Action::Finalize,
@@ -396,6 +410,10 @@ impl Shell {
                 self.reconcile_profile_authorization(profile, may_reauthorize)
             }
             Action::ResolveAuthorizedJournal => self.resolve_authorized_journal(profile),
+            Action::ReleaseNotes => {
+                self.release_profile_notes(profile);
+                self.consume_profile_deletion_outcome(profile);
+            }
             Action::EraseNative => {
                 self.start_native_profile_erasure(profile);
                 // A native adapter may have completed synchronously into the
@@ -592,10 +610,8 @@ impl Shell {
             .is_some_and(|state| state.authorization_revision != self.persistence.session_revision);
         self.apply_profile_tombstone(profile);
         if let Some(state) = self.profile_deletion.states.get_mut(&profile) {
-            state.phase = if deletion.native_erasure_verified {
-                ProfileDeletionPhase::FinalizeReady
-            } else {
-                ProfileDeletionPhase::NativeReady
+            state.phase = ProfileDeletionPhase::NotesReady {
+                native_erasure_verified: deletion.native_erasure_verified,
             };
             state.retry_exponent = 0;
         }
@@ -606,6 +622,61 @@ impl Shell {
             // debounce; establish a new post-barrier durability deadline
             // without pretending this scheduling pass is another mutation.
             self.schedule_current_session_persist();
+        }
+    }
+
+    fn release_profile_notes(&mut self, profile: ProfileId) {
+        let Some(state) = self.profile_deletion.states.get_mut(&profile) else {
+            return;
+        };
+        let ProfileDeletionPhase::NotesReady {
+            native_erasure_verified,
+        } = state.phase
+        else {
+            return;
+        };
+        let Some(notes) = &self.notes else {
+            state.phase = if native_erasure_verified {
+                ProfileDeletionPhase::FinalizeReady
+            } else {
+                ProfileDeletionPhase::NativeReady
+            };
+            self.drive_profile_deletion(profile);
+            return;
+        };
+        state.attempt_generation = state.attempt_generation.wrapping_add(1).max(1);
+        let attempt = state.attempt_generation;
+        state.phase = ProfileDeletionPhase::NotesInFlight {
+            attempt,
+            native_erasure_verified,
+        };
+        let inbox = self.profile_deletion.inbox.clone();
+        let wake = self.self_queue.as_ref().map(|queue| CallbackHandle {
+            queue: Arc::downgrade(&queue.inner),
+        });
+        if !notes.release(
+            profile,
+            Box::new(move || {
+                let mut pending = inbox
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                if pending.len() < zephium_core::session::MAX_SESSION_PROFILES
+                    || pending.contains_key(&profile)
+                {
+                    pending.insert(profile, (attempt, ProfileDeletionProof::NotesReleased));
+                }
+                drop(pending);
+                if let Some(wake) = wake {
+                    let _ = wake.dispatch(Command::ProfileDeletionReady(profile));
+                }
+            }),
+        ) {
+            if let Some(state) = self.profile_deletion.states.get_mut(&profile) {
+                state.phase = ProfileDeletionPhase::NotesReady {
+                    native_erasure_verified,
+                };
+            }
+            self.schedule_profile_deletion_retry(profile);
         }
     }
 
@@ -634,11 +705,6 @@ impl Shell {
             state.retry_exponent = 0;
             attempt
         };
-        // Close the profile's notes before its folder is erased; the notes
-        // thread handles this long before native erasure reports back.
-        if let Some(notes) = &self.notes {
-            notes.release(profile, Box::new(|| {}));
-        }
         let inbox = self.profile_deletion.inbox.clone();
         let wake = self.self_queue.as_ref().map(|queue| CallbackHandle {
             queue: Arc::downgrade(&queue.inner),
@@ -652,7 +718,10 @@ impl Shell {
                 if pending.len() < zephium_core::session::MAX_SESSION_PROFILES
                     || pending.contains_key(&profile)
                 {
-                    pending.insert(profile, (attempt, outcome));
+                    pending.insert(
+                        profile,
+                        (attempt, ProfileDeletionProof::NativeErased(outcome)),
+                    );
                 }
                 drop(pending);
                 if let Some(wake) = wake {
@@ -686,21 +755,32 @@ impl Shell {
         let Some((attempt, outcome)) = pending else {
             return;
         };
-        let exact = self
-            .profile_deletion
-            .states
-            .get(&profile)
-            .is_some_and(|state| {
-                matches!(
-                    state.phase,
-                    ProfileDeletionPhase::NativeInFlight {
-                        attempt: expected
-                    } if expected == attempt
-                )
-            });
-        if !exact {
+        let Some(state) = self.profile_deletion.states.get_mut(&profile) else {
             return;
-        }
+        };
+        let outcome = match (outcome, &state.phase) {
+            (
+                ProfileDeletionProof::NotesReleased,
+                ProfileDeletionPhase::NotesInFlight {
+                    attempt: expected,
+                    native_erasure_verified,
+                },
+            ) if attempt == *expected => {
+                state.phase = if *native_erasure_verified {
+                    ProfileDeletionPhase::FinalizeReady
+                } else {
+                    ProfileDeletionPhase::NativeReady
+                };
+                state.retry_exponent = 0;
+                self.drive_profile_deletion(profile);
+                return;
+            }
+            (
+                ProfileDeletionProof::NativeErased(outcome),
+                ProfileDeletionPhase::NativeInFlight { attempt: expected },
+            ) if attempt == *expected => outcome,
+            _ => return,
+        };
         match outcome {
             ProfileDataErasureOutcome::Verified => {
                 if let Some(state) = self.profile_deletion.states.get_mut(&profile) {
