@@ -2,10 +2,11 @@
 //! registry on disk, and handing enabled extensions to the shell.
 //!
 //! Layout under the app data directory:
-//! `webext/packages/<id>/<version>.crx` keeps the signed original (or
+//! `webext/packages/<id>/<source-digest>.crx` keeps the signed original (or
 //! `.zip`, or a `.src/` folder, for an extension installed from a file), and
-//! `webext/packages/<id>/<version>-<compat>/` is the tree WebKit loads,
-//! rebuilt from the original whenever the compatibility layer changes.
+//! `webext/packages/<id>/pkg-<publication-digest>/` is the tree WebKit loads,
+//! rebuilt from the original whenever the compatibility layer changes. The publication
+//! digest binds verified source provenance, transformation revision and prepared bytes.
 //! `webext/profiles/<profile>.json` records what a profile installed.
 
 use std::path::{Path, PathBuf};
@@ -31,6 +32,8 @@ struct Pending {
     entry: Entry,
     staged: PathBuf,
     original: Original,
+    /// The exact install and source the user reviewed replacing.
+    previous: Option<(String, String)>,
 }
 
 /// What a package was installed from, kept to rebuild it later.
@@ -70,6 +73,11 @@ struct Entry {
     enabled: bool,
     /// Directory under `packages/<id>/` WebKit loads.
     package: String,
+    /// Authenticated CRX bytes, ZIP bytes, or the frozen original folder tree.
+    #[serde(default)]
+    source: String,
+    #[serde(default)]
+    prepared_digest: String,
     /// Compatibility layer the package was prepared with.
     compat: String,
     /// Compatibility layer WebKit last started the background with.

@@ -7,7 +7,7 @@ use zephium_app::Handle;
 use zephium_core::ids::ProfileId;
 use zephium_webext::{store, ExtensionId};
 
-use super::install::{download, keep_original, stage, store_client, Source};
+use super::install::{discard, download, publish, stage, store_client, Source};
 use crate::webext::{Entry, WebExtensions};
 
 /// The first check waits so launch stays free of network work.
@@ -107,7 +107,7 @@ async fn update(
                 .extensions
                 .into_iter()
                 .find(|entry| entry.id == info.id.as_str())?;
-            Some((profile, entry))
+            (!entry.sideloaded).then_some((profile, entry))
         })
         .collect();
     let Some((profile, existing)) = holders.first().cloned() else {
@@ -129,43 +129,52 @@ async fn update(
             || fresh.hosts.iter().any(|host| !old.hosts.contains(host))
     };
     if holders.iter().any(|(_, old)| asks_more(old)) {
-        let _ = std::fs::remove_dir_all(&pending.staged);
-        for (profile, _) in &holders {
+        discard(&pending);
+        let _publication = super::PUBLICATION
+            .lock()
+            .map_err(|_| "update publication failed")?;
+        for (profile, old) in &holders {
             let mut registry = extensions.registry(*profile);
-            if let Some(entry) = registry
-                .extensions
-                .iter_mut()
-                .find(|entry| entry.id == fresh.id)
-            {
+            if let Some(entry) = registry.extensions.iter_mut().find(|entry| {
+                entry.id == fresh.id
+                    && entry.install == old.install
+                    && entry.source == old.source
+                    && !entry.sideloaded
+            }) {
                 entry.held_update = Some(fresh.version.clone());
+                extensions.save(*profile, &registry)?;
             }
-            extensions.save(*profile, &registry)?;
         }
         return Ok(());
     }
 
+    let publication = super::PUBLICATION
+        .lock()
+        .map_err(|_| "update publication failed")?;
     let packages = extensions.packages(&fresh.id);
-    std::fs::create_dir_all(&packages).map_err(|e| e.to_string())?;
-    keep_original(&packages, &fresh.version, &pending.original)?;
-    let target = packages.join(&fresh.package);
-    let _ = std::fs::remove_dir_all(&target);
-    std::fs::rename(&pending.staged, &target).map_err(|e| e.to_string())?;
-    for (profile, _) in &holders {
+    publish(&packages, &pending)?;
+    let mut changed = Vec::new();
+    for (profile, old) in &holders {
         let mut registry = extensions.registry(*profile);
-        if let Some(entry) = registry
-            .extensions
-            .iter_mut()
-            .find(|entry| entry.id == fresh.id)
-        {
+        if let Some(entry) = registry.extensions.iter_mut().find(|entry| {
+            entry.id == fresh.id
+                && entry.install == old.install
+                && entry.source == old.source
+                && !entry.sideloaded
+        }) {
             *entry = Entry {
                 install: entry.install.clone(),
                 enabled: entry.enabled,
                 access: entry.access.clone(),
                 ..fresh.clone()
             };
+            extensions.save(*profile, &registry)?;
+            changed.push((*profile, registry));
         }
-        extensions.save(*profile, &registry)?;
-        extensions.apply(shell, *profile, &mut registry);
+    }
+    drop(publication);
+    for (profile, mut registry) in changed {
+        extensions.apply(shell, profile, &mut registry);
     }
     Ok(())
 }
