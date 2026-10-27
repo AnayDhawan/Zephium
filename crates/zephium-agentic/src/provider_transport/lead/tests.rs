@@ -1166,3 +1166,32 @@ fn a_rows_stream_limits_wait_a_little_past_the_servers_own() {
     assert_eq!(client.idle_timeout, Some(Duration::from_secs(105)));
     assert_eq!(client.call_timeout, Some(Duration::from_secs(615)));
 }
+
+#[test]
+fn local_endpoint_usage_ignores_advertised_cost_and_keeps_tokens() {
+    for base in ["http://localhost:11434/v1", "https://192.168.1.2/v1"] {
+        let client = LeadClient::new(
+            LeadTarget::compatible(base).unwrap(),
+            Arc::new(LeadStaticCredential::new(
+                LeadSecret::new("fixture".into()).unwrap(),
+            )),
+            Some(WorkModelPrice {
+                input: 1000,
+                cached_input: 100,
+                output: 5000,
+            }),
+        );
+        let result = client.usage(&Decoded {
+            usage: WorkModelUsage {
+                input_tokens: 100,
+                output_tokens: 10,
+                ..Default::default()
+            },
+            provider_cost_micros: Some(9000),
+            searches: 1,
+            ..Default::default()
+        });
+        assert_eq!(result.cost_micros, Some(0));
+        assert_eq!(result.input_tokens, 100);
+    }
+}

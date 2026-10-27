@@ -516,6 +516,13 @@ impl LeadClient {
     fn usage(&self, total: &Decoded) -> WorkModelUsage {
         let mut usage = total.usage;
         usage.cache_write_input_tokens = total.cache_write_tokens.min(usage.input_tokens);
+        if self.target.upstream == WorkModelProvider::Compatible
+            && !self.target.cloud
+            && zephium_core::work::model::local_model_endpoint(self.target.base.as_str())
+        {
+            usage.cost_micros = Some(0);
+            return usage;
+        }
         usage.cost_micros = total.provider_cost_micros.or_else(|| {
             let price = self.price.as_ref()?;
             let cached = u128::from(usage.cached_input_tokens.min(usage.input_tokens));

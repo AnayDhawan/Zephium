@@ -355,6 +355,42 @@ pub struct WorkModelEntry {
     pub price: Option<WorkModelPrice>,
 }
 
+impl WorkModelEntry {
+    /// A self-hosted model whose resolved catalog price carries no usage charge.
+    pub fn is_free_compatible(&self) -> bool {
+        self.model.provider == WorkModelProvider::Compatible
+            && self.price.as_ref().is_some_and(|price| {
+                price.input == 0 && price.cached_input == 0 && price.output == 0
+            })
+    }
+}
+
+/// Pricing classification only; this grants no transport or network permission.
+pub fn local_model_endpoint(base: &str) -> bool {
+    let Ok(url) = url::Url::parse(base) else {
+        return false;
+    };
+    if !matches!(url.scheme(), "http" | "https") {
+        return false;
+    }
+    match url.host() {
+        Some(url::Host::Ipv4(ip)) => ip.is_loopback() || ip.is_private() || ip.is_link_local(),
+        Some(url::Host::Ipv6(ip)) => {
+            ip.is_loopback()
+                || ip.is_unique_local()
+                || ip.is_unicast_link_local()
+                || ip
+                    .to_ipv4_mapped()
+                    .is_some_and(|ip| ip.is_loopback() || ip.is_private() || ip.is_link_local())
+        }
+        Some(url::Host::Domain(host)) => {
+            let host = host.trim_end_matches('.');
+            host == "localhost" || host.ends_with(".localhost") || host.ends_with(".local")
+        }
+        None => false,
+    }
+}
+
 macro_rules! redacted_debug {
     ($($ty:ty),* $(,)?) => {$(
         impl fmt::Debug for $ty {

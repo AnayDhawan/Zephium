@@ -949,6 +949,12 @@ impl NativeWorkComposition {
         #[cfg(feature = "public-qualification")]
         let stage_diagnostic = diagnostics.stage;
         let refusals = diagnostics.refusals;
+        let decisions =
+            if attempt.no_usage_charge() && decisions != WorkDecisionPreference::Disabled {
+                WorkDecisionPreference::Emulation
+            } else {
+                decisions
+            };
         let started = Instant::now();
         let mut measure = ReadMeasure::default();
         if original_anonymous_read_intent(
@@ -1277,7 +1283,12 @@ impl NativeWorkComposition {
                     trace("close:abandoned");
                     return Ok(BrowserRun {
                         status: WorkAttemptStatus::Failed,
-                        usage: Some(uncertain_usage(settled, model_in_flight, limits)),
+                        usage: Some(uncertain_usage(
+                            settled,
+                            model_in_flight,
+                            limits,
+                            attempt.no_usage_charge(),
+                        )),
                         artifacts: vec![],
                         intervention: None,
                         note: Some(
@@ -1784,7 +1795,12 @@ impl NativeWorkComposition {
                     trace("close:uncertain");
                     return Ok(BrowserRun {
                         status: WorkAttemptStatus::Failed,
-                        usage: Some(uncertain_usage(settled, model_in_flight, limits)),
+                        usage: Some(uncertain_usage(
+                            settled,
+                            model_in_flight,
+                            limits,
+                            attempt.no_usage_charge(),
+                        )),
                         artifacts: vec![],
                         note: Some(
                             storage_note(&snapshot)
@@ -2206,17 +2222,17 @@ impl NativeWorkComposition {
                         (signed_in.is_some() || stalled).then(|| {
                             add_usage(
                                 prior_usage,
-                                uncertain_usage(settled, model_in_flight, limits),
+                                uncertain_usage(
+                                    settled,
+                                    model_in_flight,
+                                    limits,
+                                    attempt.no_usage_charge(),
+                                ),
                             )
                             .filter(|usage| usage.within(limits))
                         })?
                     })
-                    .unwrap_or(WorkUsage {
-                        model_tokens: limits.model_tokens,
-                        cost_micro_usd: limits.cost_micro_usd,
-                        operations: limits.operations,
-                        accounting: WorkUsageAccounting::ConservativeReservation,
-                    }),
+                    .unwrap_or_else(|| page_reservation(limits, attempt.no_usage_charge())),
                 );
                 // A signed-in page's title never leaves the page.
                 // A search's results page reads as a Read but its step is the
@@ -2640,18 +2656,28 @@ fn settled_model_usage(settled: WorkUsage, tokens: u64, cost_micro_usd: u64) -> 
 }
 /// Model calls settle before their tool runs, so a page failing under a tool
 /// has an exact model bill. A call still in flight keeps the reservation.
+fn page_reservation(limits: WorkExecutionLimits, no_usage_charge: bool) -> WorkUsage {
+    WorkUsage {
+        model_tokens: limits.model_tokens,
+        cost_micro_usd: if no_usage_charge {
+            0
+        } else {
+            limits.cost_micro_usd
+        },
+        operations: limits.operations,
+        accounting: WorkUsageAccounting::ConservativeReservation,
+    }
+}
 fn uncertain_usage(
     settled: WorkUsage,
     model_in_flight: bool,
     limits: WorkExecutionLimits,
+    no_usage_charge: bool,
 ) -> WorkUsage {
-    if model_in_flight || !settled.within(limits) {
-        WorkUsage {
-            model_tokens: limits.model_tokens,
-            cost_micro_usd: limits.cost_micro_usd,
-            operations: limits.operations,
-            accounting: WorkUsageAccounting::ConservativeReservation,
-        }
+    if model_in_flight {
+        page_reservation(limits, no_usage_charge)
+    } else if !settled.within(limits) {
+        settled.bounded_by(limits)
     } else {
         WorkUsage {
             operations: settled.operations.max(1),
@@ -3340,7 +3366,7 @@ mod closed_result_tests {
             9500,
             2600,
         );
-        let usage = uncertain_usage(settled, false, limits);
+        let usage = uncertain_usage(settled, false, limits, false);
         assert_eq!(
             (usage.model_tokens, usage.cost_micro_usd, usage.operations),
             (18_500, 5_100, 2)
@@ -3349,15 +3375,21 @@ mod closed_result_tests {
             usage.accounting,
             WorkUsageAccounting::ConservativeReservation
         );
-        let reserved = uncertain_usage(settled, true, limits);
+        let reserved = uncertain_usage(settled, true, limits, false);
         assert_eq!(
             (reserved.model_tokens, reserved.cost_micro_usd),
             (100_000, 100_000)
         );
-        let empty = uncertain_usage(WorkUsage::default(), false, limits);
+        let local = uncertain_usage(WorkUsage::default(), true, limits, true);
+        assert_eq!(local.cost_micro_usd, 0);
+        assert_eq!(local.model_tokens, limits.model_tokens);
+        assert_eq!(local.operations, limits.operations);
+        let empty = uncertain_usage(WorkUsage::default(), false, limits, false);
         assert_eq!((empty.model_tokens, empty.operations), (0, 1));
         let over = settled_model_usage(WorkUsage::default(), 200_000, 10);
-        assert_eq!(uncertain_usage(over, false, limits).model_tokens, 100_000);
+        let bounded = uncertain_usage(over, false, limits, false);
+        assert_eq!(bounded.model_tokens, 100_000);
+        assert_eq!(bounded.cost_micro_usd, 10);
     }
 
     #[test]
@@ -3774,9 +3806,23 @@ fn compile_step(
     resume: Option<ResumeCompile>,
     gate: Option<std::sync::Arc<crate::open_objective::site_work::SiteGate>>,
 ) -> Result<crate::TrustedWorkRequest, WorkError> {
+    if probe.no_usage_charge()
+        && !free_page_models(&settings.access, settings.decision_model.as_ref())
+    {
+        return Err(refused(&settings, "pricing", WorkError::Invalid));
+    }
     let decision_model = settings.decision_model.take();
     compile_page_step(probe, request, settings, collection, resume, gate, None)
         .map(|request| with_decision_model(request, decision_model))
+}
+
+fn free_page_models(
+    access: &AgentBrowserModelAccess,
+    decision: Option<&AgentProviderModelClient>,
+) -> bool {
+    let free = |model: &AgentProviderModelClient| model.reservation_cost_micro_usd(1, 1) == Some(0);
+    matches!(access, AgentBrowserModelAccess::Chosen(model) if free(model))
+        && decision.is_none_or(free)
 }
 
 fn with_decision_model(
@@ -3798,6 +3844,11 @@ fn compile_page_step(
     gate: Option<std::sync::Arc<crate::open_objective::site_work::SiteGate>>,
     results: Option<std::sync::Arc<crate::open_objective::results_page::ResultsReader>>,
 ) -> Result<crate::TrustedWorkRequest, WorkError> {
+    if probe.no_usage_charge()
+        && !free_page_models(&settings.access, settings.decision_model.as_ref())
+    {
+        return Err(refused(&settings, "pricing", WorkError::Invalid));
+    }
     if settings.profile.profile() != probe.profile() {
         return Err(refused(&settings, "profile", WorkError::ProfileUnavailable));
     }
@@ -4492,6 +4543,38 @@ mod human_budget_tests {
         ) -> work_model::WorkModelFuture<'a> {
             Box::pin(async { Err(work_model::WorkModelError::Network) })
         }
+    }
+
+    #[test]
+    fn a_zero_charge_fact_rejects_paid_page_or_decision_models() {
+        let mut entry = zephium_agentic::lead::models::builtin()
+            .into_iter()
+            .next()
+            .unwrap();
+        let paid = AgentProviderModelClient::try_new(&entry, std::sync::Arc::new(Unused)).unwrap();
+        entry.model.provider = work_model::WorkModelProvider::Compatible;
+        entry.price = Some(work_model::WorkModelPrice {
+            input: 0,
+            cached_input: 0,
+            output: 0,
+        });
+        let free = AgentProviderModelClient::try_new(&entry, std::sync::Arc::new(Unused)).unwrap();
+        assert!(free_page_models(
+            &AgentBrowserModelAccess::Chosen(free.clone()),
+            None
+        ));
+        assert!(free_page_models(
+            &AgentBrowserModelAccess::Chosen(free.clone()),
+            Some(&free)
+        ));
+        assert!(!free_page_models(
+            &AgentBrowserModelAccess::Chosen(free),
+            Some(&paid)
+        ));
+        assert!(!free_page_models(
+            &AgentBrowserModelAccess::Chosen(paid),
+            None
+        ));
     }
 
     #[test]

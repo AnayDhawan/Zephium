@@ -550,25 +550,22 @@ fn stored_choice(state: &State, profile: ProfileId, role: WorkModelRole) -> Opti
     ))
 }
 
-/// A server on this computer, such as Ollama or LM Studio.
 fn is_local(base: &str) -> bool {
-    ["http://localhost", "http://127.0.0.1", "http://[::1]"]
-        .iter()
-        .any(|origin| {
-            base.strip_prefix(origin)
-                .is_some_and(|rest| rest.is_empty() || rest.starts_with([':', '/']))
-        })
+    zephium_core::work::model::local_model_endpoint(base)
 }
 
 /// A model on this computer costs nothing per token. Unpriced, it would be
 /// charged the conservative fallback and stop a run on money never spent.
 fn priced_locally(mut entry: WorkModelEntry, local: bool) -> WorkModelEntry {
-    if local && entry.model.provider == P::Compatible && entry.price.is_none() {
+    if local && entry.model.provider == P::Compatible {
         entry.price = Some(WorkModelPrice {
             input: 0,
             cached_input: 0,
             output: 0,
         });
+    } else if !local && entry.is_free_compatible() {
+        // A stored local choice must not carry its zero price to a new remote endpoint.
+        entry.price = None;
     }
     entry
 }
@@ -1402,7 +1399,26 @@ mod tests {
 
     #[test]
     fn a_model_on_this_computer_costs_nothing_and_a_remote_one_stays_unpriced() {
-        assert!(is_local("http://localhost:11434/v1"));
+        for base in [
+            "http://localhost:11434/v1",
+            "https://localhost/v1",
+            "https://127.0.0.2/v1",
+            "https://192.168.1.5/v1",
+            "https://10.2.3.4/v1",
+            "https://172.16.1.2/v1",
+            "https://[fd12::1]/v1",
+            "https://lmstudio.local/v1",
+        ] {
+            assert!(is_local(base), "{base}");
+        }
+        for base in [
+            "https://172.32.1.2/v1",
+            "https://localhost.example/v1",
+            "https://192.168.1.5.example/v1",
+            "ftp://localhost/v1",
+        ] {
+            assert!(!is_local(base), "{base}");
+        }
         assert!(is_local("http://127.0.0.1:1234/v1"));
         assert!(is_local("http://[::1]:11434"));
         assert!(!is_local("http://localhost.example.com/v1"));
@@ -1419,7 +1435,9 @@ mod tests {
                 ..entry
             })
             .unwrap();
-        let free = priced_locally(entry.clone(), true).price.unwrap();
+        let resolved = priced_locally(entry.clone(), true);
+        assert!(priced_locally(resolved.clone(), false).price.is_none());
+        let free = resolved.price.unwrap();
         assert_eq!((free.input, free.cached_input, free.output), (0, 0, 0));
         assert!(priced_locally(entry.clone(), false).price.is_none());
         let priced = WorkModelEntry {
@@ -1431,7 +1449,7 @@ mod tests {
             ..entry
         };
         let price = priced_locally(priced, true).price.unwrap();
-        assert_eq!((price.input, price.cached_input, price.output), (10, 5, 20));
+        assert_eq!((price.input, price.cached_input, price.output), (0, 0, 0));
     }
 
     #[derive(Default)]

@@ -110,6 +110,11 @@ async fn provider_search(
     )>,
     WorkError,
 > {
+    // Local selections never acquire a provider-search credential or silently
+    // add a separately billed native/OpenAI search behind browser search.
+    if models.all_free() {
+        return Ok(None);
+    }
     use zephium_agentic::{AgentProviderTransport, AgentProviderTransportConfig};
     use zephium_core::work::search::{WorkSearchFallbackV1, WorkSearchProvider};
     for model in [&models.light, &models.lead, &models.page] {
@@ -185,6 +190,13 @@ fn page_model(
 struct NoSearch;
 
 impl zephium_core::work::search::WorkPublicSearchProvider for NoSearch {
+    fn grant(&self) -> Option<(zephium_core::work::search::WorkSearchProvider, String)> {
+        // A disabled browser search admits no provider calls or billed fallback.
+        Some((
+            zephium_core::work::search::WorkSearchProvider::Browser,
+            "custom".into(),
+        ))
+    }
     fn search<'a>(
         &'a self,
         _scope: &'a zephium_core::work::search::WorkPublicSearchScope,
@@ -253,6 +265,7 @@ impl WorkProviders {
         let service = WorkLeadService::new(shell).with_diagnostic(|event| {
             record_diagnostic(format_args!("work: phase=lead event={event:?}"));
         });
+        let local_models = models.all_free();
         let projection = service
             .run(
                 profile,
@@ -275,9 +288,9 @@ impl WorkProviders {
                             ),
                             zephium_agent_controller::AgentBrowserModelAccess::Chosen(page),
                         );
-                        settings.decisions = super::super::work_decision::composition_preference(
+                        settings.decisions = decisions_for_models(local_models, super::super::work_decision::composition_preference(
                             super::super::work_decision::selected_choice(profile).await,
-                        );
+                        ));
                         settings.decision_model = light;
                         settings.refusal_diagnostic = Some(|stage| {
                             record_diagnostic(format_args!("work: phase=agent_browser refused={stage}"));
@@ -335,5 +348,86 @@ impl WorkProviders {
                 },
             },
         })
+    }
+}
+
+fn decisions_for_models(
+    local_models: bool,
+    selected: zephium_work_composition::durable_runtime::WorkDecisionPreference,
+) -> zephium_work_composition::durable_runtime::WorkDecisionPreference {
+    use zephium_work_composition::durable_runtime::WorkDecisionPreference as Preference;
+    match (local_models, selected) {
+        (true, Preference::Recommended | Preference::Interactions) => Preference::Emulation,
+        _ => selected,
+    }
+}
+
+#[cfg(test)]
+mod local_decision_tests {
+    use super::*;
+    use zephium_work_composition::durable_runtime::WorkDecisionPreference as Preference;
+
+    struct Unused;
+    impl zephium_core::work::model::WorkModelClient for Unused {
+        fn call<'a>(
+            &'a self,
+            _: zephium_core::work::model::WorkModelRequest,
+            _: &'a (dyn Fn(zephium_core::work::model::WorkModelEvent) + Send + Sync),
+        ) -> zephium_core::work::model::WorkModelFuture<'a> {
+            panic!("no provider calls")
+        }
+    }
+
+    #[tokio::test]
+    async fn fully_local_models_never_acquire_a_provider_search_fallback() {
+        let mut entry = zephium_agentic::lead::models::builtin()
+            .into_iter()
+            .next()
+            .unwrap();
+        entry.model.provider = zephium_core::work::model::WorkModelProvider::Compatible;
+        entry.price = Some(zephium_core::work::model::WorkModelPrice {
+            input: 0,
+            cached_input: 0,
+            output: 0,
+        });
+        entry.supports.native_search = true;
+        let client = std::sync::Arc::new(Unused);
+        assert!(zephium_agentic::ModelNativeSearch::try_new(entry.clone(), client.clone()).is_ok());
+        let lead = LeadModel { entry, client };
+        let models = WorkLeadModels {
+            lead: lead.clone(),
+            page: lead.clone(),
+            light: lead,
+        };
+        assert!(provider_search(ProfileId::generate(), &models)
+            .await
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn local_models_do_not_select_the_default_fixed_paid_decision_provider() {
+        // Recommended configures TypeSafe and loads its separate credential;
+        // Emulation uses the chosen local light/page client instead.
+        assert_eq!(
+            decisions_for_models(true, Preference::Recommended),
+            Preference::Emulation
+        );
+        assert_eq!(
+            decisions_for_models(true, Preference::Interactions),
+            Preference::Emulation
+        );
+        assert_eq!(
+            decisions_for_models(true, Preference::Disabled),
+            Preference::Disabled
+        );
+        assert_eq!(
+            decisions_for_models(false, Preference::Recommended),
+            Preference::Recommended
+        );
+        assert_eq!(
+            decisions_for_models(false, Preference::Interactions),
+            Preference::Interactions
+        );
     }
 }
